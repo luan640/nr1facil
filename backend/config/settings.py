@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,7 +24,29 @@ load_env_file(BASE_DIR / '.env')
 SECRET_KEY = 'django-insecure-x16ccm)2!m3c!rxbrd14a_2)cjgzj0f7)u5n-o)6g_l@3qo#ag'
 DEBUG = os.getenv('DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
+def parse_allowed_hosts(raw_value):
+    hosts = []
+    for item in raw_value.split(','):
+        value = item.strip()
+        if not value:
+            continue
+        if value == '*':
+            hosts.append(value)
+            continue
+
+        # Accept host values accidentally provided as full URLs (Render dashboard mistake).
+        if '://' in value:
+            parsed = urlparse(value)
+            value = parsed.netloc or parsed.path
+
+        # Remove path if user pasted host with suffix like domain.com/api
+        value = value.split('/')[0].strip()
+        if value:
+            hosts.append(value)
+    return hosts
+
+
+ALLOWED_HOSTS = parse_allowed_hosts(os.getenv('ALLOWED_HOSTS', ''))
 if DEBUG and not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
