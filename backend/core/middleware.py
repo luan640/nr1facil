@@ -17,9 +17,9 @@ class DevCorsMiddleware:
             response = self.get_response(request)
 
         origin = request.headers.get('Origin')
-        allowed_origins = settings.DEV_CORS_ALLOW_ORIGINS
+        allowed_origins = getattr(settings, 'CORS_ALLOW_ORIGINS', getattr(settings, 'DEV_CORS_ALLOW_ORIGINS', []))
 
-        if origin in allowed_origins:
+        if origin and ('*' in allowed_origins or origin in allowed_origins):
             response['Access-Control-Allow-Origin'] = origin
             response['Vary'] = 'Origin'
             response['Access-Control-Allow-Credentials'] = 'true'

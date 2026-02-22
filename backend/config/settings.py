@@ -46,6 +46,21 @@ def parse_allowed_hosts(raw_value):
     return hosts
 
 
+def parse_origin_list(raw_value):
+    origins = []
+    for item in raw_value.split(','):
+        value = item.strip()
+        if not value:
+            continue
+        if value == '*':
+            origins.append(value)
+            continue
+        if '://' not in value:
+            value = f'https://{value}'
+        origins.append(value.rstrip('/'))
+    return origins
+
+
 ALLOWED_HOSTS = parse_allowed_hosts(os.getenv('ALLOWED_HOSTS', ''))
 if DEBUG and not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
@@ -170,5 +185,6 @@ DEV_CORS_ALLOW_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
 ]
+CORS_ALLOW_ORIGINS = parse_origin_list(os.getenv('CORS_ALLOW_ORIGINS', '')) or DEV_CORS_ALLOW_ORIGINS
 
-FRONTEND_PUBLIC_BASE_URL = 'http://localhost:5173'
+FRONTEND_PUBLIC_BASE_URL = os.getenv('FRONTEND_PUBLIC_BASE_URL', 'http://localhost:5173')
