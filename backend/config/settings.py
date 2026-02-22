@@ -21,9 +21,11 @@ def load_env_file(env_path):
 load_env_file(BASE_DIR / '.env')
 
 SECRET_KEY = 'django-insecure-x16ccm)2!m3c!rxbrd14a_2)cjgzj0f7)u5n-o)6g_l@3qo#ag'
-DEBUG = True
+DEBUG = os.getenv('DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
+if DEBUG and not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
