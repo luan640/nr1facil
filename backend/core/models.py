@@ -1,0 +1,456 @@
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+from django.db.models import Q
+import uuid
+
+
+class UserType(models.TextChoices):
+    ADM = 'ADM', 'Administrador'
+    CONSULTOR = 'CONSULTOR', 'Consultor'
+    EMPRESA = 'EMPRESA', 'Empresa'
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('O e-mail e obrigatorio.')
+
+        email = self.normalize_email(email)
+        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('is_staff', False)
+        extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault('user_type', UserType.EMPRESA)
+
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields['user_type'] = UserType.ADM
+
+        user = self.create_user(email=email, password=password, **extra_fields)
+        if user.user_type != UserType.ADM:
+            user.user_type = UserType.ADM
+            user.save(update_fields=['user_type'])
+
+        return user
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=255, blank=True)
+    user_type = models.CharField(
+        max_length=20,
+        choices=UserType.choices,
+        default=UserType.EMPRESA,
+    )
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    class Meta:
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
+
+    def __str__(self):
+        return self.email
+
+    def save(self, *args, **kwargs):
+        if self.is_superuser and self.user_type != UserType.ADM:
+            self.user_type = UserType.ADM
+        super().save(*args, **kwargs)
+
+
+class DocumentType(models.TextChoices):
+    CPF = 'CPF', 'CPF'
+    CNPJ = 'CNPJ', 'CNPJ'
+
+
+class EstablishmentType(models.TextChoices):
+    FILIAL = 'FILIAL', 'Filial'
+    UNIDADE = 'UNIDADE', 'Unidade'
+    MATRIZ = 'MATRIZ', 'Matriz'
+    OUTRO = 'OUTRO', 'Outro'
+
+
+class EvaluationType(models.TextChoices):
+    SETOR = 'SETOR', 'Setor'
+    GHE = 'GHE', 'GHE'
+
+
+class Empresa(models.Model):
+    consultor = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='empresas_consultoria',
+    )
+    responsavel_usuario = models.OneToOneField(
+        User,
+        on_delete=models.PROTECT,
+        related_name='empresa_responsavel',
+    )
+    document_type = models.CharField(max_length=4, choices=DocumentType.choices)
+    document_number = models.CharField(max_length=20, unique=True)
+    company_name = models.CharField(max_length=255)
+    establishment_type = models.CharField(max_length=10, choices=EstablishmentType.choices)
+    establishment_custom_name = models.CharField(max_length=120, blank=True)
+    establishment_name = models.CharField(max_length=255)
+    evaluation_type = models.CharField(max_length=8, choices=EvaluationType.choices, default=EvaluationType.SETOR)
+    responsible_name = models.CharField(max_length=255)
+    risk_level = models.CharField(max_length=20)
+    employee_count = models.PositiveIntegerField(default=0)
+    postal_code = models.CharField(max_length=12, blank=True)
+    state = models.CharField(max_length=2, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    neighborhood = models.CharField(max_length=120, blank=True)
+    street = models.CharField(max_length=180, blank=True)
+    number = models.CharField(max_length=20, blank=True)
+    complement = models.CharField(max_length=120, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Empresa'
+        verbose_name_plural = 'Empresas'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.company_name
+
+
+class Setor(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='setores',
+    )
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Setor'
+        verbose_name_plural = 'Setores'
+        ordering = ['name']
+        unique_together = ('empresa', 'name')
+
+    def __str__(self):
+        return f'{self.name} - {self.empresa.company_name}'
+
+
+class Ghe(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='ghes',
+    )
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'GHE'
+        verbose_name_plural = 'GHEs'
+        ordering = ['name']
+        unique_together = ('empresa', 'name')
+
+    def __str__(self):
+        return f'{self.name} - {self.empresa.company_name}'
+
+
+class Cargo(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='cargos',
+    )
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    setores = models.ManyToManyField(Setor, related_name='cargos', blank=True)
+    ghes = models.ManyToManyField(Ghe, related_name='cargos', blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Cargo'
+        verbose_name_plural = 'Cargos'
+        ordering = ['name']
+        unique_together = ('empresa', 'name')
+
+    def __str__(self):
+        return f'{self.name} - {self.empresa.company_name}'
+
+
+class CampaignStatus(models.TextChoices):
+    ATIVO = 'ATIVO', 'Ativo'
+    ENCERRADO = 'ENCERRADO', 'Encerrado'
+
+
+class Campanha(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='campanhas',
+    )
+    title = models.CharField(max_length=180)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(max_length=10, choices=CampaignStatus.choices, default=CampaignStatus.ATIVO)
+    share_token = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
+    qr_code_data = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Campanha'
+        verbose_name_plural = 'Campanhas'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} - {self.empresa.company_name}'
+
+    def save(self, *args, **kwargs):
+        if not self.share_token:
+            self.share_token = uuid.uuid4()
+
+        # Garante token unico sem depender de constraint no banco.
+        while Campanha.objects.exclude(pk=self.pk).filter(share_token=self.share_token).exists():
+            self.share_token = uuid.uuid4()
+
+        super().save(*args, **kwargs)
+
+
+class SexChoice(models.TextChoices):
+    MASCULINO = 'M', 'Masculino'
+    FEMININO = 'F', 'Feminino'
+    OUTRO = 'O', 'Outro'
+    NAO_INFORMAR = 'N', 'Prefiro nao informar'
+
+
+class CampanhaRespostaStep1(models.Model):
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='step1_respostas',
+    )
+    cpf = models.CharField(max_length=11)
+    cpf_hash = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    first_name = models.CharField(max_length=120, blank=True)
+    age = models.PositiveIntegerField()
+    sex = models.CharField(max_length=1, choices=SexChoice.choices, blank=True)
+    setor = models.ForeignKey(Setor, on_delete=models.SET_NULL, null=True, blank=True, related_name='campanha_step1_respostas')
+    ghe = models.ForeignKey(Ghe, on_delete=models.SET_NULL, null=True, blank=True, related_name='campanha_step1_respostas')
+    cargo = models.ForeignKey(Cargo, on_delete=models.SET_NULL, null=True, blank=True, related_name='campanha_step1_respostas')
+    is_completed = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 1'
+        verbose_name_plural = 'Respostas Step 1'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['campanha', 'cpf'])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['campanha', 'cpf_hash'],
+                condition=(~Q(cpf_hash='') & Q(is_completed=True)),
+                name='uniq_campanha_cpf_hash_step1',
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.cpf} - {self.campanha.title}'
+
+
+class FrequencyChoice(models.TextChoices):
+    NUNCA = 'NUNCA', 'Nunca'
+    RARAMENTE = 'RARAMENTE', 'Raramente'
+    AS_VEZES = 'AS_VEZES', 'As vezes'
+    FREQUENTEMENTE = 'FREQUENTEMENTE', 'Frequentemente'
+    SEMPRE = 'SEMPRE', 'Sempre'
+
+
+class CampanhaRespostaStep2(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step2',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q4 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q5 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q6 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q7 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q8 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 2'
+        verbose_name_plural = 'Respostas Step 2'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 2 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep3(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step3',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q4 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q5 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q6 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 3'
+        verbose_name_plural = 'Respostas Step 3'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 3 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep4(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step4',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q4 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q5 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 4'
+        verbose_name_plural = 'Respostas Step 4'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 4 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep5(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step5',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q4 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 5'
+        verbose_name_plural = 'Respostas Step 5'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 5 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep6(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step6',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q4 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 6'
+        verbose_name_plural = 'Respostas Step 6'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 6 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep7(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step7',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q4 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q5 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 7'
+        verbose_name_plural = 'Respostas Step 7'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 7 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep8(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step8',
+    )
+    q1 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q2 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    q3 = models.CharField(max_length=20, choices=FrequencyChoice.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 8'
+        verbose_name_plural = 'Respostas Step 8'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 8 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class CampanhaRespostaStep9(models.Model):
+    step1 = models.OneToOneField(
+        CampanhaRespostaStep1,
+        on_delete=models.CASCADE,
+        related_name='step9',
+    )
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta Step 9'
+        verbose_name_plural = 'Respostas Step 9'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Step 9 - {self.step1.campanha.title} - {self.step1.id}'
