@@ -57,3 +57,4 @@ Frontend padrão em:
 O frontend já consulta o backend em:
 - `http://127.0.0.1:8000/api/health/`
 # nr1facil
+# nr1facil
