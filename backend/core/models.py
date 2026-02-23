@@ -105,6 +105,9 @@ class Empresa(models.Model):
     establishment_custom_name = models.CharField(max_length=120, blank=True)
     establishment_name = models.CharField(max_length=255)
     evaluation_type = models.CharField(max_length=8, choices=EvaluationType.choices, default=EvaluationType.SETOR)
+    cnae = models.CharField(max_length=120, blank=True)
+    canal_denuncias_token = models.UUIDField(blank=True, null=True, unique=True, db_index=True)
+    totem_token = models.UUIDField(blank=True, null=True, unique=True, db_index=True)
     responsible_name = models.CharField(max_length=255)
     risk_level = models.CharField(max_length=20)
     employee_count = models.PositiveIntegerField(default=0)
@@ -126,6 +129,76 @@ class Empresa(models.Model):
 
     def __str__(self):
         return self.company_name
+
+
+class CanalDenuncia(models.Model):
+    class Status(models.TextChoices):
+        ABERTA = 'ABERTA', 'Aberta'
+        EM_ANALISE = 'EM_ANALISE', 'Em analise'
+        RESOLVIDA = 'RESOLVIDA', 'Resolvida'
+
+    class Origem(models.TextChoices):
+        LINK = 'LINK', 'Link de denuncia'
+        TOTEM = 'TOTEM', 'Totem'
+
+    class Tipo(models.TextChoices):
+        ASSEDIO_MORAL = 'ASSEDIO_MORAL', 'Assedio moral'
+        ASSEDIO_SEXUAL = 'ASSEDIO_SEXUAL', 'Assedio sexual'
+        DISCRIMINACAO = 'DISCRIMINACAO', 'Discriminacao'
+        VIOLENCIA_VERBAL = 'VIOLENCIA_VERBAL', 'Violencia verbal'
+        VIOLENCIA_FISICA = 'VIOLENCIA_FISICA', 'Violencia fisica'
+        FRAUDE = 'FRAUDE', 'Fraude'
+        CORRUPCAO = 'CORRUPCAO', 'Corrupcao'
+        DESVIO_CONDUTA = 'DESVIO_CONDUTA', 'Desvio de conduta'
+        CONFLITO_INTERESSE = 'CONFLITO_INTERESSE', 'Conflito de interesse'
+        OUTROS = 'OUTROS', 'Outros'
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='canal_denuncias',
+    )
+    possui_vinculo = models.BooleanField()
+    deseja_identificar = models.BooleanField(default=False)
+    contato_identificacao = models.CharField(max_length=255, blank=True)
+    ghe = models.ForeignKey('Ghe', on_delete=models.SET_NULL, null=True, blank=True, related_name='canal_denuncias')
+    cargo_funcao = models.ForeignKey('Cargo', on_delete=models.SET_NULL, null=True, blank=True, related_name='canal_denuncias')
+    tipo = models.CharField(max_length=40, choices=Tipo.choices, default=Tipo.OUTROS)
+    relato = models.TextField()
+    testemunhas = models.TextField(blank=True)
+    aceita_devolutiva = models.BooleanField(default=False)
+    email_devolutiva = models.EmailField(blank=True)
+    evidencia_arquivo = models.FileField(upload_to='canal_denuncias_evidencias/', blank=True, null=True)
+    origem = models.CharField(max_length=20, choices=Origem.choices, default=Origem.LINK)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ABERTA)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Canal de Denuncia'
+        verbose_name_plural = 'Canal de Denuncias'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Denuncia #{self.id} - {self.empresa.company_name}'
+
+
+class CanalDenunciaAtualizacao(models.Model):
+    denuncia = models.ForeignKey(
+        CanalDenuncia,
+        on_delete=models.CASCADE,
+        related_name='atualizacoes',
+    )
+    texto = models.TextField()
+    criado_por = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='atualizacoes_denuncias')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Atualizacao de Denuncia'
+        verbose_name_plural = 'Atualizacoes de Denuncias'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Atualizacao #{self.id} da denuncia #{self.denuncia_id}'
 
 
 class Setor(models.Model):
@@ -210,6 +283,7 @@ class Campanha(models.Model):
     title = models.CharField(max_length=180)
     start_date = models.DateField()
     end_date = models.DateField()
+    review_recommendation_months = models.PositiveSmallIntegerField(default=3)
     status = models.CharField(max_length=10, choices=CampaignStatus.choices, default=CampaignStatus.ATIVO)
     share_token = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
     qr_code_data = models.TextField(blank=True)
@@ -233,6 +307,51 @@ class Campanha(models.Model):
             self.share_token = uuid.uuid4()
 
         super().save(*args, **kwargs)
+
+
+class ConsultoriaConfiguracao(models.Model):
+    consultor = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='consultoria_configuracao',
+    )
+    cnpj = models.CharField(max_length=20, blank=True)
+    nome_consultoria = models.CharField(max_length=255, blank=True)
+    responsavel_legal = models.CharField(max_length=255, blank=True)
+    representante_legal_relatorio = models.CharField(max_length=255, blank=True)
+    cidade = models.CharField(max_length=120, blank=True)
+    uf = models.CharField(max_length=2, blank=True)
+    logo = models.FileField(upload_to='consultoria_logos/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Configuracao da Consultoria'
+        verbose_name_plural = 'Configuracoes da Consultoria'
+
+    def __str__(self):
+        return self.nome_consultoria or f'Consultoria {self.consultor.email}'
+
+
+class ConsultoriaResponsavelTecnico(models.Model):
+    configuracao = models.ForeignKey(
+        ConsultoriaConfiguracao,
+        on_delete=models.CASCADE,
+        related_name='responsaveis_tecnicos',
+    )
+    nome = models.CharField(max_length=255)
+    formacao = models.CharField(max_length=255)
+    registro = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Responsavel Tecnico da Consultoria'
+        verbose_name_plural = 'Responsaveis Tecnicos da Consultoria'
+        ordering = ['id']
+
+    def __str__(self):
+        return self.nome
 
 
 class SexChoice(models.TextChoices):
@@ -454,3 +573,91 @@ class CampanhaRespostaStep9(models.Model):
 
     def __str__(self):
         return f'Step 9 - {self.step1.campanha.title} - {self.step1.id}'
+
+
+class MedidaScopeType(models.TextChoices):
+    GERAL = 'GERAL', 'Geral'
+    SETOR = 'SETOR', 'Setor'
+    GHE = 'GHE', 'GHE'
+
+
+class CampanhaMedidaPreliminar(models.Model):
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='medidas_preliminares',
+    )
+    step_number = models.PositiveSmallIntegerField()
+    question_field = models.CharField(max_length=10)
+    scope_type = models.CharField(max_length=10, choices=MedidaScopeType.choices, default=MedidaScopeType.GERAL)
+    setor = models.ForeignKey(Setor, on_delete=models.CASCADE, null=True, blank=True, related_name='medidas_preliminares')
+    ghe = models.ForeignKey(Ghe, on_delete=models.CASCADE, null=True, blank=True, related_name='medidas_preliminares')
+    action_text = models.CharField(max_length=500)
+    when_months = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='medidas_preliminares_criadas')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Medida preliminar'
+        verbose_name_plural = 'Medidas preliminares'
+        ordering = ['step_number', 'question_field', '-created_at']
+        indexes = [
+            models.Index(fields=['campanha', 'step_number', 'question_field']),
+            models.Index(fields=['campanha', 'scope_type']),
+        ]
+
+    def __str__(self):
+        return f'Medida {self.campanha.title} Step {self.step_number} {self.question_field}'
+
+
+class CampanhaQuandoPreliminar(models.Model):
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='quandos_preliminares',
+    )
+    step_number = models.PositiveSmallIntegerField()
+    question_field = models.CharField(max_length=10)
+    scope_type = models.CharField(max_length=10, choices=MedidaScopeType.choices, default=MedidaScopeType.GERAL)
+    setor = models.ForeignKey(Setor, on_delete=models.CASCADE, null=True, blank=True, related_name='quandos_preliminares')
+    ghe = models.ForeignKey(Ghe, on_delete=models.CASCADE, null=True, blank=True, related_name='quandos_preliminares')
+    when_months = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='quandos_preliminares_criados')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Quando preliminar'
+        verbose_name_plural = 'Quandos preliminares'
+        ordering = ['step_number', 'question_field']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['campanha', 'step_number', 'question_field', 'scope_type', 'setor', 'ghe'],
+                name='uniq_quando_preliminar_por_pergunta_escopo',
+            )
+        ]
+
+    def __str__(self):
+        return f'Quando {self.campanha.title} Step {self.step_number} {self.question_field}'
+
+
+class CampanhaRelatorioAnexo(models.Model):
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='relatorio_anexos',
+    )
+    file_name = models.CharField(max_length=255)
+    file_key = models.CharField(max_length=600, unique=True)
+    file_url = models.URLField(max_length=900)
+    content_type = models.CharField(max_length=120, blank=True)
+    size_bytes = models.PositiveIntegerField(default=0)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='relatorio_anexos_enviados')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Anexo de relatorio'
+        verbose_name_plural = 'Anexos de relatorio'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Anexo {self.file_name} ({self.campanha.title})'

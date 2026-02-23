@@ -5,7 +5,7 @@ import base64
 import hashlib
 from rest_framework import serializers
 
-from .models import Campanha, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, DocumentType, Empresa, EstablishmentType, EvaluationType, FrequencyChoice, Ghe, Setor, User, UserType
+from .models import CanalDenuncia, CanalDenunciaAtualizacao, Campanha, CampanhaMedidaPreliminar, CampanhaQuandoPreliminar, CampanhaRelatorioAnexo, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, ConsultoriaConfiguracao, ConsultoriaResponsavelTecnico, DocumentType, Empresa, EstablishmentType, EvaluationType, FrequencyChoice, Ghe, MedidaScopeType, Setor, User, UserType
 
 
 class LoginSerializer(serializers.Serializer):
@@ -84,6 +84,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'establishment_custom_name',
             'establishment_name',
             'evaluation_type',
+            'cnae',
             'responsible_name',
             'responsible_email',
             'responsible_password',
@@ -169,6 +170,52 @@ class EmpresaSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class ConsultoriaResponsavelTecnicoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConsultoriaResponsavelTecnico
+        fields = ['id', 'nome', 'formacao', 'registro', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ConsultoriaConfiguracaoSerializer(serializers.ModelSerializer):
+    responsaveis_tecnicos = ConsultoriaResponsavelTecnicoSerializer(many=True, read_only=True)
+    logo_url = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = ConsultoriaConfiguracao
+        fields = [
+            'id',
+            'cnpj',
+            'nome_consultoria',
+            'responsavel_legal',
+            'representante_legal_relatorio',
+            'cidade',
+            'uf',
+            'logo',
+            'logo_url',
+            'responsaveis_tecnicos',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'logo_url', 'responsaveis_tecnicos', 'created_at', 'updated_at']
+
+    def validate_cnpj(self, value):
+        return ''.join(ch for ch in str(value or '') if ch.isdigit())
+
+    def validate_uf(self, value):
+        return str(value or '').upper().strip()[:2]
+
+    def get_logo_url(self, obj):
+        if not getattr(obj, 'logo', None):
+            return ''
+        try:
+            url = obj.logo.url
+        except Exception:
+            return ''
+        request = self.context.get('request')
+        return request.build_absolute_uri(url) if request else url
 
 
 class SetorSerializer(serializers.ModelSerializer):
@@ -331,6 +378,7 @@ class CampanhaSerializer(serializers.ModelSerializer):
     )
     empresa_name = serializers.CharField(source='empresa.company_name', read_only=True)
     public_url = serializers.SerializerMethodField()
+    completed_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Campanha
@@ -342,9 +390,11 @@ class CampanhaSerializer(serializers.ModelSerializer):
             'title',
             'start_date',
             'end_date',
+            'review_recommendation_months',
             'status',
             'qr_code_data',
             'public_url',
+            'completed_count',
             'created_at',
             'updated_at',
         ]
@@ -359,6 +409,9 @@ class CampanhaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Empresa nao pertence ao consultor autenticado.')
         return value
 
+    def get_completed_count(self, obj):
+        return obj.step1_respostas.filter(is_completed=True).count()
+
     def validate(self, attrs):
         empresa = attrs.get('empresa') or getattr(self.instance, 'empresa', None)
         if empresa:
@@ -368,6 +421,9 @@ class CampanhaSerializer(serializers.ModelSerializer):
         end_date = attrs.get('end_date') or getattr(self.instance, 'end_date', None)
         if start_date and end_date and end_date < start_date:
             raise serializers.ValidationError({'end_date': 'Data de fim deve ser maior ou igual a data de inicio.'})
+        review_months = attrs.get('review_recommendation_months')
+        if review_months is not None and (int(review_months) < 1 or int(review_months) > 60):
+            raise serializers.ValidationError({'review_recommendation_months': 'Informe um valor entre 1 e 60 meses.'})
 
         return attrs
 
@@ -771,3 +827,331 @@ class CampanhaStep9RespostaSerializer(serializers.ModelSerializer):
         if hasattr(step1, 'step9') and self.instance is None:
             raise serializers.ValidationError({'step1_response_id': 'Step 9 ja foi respondido para este Step 1.'})
         return attrs
+
+
+class CampanhaMedidaPreliminarSerializer(serializers.ModelSerializer):
+    setor_id = serializers.PrimaryKeyRelatedField(source='setor', queryset=Setor.objects.all(), required=False, allow_null=True, write_only=True)
+    ghe_id = serializers.PrimaryKeyRelatedField(source='ghe', queryset=Ghe.objects.all(), required=False, allow_null=True, write_only=True)
+    setor = serializers.IntegerField(source='setor.id', read_only=True)
+    ghe = serializers.IntegerField(source='ghe.id', read_only=True)
+    setor_name = serializers.CharField(source='setor.name', read_only=True)
+    ghe_name = serializers.CharField(source='ghe.name', read_only=True)
+
+    class Meta:
+        model = CampanhaMedidaPreliminar
+        fields = [
+            'id',
+            'campanha',
+            'step_number',
+            'question_field',
+            'scope_type',
+            'setor',
+            'setor_id',
+            'setor_name',
+            'ghe',
+            'ghe_id',
+            'ghe_name',
+            'action_text',
+            'when_months',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'campanha', 'created_at', 'setor', 'ghe', 'setor_name', 'ghe_name']
+
+    def validate(self, attrs):
+        campanha = self.context.get('campanha') or getattr(self.instance, 'campanha', None)
+        if not campanha:
+            raise serializers.ValidationError('Campanha nao informada.')
+
+        empresa = campanha.empresa
+        step_number = attrs.get('step_number') or getattr(self.instance, 'step_number', None)
+        question_field = attrs.get('question_field') or getattr(self.instance, 'question_field', '')
+        scope_type = attrs.get('scope_type') or getattr(self.instance, 'scope_type', MedidaScopeType.GERAL)
+        setor = attrs.get('setor') if 'setor' in attrs else getattr(self.instance, 'setor', None)
+        ghe = attrs.get('ghe') if 'ghe' in attrs else getattr(self.instance, 'ghe', None)
+        action_text = (attrs.get('action_text') if 'action_text' in attrs else getattr(self.instance, 'action_text', '')).strip()
+        when_months = attrs.get('when_months') if 'when_months' in attrs else getattr(self.instance, 'when_months', [])
+
+        if step_number not in [2, 3, 4, 5, 6, 7, 8]:
+            raise serializers.ValidationError({'step_number': 'Step invalido para medida preliminar.'})
+        if question_field not in [f'q{i}' for i in range(1, 9)]:
+            raise serializers.ValidationError({'question_field': 'Pergunta invalida.'})
+        if not action_text:
+            raise serializers.ValidationError({'action_text': 'Informe a medida.'})
+        attrs['action_text'] = action_text
+        if when_months is None:
+            when_months = []
+        if not isinstance(when_months, list):
+            raise serializers.ValidationError({'when_months': 'Formato invalido.'})
+        normalized_months = []
+        for m in when_months:
+            s = str(m).strip()
+            if not s:
+                continue
+            if len(s) != 7 or s[2] != '/':
+                raise serializers.ValidationError({'when_months': 'Use o formato MM/YYYY.'})
+            mm, yyyy = s.split('/')
+            if not (mm.isdigit() and yyyy.isdigit()):
+                raise serializers.ValidationError({'when_months': 'Use o formato MM/YYYY.'})
+            if int(mm) < 1 or int(mm) > 12:
+                raise serializers.ValidationError({'when_months': 'Mes invalido.'})
+            normalized_months.append(f'{int(mm):02d}/{int(yyyy):04d}')
+        attrs['when_months'] = list(dict.fromkeys(normalized_months))
+
+        if scope_type == MedidaScopeType.GERAL:
+            attrs['setor'] = None
+            attrs['ghe'] = None
+        elif scope_type == MedidaScopeType.SETOR:
+            if empresa.evaluation_type != EvaluationType.SETOR:
+                raise serializers.ValidationError({'scope_type': 'Campanha desta empresa nao usa Setor.'})
+            if not setor:
+                raise serializers.ValidationError({'setor_id': 'Setor e obrigatorio.'})
+            if setor.empresa_id != empresa.id:
+                raise serializers.ValidationError({'setor_id': 'Setor nao pertence a empresa da campanha.'})
+            attrs['ghe'] = None
+        elif scope_type == MedidaScopeType.GHE:
+            if empresa.evaluation_type != EvaluationType.GHE:
+                raise serializers.ValidationError({'scope_type': 'Campanha desta empresa nao usa GHE.'})
+            if not ghe:
+                raise serializers.ValidationError({'ghe_id': 'GHE e obrigatorio.'})
+            if ghe.empresa_id != empresa.id:
+                raise serializers.ValidationError({'ghe_id': 'GHE nao pertence a empresa da campanha.'})
+            attrs['setor'] = None
+        else:
+            raise serializers.ValidationError({'scope_type': 'Escopo invalido.'})
+
+        return attrs
+
+    def create(self, validated_data):
+        campanha = self.context['campanha']
+        request = self.context.get('request')
+        return CampanhaMedidaPreliminar.objects.create(
+            campanha=campanha,
+            created_by=request.user if request and getattr(request, 'user', None) else None,
+            **validated_data,
+        )
+
+
+class CampanhaQuandoPreliminarSerializer(serializers.ModelSerializer):
+    setor_id = serializers.PrimaryKeyRelatedField(source='setor', queryset=Setor.objects.all(), required=False, allow_null=True, write_only=True)
+    ghe_id = serializers.PrimaryKeyRelatedField(source='ghe', queryset=Ghe.objects.all(), required=False, allow_null=True, write_only=True)
+    setor = serializers.IntegerField(source='setor.id', read_only=True)
+    ghe = serializers.IntegerField(source='ghe.id', read_only=True)
+    setor_name = serializers.CharField(source='setor.name', read_only=True)
+    ghe_name = serializers.CharField(source='ghe.name', read_only=True)
+
+    class Meta:
+        model = CampanhaQuandoPreliminar
+        fields = [
+            'id', 'campanha', 'step_number', 'question_field', 'scope_type',
+            'setor', 'setor_id', 'setor_name', 'ghe', 'ghe_id', 'ghe_name',
+            'when_months', 'updated_at',
+        ]
+        read_only_fields = ['id', 'campanha', 'updated_at', 'setor', 'ghe', 'setor_name', 'ghe_name']
+
+    def validate(self, attrs):
+        campanha = self.context.get('campanha') or getattr(self.instance, 'campanha', None)
+        if not campanha:
+            raise serializers.ValidationError('Campanha nao informada.')
+        empresa = campanha.empresa
+        step_number = attrs.get('step_number') or getattr(self.instance, 'step_number', None)
+        question_field = attrs.get('question_field') or getattr(self.instance, 'question_field', '')
+        scope_type = attrs.get('scope_type') or getattr(self.instance, 'scope_type', MedidaScopeType.GERAL)
+        setor = attrs.get('setor') if 'setor' in attrs else getattr(self.instance, 'setor', None)
+        ghe = attrs.get('ghe') if 'ghe' in attrs else getattr(self.instance, 'ghe', None)
+        when_months = attrs.get('when_months') if 'when_months' in attrs else getattr(self.instance, 'when_months', [])
+
+        if step_number not in [2, 3, 4, 5, 6, 7, 8]:
+            raise serializers.ValidationError({'step_number': 'Step invalido para "quando".'})
+        if question_field not in [f'q{i}' for i in range(1, 9)]:
+            raise serializers.ValidationError({'question_field': 'Pergunta invalida.'})
+
+        if when_months is None:
+            when_months = []
+        if not isinstance(when_months, list):
+            raise serializers.ValidationError({'when_months': 'Formato invalido.'})
+        normalized_months = []
+        for m in when_months:
+            s = str(m).strip()
+            if not s:
+                continue
+            if len(s) != 7 or s[2] != '/':
+                raise serializers.ValidationError({'when_months': 'Use o formato MM/YYYY.'})
+            mm, yyyy = s.split('/')
+            if not (mm.isdigit() and yyyy.isdigit()):
+                raise serializers.ValidationError({'when_months': 'Use o formato MM/YYYY.'})
+            if int(mm) < 1 or int(mm) > 12:
+                raise serializers.ValidationError({'when_months': 'Mes invalido.'})
+            normalized_months.append(f'{int(mm):02d}/{int(yyyy):04d}')
+        attrs['when_months'] = list(dict.fromkeys(normalized_months))
+
+        if scope_type == MedidaScopeType.GERAL:
+            attrs['setor'] = None
+            attrs['ghe'] = None
+        elif scope_type == MedidaScopeType.SETOR:
+            if empresa.evaluation_type != EvaluationType.SETOR:
+                raise serializers.ValidationError({'scope_type': 'Campanha desta empresa nao usa Setor.'})
+            if not setor or setor.empresa_id != empresa.id:
+                raise serializers.ValidationError({'setor_id': 'Setor invalido.'})
+            attrs['ghe'] = None
+        elif scope_type == MedidaScopeType.GHE:
+            if empresa.evaluation_type != EvaluationType.GHE:
+                raise serializers.ValidationError({'scope_type': 'Campanha desta empresa nao usa GHE.'})
+            if not ghe or ghe.empresa_id != empresa.id:
+                raise serializers.ValidationError({'ghe_id': 'GHE invalido.'})
+            attrs['setor'] = None
+        else:
+            raise serializers.ValidationError({'scope_type': 'Escopo invalido.'})
+        return attrs
+
+    def create(self, validated_data):
+        campanha = self.context['campanha']
+        request = self.context.get('request')
+        return CampanhaQuandoPreliminar.objects.create(
+            campanha=campanha,
+            created_by=request.user if request and getattr(request, 'user', None) else None,
+            **validated_data,
+        )
+
+
+class CampanhaRelatorioAnexoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CampanhaRelatorioAnexo
+        fields = [
+            'id', 'campanha', 'file_name', 'file_key', 'file_url',
+            'content_type', 'size_bytes', 'created_at',
+        ]
+        read_only_fields = fields
+
+
+class CanalDenunciaPublicSerializer(serializers.ModelSerializer):
+    ghe_id = serializers.PrimaryKeyRelatedField(source='ghe', queryset=Ghe.objects.all(), required=False, allow_null=True, write_only=True)
+    cargo_id = serializers.PrimaryKeyRelatedField(source='cargo_funcao', queryset=Cargo.objects.all(), required=False, allow_null=True, write_only=True)
+
+    class Meta:
+        model = CanalDenuncia
+        fields = [
+            'id',
+            'possui_vinculo',
+            'deseja_identificar',
+            'contato_identificacao',
+            'ghe_id',
+            'cargo_id',
+            'tipo',
+            'relato',
+            'testemunhas',
+            'aceita_devolutiva',
+            'email_devolutiva',
+            'evidencia_arquivo',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def validate_relato(self, value):
+        text = str(value or '').strip()
+        if len(text) < 10:
+            raise serializers.ValidationError('Descreva a denuncia com mais detalhes.')
+        return text
+
+    def validate(self, attrs):
+        aceita = attrs.get('aceita_devolutiva')
+        email = str(attrs.get('email_devolutiva') or '').strip()
+        deseja_identificar = attrs.get('deseja_identificar')
+        contato_identificacao = str(attrs.get('contato_identificacao') or '').strip()
+        if aceita and not email:
+            raise serializers.ValidationError({'email_devolutiva': 'Informe o e-mail para devolutiva.'})
+        if not aceita:
+            attrs['email_devolutiva'] = ''
+        if deseja_identificar and not contato_identificacao:
+            raise serializers.ValidationError({'contato_identificacao': 'Informe e-mail ou WhatsApp para identificacao.'})
+        if not deseja_identificar:
+            attrs['contato_identificacao'] = ''
+        attrs['testemunhas'] = str(attrs.get('testemunhas') or '').strip()
+
+        empresa = self.context.get('empresa')
+        ghe = attrs.get('ghe')
+        cargo = attrs.get('cargo_funcao')
+        if empresa is not None:
+            if ghe and ghe.empresa_id != empresa.id:
+                raise serializers.ValidationError({'ghe_id': 'GHE invalido para esta empresa.'})
+            if cargo and cargo.empresa_id != empresa.id:
+                raise serializers.ValidationError({'cargo_id': 'Funcao invalida para esta empresa.'})
+            if ghe and cargo and not cargo.ghes.filter(id=ghe.id).exists():
+                raise serializers.ValidationError({'cargo_id': 'A funcao selecionada nao pertence ao GHE informado.'})
+        return attrs
+
+
+class CanalDenunciaListSerializer(serializers.ModelSerializer):
+    empresa_name = serializers.CharField(source='empresa.company_name', read_only=True)
+    ghe_name = serializers.CharField(source='ghe.name', read_only=True)
+    cargo_name = serializers.CharField(source='cargo_funcao.name', read_only=True)
+    evidencia_url = serializers.SerializerMethodField()
+    atualizacoes = serializers.SerializerMethodField()
+    origem_label = serializers.CharField(source='get_origem_display', read_only=True)
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+
+    class Meta:
+        model = CanalDenuncia
+        fields = [
+            'id',
+            'empresa',
+            'empresa_name',
+            'possui_vinculo',
+            'deseja_identificar',
+            'contato_identificacao',
+            'ghe',
+            'ghe_name',
+            'cargo_funcao',
+            'cargo_name',
+            'tipo',
+            'tipo_label',
+            'relato',
+            'testemunhas',
+            'aceita_devolutiva',
+            'email_devolutiva',
+            'evidencia_url',
+            'origem',
+            'origem_label',
+            'status',
+            'atualizacoes',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_evidencia_url(self, obj):
+        if not obj.evidencia_arquivo:
+            return ''
+        request = self.context.get('request')
+        try:
+            url = obj.evidencia_arquivo.url
+        except Exception:
+            return ''
+        return request.build_absolute_uri(url) if request else url
+
+    def get_atualizacoes(self, obj):
+        return [
+            {
+                'id': x.id,
+                'texto': x.texto,
+                'created_at': x.created_at.isoformat(),
+                'criado_por': getattr(x.criado_por, 'email', '') if x.criado_por_id else '',
+            }
+            for x in obj.atualizacoes.all()[:10]
+        ]
+
+
+class CanalDenunciaStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CanalDenuncia
+        fields = ['status']
+
+
+class CanalDenunciaAtualizacaoCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CanalDenunciaAtualizacao
+        fields = ['texto']
+
+    def validate_texto(self, value):
+        text = str(value or '').strip()
+        if len(text) < 3:
+            raise serializers.ValidationError('Informe uma atualizacao valida.')
+        return text

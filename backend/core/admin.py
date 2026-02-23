@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Campanha, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, Empresa, Ghe, Setor, User
+from .models import Campanha, CampanhaMedidaPreliminar, CampanhaQuandoPreliminar, CampanhaRelatorioAnexo, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, Empresa, Ghe, Setor, User
 
 
 @admin.register(User)
@@ -124,3 +124,24 @@ class CampanhaRespostaStep9Admin(admin.ModelAdmin):
     list_display = ['step1', 'created_at']
     list_filter = ['created_at']
     search_fields = ['step1__campanha__title', 'comment']
+
+
+@admin.register(CampanhaMedidaPreliminar)
+class CampanhaMedidaPreliminarAdmin(admin.ModelAdmin):
+    list_display = ['campanha', 'step_number', 'question_field', 'scope_type', 'setor', 'ghe', 'created_at']
+    list_filter = ['scope_type', 'step_number', 'campanha']
+    search_fields = ['campanha__title', 'action_text']
+
+
+@admin.register(CampanhaQuandoPreliminar)
+class CampanhaQuandoPreliminarAdmin(admin.ModelAdmin):
+    list_display = ['campanha', 'step_number', 'question_field', 'scope_type', 'setor', 'ghe', 'updated_at']
+    list_filter = ['scope_type', 'step_number', 'campanha']
+    search_fields = ['campanha__title']
+
+
+@admin.register(CampanhaRelatorioAnexo)
+class CampanhaRelatorioAnexoAdmin(admin.ModelAdmin):
+    list_display = ['campanha', 'file_name', 'content_type', 'size_bytes', 'created_at']
+    list_filter = ['campanha', 'created_at']
+    search_fields = ['campanha__title', 'file_name']

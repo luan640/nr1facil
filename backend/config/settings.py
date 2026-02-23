@@ -159,6 +159,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -188,3 +190,13 @@ DEV_CORS_ALLOW_ORIGINS = [
 CORS_ALLOW_ORIGINS = parse_origin_list(os.getenv('CORS_ALLOW_ORIGINS', '')) or DEV_CORS_ALLOW_ORIGINS
 
 FRONTEND_PUBLIC_BASE_URL = os.getenv('FRONTEND_PUBLIC_BASE_URL', 'http://localhost:5173')
+
+SUPABASE_STORAGE_S3_ENDPOINT = os.getenv('SUPABASE_STORAGE_S3_ENDPOINT', 'https://kwygqibakpstvanogpjc.storage.supabase.co/storage/v1/s3')
+SUPABASE_STORAGE_REGION = os.getenv('SUPABASE_STORAGE_REGION', 'us-east-2')
+SUPABASE_STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET', 'cissconsult')
+SUPABASE_STORAGE_ACCESS_KEY = os.getenv('SUPABASE_STORAGE_ACCESS_KEY', '')
+SUPABASE_STORAGE_SECRET_KEY = os.getenv('SUPABASE_STORAGE_SECRET_KEY', '')
+SUPABASE_STORAGE_PUBLIC_BASE_URL = os.getenv(
+    'SUPABASE_STORAGE_PUBLIC_BASE_URL',
+    'https://kwygqibakpstvanogpjc.supabase.co/storage/v1/object/public/cissconsult',
+).rstrip('/')
