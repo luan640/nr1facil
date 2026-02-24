@@ -154,24 +154,24 @@ export default function App() {
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
   const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
-  const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1);
+  const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1), [setorEmpresaMenuOpen, setSetorEmpresaMenuOpen] = useState(false);
   const [ghes, setGhes] = useState([]), [gheErr, setGheErr] = useState(""), [gheLoad, setGheLoad] = useState(false);
   const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
-  const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1);
+  const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false);
   const [cargos, setCargos] = useState([]), [cargoErr, setCargoErr] = useState(""), [cargoLoad, setCargoLoad] = useState(false);
   const [cgModal, setCgModal] = useState({ type: "", item: null }), [cgEmpresa, setCgEmpresa] = useState(""), [cgNome, setCgNome] = useState(""), [cgDesc, setCgDesc] = useState(""), [cgAtivo, setCgAtivo] = useState(true), [cgSetores, setCgSetores] = useState([]), [cgGhes, setCgGhes] = useState([]), [cgErr, setCgErr] = useState(""), [cgSaving, setCgSaving] = useState(false);
-  const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1);
+  const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1), [cargoEmpresaMenuOpen, setCargoEmpresaMenuOpen] = useState(false);
   const [campanhas, setCampanhas] = useState([]), [campErr, setCampErr] = useState(""), [campLoad, setCampLoad] = useState(false), [campStatusLoadingId, setCampStatusLoadingId] = useState(null);
   const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
-  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS");
-  const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState("");
-  const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS");
+  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false);
+  const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false);
+  const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false);
   const [denHistModal, setDenHistModal] = useState(null);
   const [denUpdModal, setDenUpdModal] = useState({ item: null, text: "", saving: false, err: "" });
   const [denResolveModal, setDenResolveModal] = useState({ item: null, saving: false, err: "" });
   const [denAnalyzeModal, setDenAnalyzeModal] = useState({ item: null, saving: false, err: "" });
   const [denViewModal, setDenViewModal] = useState(null);
-  const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null);
+  const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null), [cmpEmpresaMenuOpen, setCmpEmpresaMenuOpen] = useState(false);
   const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState("");
   const [totemLinkData, setTotemLinkData] = useState(null), [totemLoad, setTotemLoad] = useState(false), [totemErr, setTotemErr] = useState("");
   const [linkRegenModal, setLinkRegenModal] = useState({ target: "", open: false });
@@ -1233,6 +1233,12 @@ export default function App() {
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setSetorEmpresaFiltro(found ? String(found.id) : "");
   }
+  function selectSetorEmpresaBuscaOption(emp) {
+    setSetorEmpresaBusca(String(emp.company_name || ""));
+    setSetorEmpresaFiltro(String(emp.id));
+    setSetorPage(1);
+    setSetorEmpresaMenuOpen(false);
+  }
 
   async function loadGhes() {
     setGheLoad(true); setGheErr("");
@@ -1292,6 +1298,12 @@ export default function App() {
     setGheEmpresaBusca(value);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setGheEmpresaFiltro(found ? String(found.id) : "");
+  }
+  function selectGheEmpresaBuscaOption(emp) {
+    setGheEmpresaBusca(String(emp.company_name || ""));
+    setGheEmpresaFiltro(String(emp.id));
+    setGhePage(1);
+    setGheEmpresaMenuOpen(false);
   }
 
   async function loadCargos() {
@@ -1355,6 +1367,12 @@ export default function App() {
     setCargoEmpresaBusca(value);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setCargoEmpresaFiltro(found ? String(found.id) : "");
+  }
+  function selectCargoEmpresaBuscaOption(emp) {
+    setCargoEmpresaBusca(String(emp.company_name || ""));
+    setCargoEmpresaFiltro(String(emp.id));
+    setCargoPage(1);
+    setCargoEmpresaMenuOpen(false);
   }
 
   function toggleCargoSetor(id) {
@@ -1720,6 +1738,12 @@ export default function App() {
     setCampEmpresaFiltro(found ? String(found.id) : "");
     setCampPage(1);
   }
+  function selectCampEmpresaBuscaOption(emp) {
+    setCampEmpresaBusca(String(emp.company_name || ""));
+    setCampEmpresaFiltro(String(emp.id));
+    setCampPage(1);
+    setCampEmpresaMenuOpen(false);
+  }
 
   function onCmpEmpresaBuscaChange(value) {
     setCmpEmpresaBusca(value);
@@ -1732,6 +1756,16 @@ export default function App() {
     setCmpSubmitted(false);
     setCmpResult(null);
   }
+  function selectCmpEmpresaBuscaOption(emp) {
+    setCmpEmpresaBusca(String(emp.company_name || ""));
+    setCmpEmpresaFiltro(String(emp.id));
+    setCmpCamp1("");
+    setCmpCamp2("");
+    setCmpErr("");
+    setCmpSubmitted(false);
+    setCmpResult(null);
+    setCmpEmpresaMenuOpen(false);
+  }
 
   function onDenEmpresaBuscaChange(value) {
     setDenEmpresaBusca(value);
@@ -1739,6 +1773,13 @@ export default function App() {
     setDenEmpresaFiltro(found ? String(found.id) : "");
     setDenLinkData(null);
     setDenErr("");
+  }
+  function selectDenEmpresaBuscaOption(emp) {
+    setDenEmpresaBusca(String(emp.company_name || ""));
+    setDenEmpresaFiltro(String(emp.id));
+    setDenLinkData(null);
+    setDenErr("");
+    setDenEmpresaMenuOpen(false);
   }
 
   async function loadOrGenerateDenunciaLink(regenerate = false) {
@@ -1767,6 +1808,14 @@ export default function App() {
     setDenListData(null);
     setDenListErr("");
     setDenListStatusFiltro("TODAS");
+  }
+  function selectDenListEmpresaBuscaOption(emp) {
+    setDenListEmpresaBusca(String(emp.company_name || ""));
+    setDenListEmpresaFiltro(String(emp.id));
+    setDenListData(null);
+    setDenListErr("");
+    setDenListStatusFiltro("TODAS");
+    setDenListEmpresaMenuOpen(false);
   }
 
   function onTotemEmpresaBuscaChange(value) {
@@ -2303,12 +2352,36 @@ export default function App() {
 
                   <p className="empresa-doc-row"><strong>{e.document_type === "CNPJ" ? "CNPJ" : "CPF"}:</strong> {e.document_number}</p>
 
-                  <div className="card-actions empresa-card-actions-soft">
-                    <button className="secondary" onClick={() => openEmpresaEdit(e)}>Editar</button>
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      className="campanha-icon-btn"
+                      title="Editar empresa"
+                      aria-label="Editar empresa"
+                      onClick={() => openEmpresaEdit(e)}
+                    >
+                      {I.edit}
+                    </button>
                     {e.is_active ? (
-                      <button className="danger ghost-danger" onClick={() => setEInactivate(e)}>Excluir</button>
+                      <button
+                        type="button"
+                        className="campanha-icon-btn danger"
+                        title="Inativar empresa"
+                        aria-label="Inativar empresa"
+                        onClick={() => setEInactivate(e)}
+                      >
+                        {I.del}
+                      </button>
                     ) : (
-                      <button className="secondary" onClick={() => reativarEmpresa(e)}>Reativar</button>
+                      <button
+                        type="button"
+                        className="campanha-icon-btn"
+                        title="Reativar empresa"
+                        aria-label="Reativar empresa"
+                        onClick={() => reativarEmpresa(e)}
+                      >
+                        {I.power}
+                      </button>
                     )}
                   </div>
                 </article>
@@ -2341,6 +2414,13 @@ export default function App() {
     );
     if (section === "setor") {
       const termoEmpresa = setorEmpresaBusca.trim().toLowerCase();
+      const setorEmpresaSugestoes = (setorEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -2365,17 +2445,38 @@ export default function App() {
               </div>
               <div className="w-full md:max-w-sm">
                 <label htmlFor="empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
-                <input
-                  id="empresa-search"
-                  list="empresa-options"
-                  placeholder="Buscar empresa..."
-                  value={setorEmpresaBusca}
-                  onChange={(e) => { setSetorPage(1); onSetorEmpresaBuscaChange(e.target.value); }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                />
-                <datalist id="empresa-options">
-                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-                </datalist>
+                <div className="relative w-full">
+                  <input
+                    id="empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    value={setorEmpresaBusca}
+                    onFocus={() => setSetorEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setSetorEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { setSetorPage(1); onSetorEmpresaBuscaChange(e.target.value); setSetorEmpresaMenuOpen(true); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                  {setorEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {setorEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        setorEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`setor-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectSetorEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -2463,6 +2564,13 @@ export default function App() {
     }
     if (section === "ghe") {
       const termoEmpresa = gheEmpresaBusca.trim().toLowerCase();
+      const gheEmpresaSugestoes = (gheEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -2488,17 +2596,38 @@ export default function App() {
               </div>
               <div className="w-full md:max-w-sm">
                 <label htmlFor="ghe-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
-                <input
-                  id="ghe-empresa-search"
-                  list="ghe-empresa-options"
-                  placeholder="Buscar empresa..."
-                  value={gheEmpresaBusca}
-                  onChange={(e) => { setGhePage(1); onGheEmpresaBuscaChange(e.target.value); }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                />
-                <datalist id="ghe-empresa-options">
-                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-                </datalist>
+                <div className="relative w-full">
+                  <input
+                    id="ghe-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    value={gheEmpresaBusca}
+                    onFocus={() => setGheEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setGheEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { setGhePage(1); onGheEmpresaBuscaChange(e.target.value); setGheEmpresaMenuOpen(true); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                  {gheEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {gheEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        gheEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`ghe-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectGheEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -2586,6 +2715,13 @@ export default function App() {
     }
     if (section === "cargos") {
       const termoEmpresa = cargoEmpresaBusca.trim().toLowerCase();
+      const cargoEmpresaSugestoes = (cargoEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -2611,17 +2747,38 @@ export default function App() {
               </div>
               <div className="w-full md:max-w-sm">
                 <label htmlFor="cargo-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
-                <input
-                  id="cargo-empresa-search"
-                  list="cargo-empresa-options"
-                  placeholder="Buscar empresa..."
-                  value={cargoEmpresaBusca}
-                  onChange={(e) => { setCargoPage(1); onCargoEmpresaBuscaChange(e.target.value); }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                />
-                <datalist id="cargo-empresa-options">
-                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-                </datalist>
+                <div className="relative w-full">
+                  <input
+                    id="cargo-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    value={cargoEmpresaBusca}
+                    onFocus={() => setCargoEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setCargoEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { setCargoPage(1); onCargoEmpresaBuscaChange(e.target.value); setCargoEmpresaMenuOpen(true); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                  />
+                  {cargoEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {cargoEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        cargoEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`cargo-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectCargoEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -3153,6 +3310,13 @@ export default function App() {
     }
     if (section === "campanhas") {
       const termoEmpresa = campEmpresaBusca.trim().toLowerCase();
+      const campEmpresaSugestoes = (campEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -3181,17 +3345,38 @@ export default function App() {
               </div>
               <div className="w-full md:max-w-sm">
                 <label htmlFor="camp-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
-                <input
-                  id="camp-empresa-search"
-                  list="camp-empresa-options"
-                  placeholder="Buscar empresa..."
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                  value={campEmpresaBusca}
-                  onChange={(e) => onCampEmpresaBuscaChange(e.target.value)}
-                />
-                <datalist id="camp-empresa-options">
-                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-                </datalist>
+                <div className="relative">
+                  <input
+                    id="camp-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    value={campEmpresaBusca}
+                    onFocus={() => setCampEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setCampEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { onCampEmpresaBuscaChange(e.target.value); setCampEmpresaMenuOpen(true); }}
+                  />
+                  {campEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {campEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        campEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`camp-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectCampEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -3312,6 +3497,14 @@ export default function App() {
       );
     }
     if (section === "comparar-campanhas" && canEmp(user)) {
+      const termoCmpEmpresa = cmpEmpresaBusca.trim().toLowerCase();
+      const cmpEmpresaSugestoes = (cmpEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoCmpEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoCmpEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       const campanhasDaEmpresa = cmpEmpresaFiltro
         ? campanhas.filter((cp) => String(cp.empresa) === String(cmpEmpresaFiltro))
         : [];
@@ -3337,16 +3530,38 @@ export default function App() {
             <form onSubmit={submitCompararCampanhas} className="config-form-grid">
               <div className="config-full-row">
                 <label htmlFor="cmp-empresa-search">Empresa</label>
-                <input
-                  id="cmp-empresa-search"
-                  list="cmp-empresa-options"
-                  placeholder="Buscar empresa..."
-                  value={cmpEmpresaBusca}
-                  onChange={(e) => onCmpEmpresaBuscaChange(e.target.value)}
-                />
-                <datalist id="cmp-empresa-options">
-                  {empresas.map((emp) => <option key={`cmp-emp-${emp.id}`} value={`${emp.id} - ${emp.company_name}`} />)}
-                </datalist>
+                <div className="relative w-full">
+                  <input
+                    id="cmp-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    className="w-full"
+                    value={cmpEmpresaBusca}
+                    onFocus={() => setCmpEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setCmpEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { onCmpEmpresaBuscaChange(e.target.value); setCmpEmpresaMenuOpen(true); }}
+                  />
+                  {cmpEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {cmpEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        cmpEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`cmp-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectCmpEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label>Campanha 1</label>
@@ -3560,6 +3775,14 @@ export default function App() {
       );
     }
     if (section === "canal-denuncias" && canEmp(user)) {
+      const termoDenEmpresa = denEmpresaBusca.trim().toLowerCase();
+      const denEmpresaSugestoes = (denEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoDenEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoDenEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       return (
         <section className="admin-panel">
           <div className="setor-hero">
@@ -3577,16 +3800,38 @@ export default function App() {
             <div className="config-form-grid">
               <div className="config-full-row">
                 <label htmlFor="den-empresa-search">Empresa</label>
-                <input
-                  id="den-empresa-search"
-                  list="den-empresa-options"
-                  placeholder="Buscar empresa..."
-                  value={denEmpresaBusca}
-                  onChange={(e) => onDenEmpresaBuscaChange(e.target.value)}
-                />
-                <datalist id="den-empresa-options">
-                  {empresas.map((emp) => <option key={`den-emp-${emp.id}`} value={`${emp.id} - ${emp.company_name}`} />)}
-                </datalist>
+                <div className="relative w-full">
+                  <input
+                    id="den-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    className="w-full"
+                    value={denEmpresaBusca}
+                    onFocus={() => setDenEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setDenEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { onDenEmpresaBuscaChange(e.target.value); setDenEmpresaMenuOpen(true); }}
+                  />
+                  {denEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {denEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        denEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`den-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectDenEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               {denErr && <p className="error config-full-row">{denErr}</p>}
               <div className="config-actions config-full-row">
@@ -3624,6 +3869,14 @@ export default function App() {
       );
     }
     if (section === "denuncias-empresa" && canEmp(user)) {
+      const termoDenListEmpresa = denListEmpresaBusca.trim().toLowerCase();
+      const denListEmpresaSugestoes = (denListEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoDenListEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoDenListEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       const denuncias = denListData?.results || [];
       const denunciasFiltradas = denListStatusFiltro === "TODAS"
         ? denuncias
@@ -3637,16 +3890,38 @@ export default function App() {
             </div>
             <div className="setor-hero-right">
               <label htmlFor="den-list-empresa-search">Empresa</label>
-              <input
-                id="den-list-empresa-search"
-                list="den-list-empresa-options"
-                placeholder="Buscar empresa..."
-                value={denListEmpresaBusca}
-                onChange={(e) => onDenListEmpresaBuscaChange(e.target.value)}
-              />
-              <datalist id="den-list-empresa-options">
-                {empresas.map((emp) => <option key={`den-list-emp-${emp.id}`} value={`${emp.id} - ${emp.company_name}`} />)}
-              </datalist>
+              <div className="relative w-full">
+                <input
+                  id="den-list-empresa-search"
+                  placeholder="Buscar empresa..."
+                  autoComplete="off"
+                  className="w-full"
+                  value={denListEmpresaBusca}
+                  onFocus={() => setDenListEmpresaMenuOpen(true)}
+                  onBlur={() => setTimeout(() => setDenListEmpresaMenuOpen(false), 120)}
+                  onChange={(e) => { onDenListEmpresaBuscaChange(e.target.value); setDenListEmpresaMenuOpen(true); }}
+                />
+                {denListEmpresaMenuOpen && (
+                  <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    {denListEmpresaSugestoes.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                    ) : (
+                      denListEmpresaSugestoes.map((emp) => (
+                        <button
+                          key={`den-list-empresa-opt-${emp.id}`}
+                          type="button"
+                          className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => selectDenListEmpresaBuscaOption(emp)}
+                        >
+                          <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                          <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
