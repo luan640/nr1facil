@@ -153,6 +153,7 @@ export default function App() {
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false);
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
+  const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
   const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1);
   const [ghes, setGhes] = useState([]), [gheErr, setGheErr] = useState(""), [gheLoad, setGheLoad] = useState(false);
   const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
@@ -162,7 +163,7 @@ export default function App() {
   const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1);
   const [campanhas, setCampanhas] = useState([]), [campErr, setCampErr] = useState(""), [campLoad, setCampLoad] = useState(false), [campStatusLoadingId, setCampStatusLoadingId] = useState(null);
   const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
-  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1);
+  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS");
   const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState("");
   const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS");
   const [denHistModal, setDenHistModal] = useState(null);
@@ -1207,7 +1208,24 @@ export default function App() {
       });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setSetores((prev) => prev.map((x) => x.id === d.id ? d : x));
-    } catch (err) { setSetorErr(err.message); }
+    } catch (err) { setSetorErr(err.message); throw err; }
+  }
+
+  function openSetorInativarConfirm(item) {
+    setSetorInativarModal({ item, saving: false, err: "" });
+  }
+  function closeSetorInativarConfirm() {
+    setSetorInativarModal({ item: null, saving: false, err: "" });
+  }
+  async function confirmSetorInativar() {
+    if (!setorInativarModal.item) return;
+    setSetorInativarModal((prev) => ({ ...prev, saving: true, err: "" }));
+    try {
+      await toggleSetorAtivo(setorInativarModal.item, false);
+      closeSetorInativarConfirm();
+    } catch (err) {
+      setSetorInativarModal((prev) => ({ ...prev, saving: false, err: err.message || "Nao foi possivel inativar setor." }));
+    }
   }
 
   function onSetorEmpresaBuscaChange(value) {
@@ -2338,65 +2356,83 @@ export default function App() {
       const setorPageEnd = setorPageStart + setorPageSize;
       const setoresVisiveis = setoresFiltrados.slice(setorPageStart, setorPageEnd);
       return (
-        <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Cadastro de Setor</h2>
-              <p>Gerencie os setores por empresa.</p>
-            </div>
-            <div className="setor-hero-right">
-              <label htmlFor="empresa-search">Empresa</label>
-              <input
-                id="empresa-search"
-                list="empresa-options"
-                placeholder="Buscar empresa..."
-                value={setorEmpresaBusca}
-                onChange={(e) => { setSetorPage(1); onSetorEmpresaBuscaChange(e.target.value); }}
-              />
-              <datalist id="empresa-options">
-                {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-              </datalist>
+        <section className="mt-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de Setor</h2>
+                <p className="text-sm font-medium text-slate-500">Gerencie os setores por empresa.</p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <label htmlFor="empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                <input
+                  id="empresa-search"
+                  list="empresa-options"
+                  placeholder="Buscar empresa..."
+                  value={setorEmpresaBusca}
+                  onChange={(e) => { setSetorPage(1); onSetorEmpresaBuscaChange(e.target.value); }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                />
+                <datalist id="empresa-options">
+                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
+                </datalist>
+              </div>
             </div>
           </div>
 
-          <div className="admin-header">
-            <h2>Setores</h2>
-            <button disabled={!setorEmpresaFiltro} title={!setorEmpresaFiltro ? "Selecione uma empresa para continuar." : ""} onClick={() => openSetor("create")}>Novo setor</button>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="m-0 text-lg font-semibold text-slate-900">Setores</h2>
+            <button
+              disabled={!setorEmpresaFiltro}
+              title={!setorEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+              onClick={() => openSetor("create")}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Novo setor
+            </button>
           </div>
 
           {setorLoad && <LoadingSpinner label="Carregando setores..." />}
-          {setorErr && <p className="error">{setorErr}</p>}
+          {setorErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{setorErr}</p>}
           {!setorLoad && (
             <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Setor</th>
-                      <th>Empresa</th>
-                      <th>Status</th>
-                      <th>Acoes</th>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left">
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Setor</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acoes</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-200 bg-white">
                     {setoresFiltrados.length === 0 ? (
-                      <tr><td colSpan={5}>Nenhum setor encontrado.</td></tr>
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhum setor encontrado.</td>
+                      </tr>
                     ) : (
                       setoresVisiveis.map((s) => (
-                        <tr key={s.id}>
-                          <td>{s.id}</td>
-                          <td>{s.name}</td>
-                          <td>{s.empresa_name}</td>
-                          <td>{s.is_active ? "Ativo" : "Inativo"}</td>
-                          <td className="actions">
-                            <button className="campanha-icon-btn" title="Editar setor" aria-label="Editar setor" onClick={() => openSetor("edit", s)}>{I.edit}</button>
-                            {s.is_active ? (
-                              <button className="campanha-icon-btn" title="Inativar setor" aria-label="Inativar setor" onClick={() => toggleSetorAtivo(s, false)}>{I.power}</button>
-                            ) : (
-                              <button className="campanha-icon-btn" title="Reativar setor" aria-label="Reativar setor" onClick={() => toggleSetorAtivo(s, true)}>{I.power}</button>
-                            )}
-                            <button className="campanha-icon-btn danger" title="Excluir setor" aria-label="Excluir setor" onClick={() => openSetor("delete", s)}>{I.del}</button>
+                        <tr key={s.id} className="align-top">
+                          <td className="px-3 py-3 font-semibold text-slate-700">{s.id}</td>
+                          <td className="px-3 py-3 text-slate-700">{s.name}</td>
+                          <td className="px-3 py-3 text-slate-600">{s.empresa_name}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${s.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                              {s.is_active ? "Ativo" : "Inativo"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button className="campanha-icon-btn" title="Editar setor" aria-label="Editar setor" onClick={() => openSetor("edit", s)}>{I.edit}</button>
+                              {s.is_active ? (
+                                <button className="campanha-icon-btn" title="Inativar setor" aria-label="Inativar setor" onClick={() => openSetorInativarConfirm(s)}>{I.power}</button>
+                              ) : (
+                                <button className="campanha-icon-btn" title="Reativar setor" aria-label="Reativar setor" onClick={() => { toggleSetorAtivo(s, true).catch(() => {}); }}>{I.power}</button>
+                              )}
+                              <button className="campanha-icon-btn danger" title="Excluir setor" aria-label="Excluir setor" onClick={() => openSetor("delete", s)}>{I.del}</button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -2405,16 +2441,16 @@ export default function App() {
                 </table>
               </div>
               {setoresFiltrados.length > 0 && (
-                <div className="empresas-pagination" aria-label="Paginacao de setores">
-                  <div className="empresas-pagination-info">
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de setores">
+                  <div className="text-sm text-slate-600">
                     Mostrando {setorPageStart + 1}-{Math.min(setorPageEnd, setoresFiltrados.length)} de {setoresFiltrados.length}
                   </div>
-                  <div className="empresas-pagination-actions">
-                    <button type="button" className="secondary" disabled={setorCurrentPage <= 1} onClick={() => setSetorPage((p) => Math.max(1, p - 1))}>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={setorCurrentPage <= 1} onClick={() => setSetorPage((p) => Math.max(1, p - 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
                       Anterior
                     </button>
-                    <span className="empresas-pagination-page">Pagina {setorCurrentPage} de {setorTotalPages}</span>
-                    <button type="button" className="secondary" disabled={setorCurrentPage >= setorTotalPages} onClick={() => setSetorPage((p) => Math.min(setorTotalPages, p + 1))}>
+                    <span className="text-sm font-medium text-slate-600">Pagina {setorCurrentPage} de {setorTotalPages}</span>
+                    <button type="button" disabled={setorCurrentPage >= setorTotalPages} onClick={() => setSetorPage((p) => Math.min(setorTotalPages, p + 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
                       Proxima
                     </button>
                   </div>
@@ -2443,65 +2479,83 @@ export default function App() {
       const ghesVisiveis = ghesFiltrados.slice(ghePageStart, ghePageEnd);
 
       return (
-        <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Cadastro de GHE</h2>
-              <p>Gerencie os GHEs por empresa.</p>
-            </div>
-            <div className="setor-hero-right">
-              <label htmlFor="ghe-empresa-search">Empresa</label>
-              <input
-                id="ghe-empresa-search"
-                list="ghe-empresa-options"
-                placeholder="Buscar empresa..."
-                value={gheEmpresaBusca}
-                onChange={(e) => { setGhePage(1); onGheEmpresaBuscaChange(e.target.value); }}
-              />
-              <datalist id="ghe-empresa-options">
-                {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-              </datalist>
+        <section className="mt-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de GHE</h2>
+                <p className="text-sm font-medium text-slate-500">Gerencie os GHEs por empresa.</p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <label htmlFor="ghe-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                <input
+                  id="ghe-empresa-search"
+                  list="ghe-empresa-options"
+                  placeholder="Buscar empresa..."
+                  value={gheEmpresaBusca}
+                  onChange={(e) => { setGhePage(1); onGheEmpresaBuscaChange(e.target.value); }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                />
+                <datalist id="ghe-empresa-options">
+                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
+                </datalist>
+              </div>
             </div>
           </div>
 
-          <div className="admin-header">
-            <h2>GHEs</h2>
-            <button disabled={!gheEmpresaFiltro} title={!gheEmpresaFiltro ? "Selecione uma empresa para continuar." : ""} onClick={() => openGhe("create")}>Novo GHE</button>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="m-0 text-lg font-semibold text-slate-900">GHEs</h2>
+            <button
+              disabled={!gheEmpresaFiltro}
+              title={!gheEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+              onClick={() => openGhe("create")}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Novo GHE
+            </button>
           </div>
 
           {gheLoad && <LoadingSpinner label="Carregando GHEs..." />}
-          {gheErr && <p className="error">{gheErr}</p>}
+          {gheErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{gheErr}</p>}
           {!gheLoad && (
             <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>GHE</th>
-                      <th>Empresa</th>
-                      <th>Status</th>
-                      <th>Acoes</th>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left">
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">GHE</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acoes</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-200 bg-white">
                     {ghesFiltrados.length === 0 ? (
-                      <tr><td colSpan={5}>Nenhum GHE encontrado.</td></tr>
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhum GHE encontrado.</td>
+                      </tr>
                     ) : (
                       ghesVisiveis.map((g) => (
-                        <tr key={g.id}>
-                          <td>{g.id}</td>
-                          <td>{g.name}</td>
-                          <td>{g.empresa_name}</td>
-                          <td>{g.is_active ? "Ativo" : "Inativo"}</td>
-                          <td className="actions">
-                            <button className="campanha-icon-btn" title="Editar GHE" aria-label="Editar GHE" onClick={() => openGhe("edit", g)}>{I.edit}</button>
-                            {g.is_active ? (
-                              <button className="campanha-icon-btn" title="Inativar GHE" aria-label="Inativar GHE" onClick={() => toggleGheAtivo(g, false)}>{I.power}</button>
-                            ) : (
-                              <button className="campanha-icon-btn" title="Reativar GHE" aria-label="Reativar GHE" onClick={() => toggleGheAtivo(g, true)}>{I.power}</button>
-                            )}
-                            <button className="campanha-icon-btn danger" title="Excluir GHE" aria-label="Excluir GHE" onClick={() => openGhe("delete", g)}>{I.del}</button>
+                        <tr key={g.id} className="align-top">
+                          <td className="px-3 py-3 font-semibold text-slate-700">{g.id}</td>
+                          <td className="px-3 py-3 text-slate-700">{g.name}</td>
+                          <td className="px-3 py-3 text-slate-600">{g.empresa_name}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${g.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                              {g.is_active ? "Ativo" : "Inativo"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button className="campanha-icon-btn" title="Editar GHE" aria-label="Editar GHE" onClick={() => openGhe("edit", g)}>{I.edit}</button>
+                              {g.is_active ? (
+                                <button className="campanha-icon-btn" title="Inativar GHE" aria-label="Inativar GHE" onClick={() => toggleGheAtivo(g, false)}>{I.power}</button>
+                              ) : (
+                                <button className="campanha-icon-btn" title="Reativar GHE" aria-label="Reativar GHE" onClick={() => toggleGheAtivo(g, true)}>{I.power}</button>
+                              )}
+                              <button className="campanha-icon-btn danger" title="Excluir GHE" aria-label="Excluir GHE" onClick={() => openGhe("delete", g)}>{I.del}</button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -2510,16 +2564,16 @@ export default function App() {
                 </table>
               </div>
               {ghesFiltrados.length > 0 && (
-                <div className="empresas-pagination" aria-label="Paginacao de GHEs">
-                  <div className="empresas-pagination-info">
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de GHEs">
+                  <div className="text-sm text-slate-600">
                     Mostrando {ghePageStart + 1}-{Math.min(ghePageEnd, ghesFiltrados.length)} de {ghesFiltrados.length}
                   </div>
-                  <div className="empresas-pagination-actions">
-                    <button type="button" className="secondary" disabled={gheCurrentPage <= 1} onClick={() => setGhePage((p) => Math.max(1, p - 1))}>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={gheCurrentPage <= 1} onClick={() => setGhePage((p) => Math.max(1, p - 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
                       Anterior
                     </button>
-                    <span className="empresas-pagination-page">Pagina {gheCurrentPage} de {gheTotalPages}</span>
-                    <button type="button" className="secondary" disabled={gheCurrentPage >= gheTotalPages} onClick={() => setGhePage((p) => Math.min(gheTotalPages, p + 1))}>
+                    <span className="text-sm font-medium text-slate-600">Pagina {gheCurrentPage} de {gheTotalPages}</span>
+                    <button type="button" disabled={gheCurrentPage >= gheTotalPages} onClick={() => setGhePage((p) => Math.min(gheTotalPages, p + 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
                       Proxima
                     </button>
                   </div>
@@ -2548,65 +2602,83 @@ export default function App() {
       const cargosVisiveis = cargosFiltrados.slice(cargoPageStart, cargoPageEnd);
 
       return (
-        <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Cadastro de Cargos</h2>
-              <p>Gerencie os cargos por empresa.</p>
-            </div>
-            <div className="setor-hero-right">
-              <label htmlFor="cargo-empresa-search">Empresa</label>
-              <input
-                id="cargo-empresa-search"
-                list="cargo-empresa-options"
-                placeholder="Buscar empresa..."
-                value={cargoEmpresaBusca}
-                onChange={(e) => { setCargoPage(1); onCargoEmpresaBuscaChange(e.target.value); }}
-              />
-              <datalist id="cargo-empresa-options">
-                {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-              </datalist>
+        <section className="mt-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de Cargos</h2>
+                <p className="text-sm font-medium text-slate-500">Gerencie os cargos por empresa.</p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <label htmlFor="cargo-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                <input
+                  id="cargo-empresa-search"
+                  list="cargo-empresa-options"
+                  placeholder="Buscar empresa..."
+                  value={cargoEmpresaBusca}
+                  onChange={(e) => { setCargoPage(1); onCargoEmpresaBuscaChange(e.target.value); }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                />
+                <datalist id="cargo-empresa-options">
+                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
+                </datalist>
+              </div>
             </div>
           </div>
 
-          <div className="admin-header">
-            <h2>Cargos</h2>
-            <button disabled={!cargoEmpresaFiltro} title={!cargoEmpresaFiltro ? "Selecione uma empresa para continuar." : ""} onClick={() => openCargo("create")}>Novo cargo</button>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="m-0 text-lg font-semibold text-slate-900">Cargos</h2>
+            <button
+              disabled={!cargoEmpresaFiltro}
+              title={!cargoEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+              onClick={() => openCargo("create")}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Novo cargo
+            </button>
           </div>
 
           {cargoLoad && <LoadingSpinner label="Carregando cargos..." />}
-          {cargoErr && <p className="error">{cargoErr}</p>}
+          {cargoErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{cargoErr}</p>}
           {!cargoLoad && (
             <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Cargo</th>
-                      <th>Empresa</th>
-                      <th>Status</th>
-                      <th>Acoes</th>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left">
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cargo</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acoes</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-200 bg-white">
                     {cargosFiltrados.length === 0 ? (
-                      <tr><td colSpan={5}>Nenhum cargo encontrado.</td></tr>
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhum cargo encontrado.</td>
+                      </tr>
                     ) : (
                       cargosVisiveis.map((cg) => (
-                        <tr key={cg.id}>
-                          <td>{cg.id}</td>
-                          <td>{cg.name}</td>
-                          <td>{cg.empresa_name}</td>
-                          <td>{cg.is_active ? "Ativo" : "Inativo"}</td>
-                          <td className="actions">
-                            <button className="campanha-icon-btn" title="Editar cargo" aria-label="Editar cargo" onClick={() => openCargo("edit", cg)}>{I.edit}</button>
-                            {cg.is_active ? (
-                              <button className="campanha-icon-btn" title="Inativar cargo" aria-label="Inativar cargo" onClick={() => toggleCargoAtivo(cg, false)}>{I.power}</button>
-                            ) : (
-                              <button className="campanha-icon-btn" title="Reativar cargo" aria-label="Reativar cargo" onClick={() => toggleCargoAtivo(cg, true)}>{I.power}</button>
-                            )}
-                            <button className="campanha-icon-btn danger" title="Excluir cargo" aria-label="Excluir cargo" onClick={() => openCargo("delete", cg)}>{I.del}</button>
+                        <tr key={cg.id} className="align-top">
+                          <td className="px-3 py-3 font-semibold text-slate-700">{cg.id}</td>
+                          <td className="px-3 py-3 text-slate-700">{cg.name}</td>
+                          <td className="px-3 py-3 text-slate-600">{cg.empresa_name}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cg.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                              {cg.is_active ? "Ativo" : "Inativo"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button className="campanha-icon-btn" title="Editar cargo" aria-label="Editar cargo" onClick={() => openCargo("edit", cg)}>{I.edit}</button>
+                              {cg.is_active ? (
+                                <button className="campanha-icon-btn" title="Inativar cargo" aria-label="Inativar cargo" onClick={() => toggleCargoAtivo(cg, false)}>{I.power}</button>
+                              ) : (
+                                <button className="campanha-icon-btn" title="Reativar cargo" aria-label="Reativar cargo" onClick={() => toggleCargoAtivo(cg, true)}>{I.power}</button>
+                              )}
+                              <button className="campanha-icon-btn danger" title="Excluir cargo" aria-label="Excluir cargo" onClick={() => openCargo("delete", cg)}>{I.del}</button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -2615,16 +2687,16 @@ export default function App() {
                 </table>
               </div>
               {cargosFiltrados.length > 0 && (
-                <div className="empresas-pagination" aria-label="Paginacao de cargos">
-                  <div className="empresas-pagination-info">
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de cargos">
+                  <div className="text-sm text-slate-600">
                     Mostrando {cargoPageStart + 1}-{Math.min(cargoPageEnd, cargosFiltrados.length)} de {cargosFiltrados.length}
                   </div>
-                  <div className="empresas-pagination-actions">
-                    <button type="button" className="secondary" disabled={cargoCurrentPage <= 1} onClick={() => setCargoPage((p) => Math.max(1, p - 1))}>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={cargoCurrentPage <= 1} onClick={() => setCargoPage((p) => Math.max(1, p - 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
                       Anterior
                     </button>
-                    <span className="empresas-pagination-page">Pagina {cargoCurrentPage} de {cargoTotalPages}</span>
-                    <button type="button" className="secondary" disabled={cargoCurrentPage >= cargoTotalPages} onClick={() => setCargoPage((p) => Math.min(cargoTotalPages, p + 1))}>
+                    <span className="text-sm font-medium text-slate-600">Pagina {cargoCurrentPage} de {cargoTotalPages}</span>
+                    <button type="button" disabled={cargoCurrentPage >= cargoTotalPages} onClick={() => setCargoPage((p) => Math.min(cargoTotalPages, p + 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
                       Proxima
                     </button>
                   </div>
@@ -3084,11 +3156,14 @@ export default function App() {
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
-      const campanhasFiltradas = campEmpresaFiltro
+      const campanhasBase = campEmpresaFiltro
         ? campanhas.filter((cp) => String(cp.empresa) === String(campEmpresaFiltro))
         : termoEmpresa
           ? campanhas.filter((cp) => empresasPorBusca.includes(String(cp.empresa)))
           : campanhas;
+      const campanhasFiltradas = campStatusFiltro === "TODAS"
+        ? campanhasBase
+        : campanhasBase.filter((cp) => String(cp.status || "") === campStatusFiltro);
       const campPageSize = 10;
       const campTotalPages = Math.max(1, Math.ceil(campanhasFiltradas.length / campPageSize));
       const campCurrentPage = Math.min(Math.max(1, campPage), campTotalPages);
@@ -3097,89 +3172,139 @@ export default function App() {
       const campanhasVisiveis = campanhasFiltradas.slice(campPageStart, campPageEnd);
 
       return (
-        <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Campanhas</h2>
-              <p>Crie e gerencie campanhas por empresa.</p>
-            </div>
-            <div className="setor-hero-right">
-              <label htmlFor="camp-empresa-search">Empresa</label>
-              <input
-                id="camp-empresa-search"
-                list="camp-empresa-options"
-                placeholder="Buscar empresa..."
-                value={campEmpresaBusca}
-                onChange={(e) => onCampEmpresaBuscaChange(e.target.value)}
-              />
-              <datalist id="camp-empresa-options">
-                {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
-              </datalist>
+        <section className="mt-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Campanhas</h2>
+                <p className="text-sm font-medium text-slate-500">Crie e gerencie campanhas por empresa.</p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <label htmlFor="camp-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                <input
+                  id="camp-empresa-search"
+                  list="camp-empresa-options"
+                  placeholder="Buscar empresa..."
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                  value={campEmpresaBusca}
+                  onChange={(e) => onCampEmpresaBuscaChange(e.target.value)}
+                />
+                <datalist id="camp-empresa-options">
+                  {empresas.map((emp) => <option key={emp.id} value={`${emp.id} - ${emp.company_name}`} />)}
+                </datalist>
+              </div>
             </div>
           </div>
 
-          <div className="admin-header">
-            <h2>Lista de campanhas</h2>
-            <button disabled={!campEmpresaFiltro} title={!campEmpresaFiltro ? "Selecione uma empresa para continuar." : ""} onClick={() => openCampanha("create")}>Nova campanha</button>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <h2 className="m-0 text-lg font-semibold text-slate-900">Lista de campanhas</h2>
+              <div className="flex items-center gap-2">
+                <label htmlFor="camp-status-filter" className="text-sm font-medium text-slate-600">Status</label>
+                <select
+                  id="camp-status-filter"
+                  value={campStatusFiltro}
+                  onChange={(e) => { setCampPage(1); setCampStatusFiltro(e.target.value); }}
+                  className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                >
+                  <option value="TODAS">Todas</option>
+                  <option value="ATIVO">Ativa</option>
+                  <option value="ENCERRADO">Encerrada</option>
+                </select>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={!campEmpresaFiltro}
+              title={!campEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+              onClick={() => openCampanha("create")}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Nova campanha
+            </button>
           </div>
 
-          {campLoad && <LoadingSpinner label="Carregando campanhas..." />}
-          {campErr && <p className="error">{campErr}</p>}
+          {campLoad && (
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm" role="status" aria-live="polite">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" aria-hidden="true" />
+              <span>Carregando campanhas...</span>
+            </div>
+          )}
+          {campErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{campErr}</p>}
           {!campLoad && (
             campanhasFiltradas.length === 0 ? (
-              <p className="empty-state">Nenhuma campanha encontrada.</p>
+              <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-slate-500">Nenhuma campanha encontrada.</p>
             ) : (
               <>
-              <div className="campanha-list">
-                {campanhasVisiveis.map((cp) => (
-                  <article key={cp.id} className="campanha-row">
-                    <div className="campanha-main">
-                      <div className="campanha-top">
-                        <h3>{cp.title}</h3>
-                        <button className={`campanha-status ${cp.status === "ATIVO" ? "on" : "off"}`} onClick={() => toggleCampanhaStatus(cp)}>
-                          {cp.status === "ATIVO" ? "Ativa" : "Encerrada"}
-                        </button>
+                <div className="space-y-3">
+                  {campanhasVisiveis.map((cp) => (
+                    <article key={cp.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2">
+                            <h3 className="truncate pr-2 text-base font-semibold text-slate-900">{cp.title}</h3>
+                          </div>
+                          <div className="flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
+                            <span>{fDate(cp.start_date)} - {fDate(cp.end_date)}</span>
+                            <span>{Number(cp.completed_count || 0)} avaliacoes</span>
+                            <span
+                              className={`inline-flex min-h-6 items-center self-start rounded-full px-2.5 py-0.5 text-xs font-bold uppercase leading-none tracking-wide sm:self-auto ${
+                                cp.status === "ATIVO"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {cp.status === "ATIVO" ? "Ativa" : "Encerrada"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            title={cp.status === "ATIVO" ? "Encerrar campanha" : "Ativar campanha"}
+                            aria-label={cp.status === "ATIVO" ? "Encerrar campanha" : "Ativar campanha"}
+                            disabled={campStatusLoadingId === cp.id}
+                            onClick={() => toggleCampanhaStatus(cp)}
+                            className={`relative inline-flex h-7 w-14 shrink-0 self-center items-center rounded-full border p-0 align-middle transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                              cp.status === "ATIVO"
+                                ? "border-emerald-200 bg-emerald-100"
+                                : "border-slate-300 bg-slate-200"
+                            }`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition ${
+                                cp.status === "ATIVO" ? "translate-x-8" : "translate-x-1"
+                              } ${campStatusLoadingId === cp.id ? "animate-pulse" : ""}`}
+                            />
+                          </button>
+                          {cp.status === "ENCERRADO" && (
+                            <button className="campanha-icon-btn" title="Relatorio" aria-label="Abrir relatorio" onClick={() => openCampanhaRelatorio(cp)}>{I.rpt}</button>
+                          )}
+                          <button className="campanha-icon-btn" title="Ver link/QR" aria-label="Abrir link e QR" onClick={() => openCampanha("qr", cp)}>{I.link}</button>
+                          <button className="campanha-icon-btn" title="Copiar link publico" aria-label="Copiar link publico" onClick={async () => { try { await copyText(cp.public_url); } catch (err) { setCampErr(err.message); } }}>{I.copy}</button>
+                          <button className="campanha-icon-btn" title="Editar campanha" aria-label="Editar campanha" onClick={() => openCampanha("edit", cp)}>{I.edit}</button>
+                          <button className="campanha-icon-btn danger" title="Excluir campanha" aria-label="Excluir campanha" onClick={() => openCampanha("delete", cp)}>{I.del}</button>
+                        </div>
                       </div>
-                      <p className="campanha-meta">
-                        <span>{fDate(cp.start_date)} - {fDate(cp.end_date)}</span>
-                        <span>{Number(cp.completed_count || 0)} avaliacoes</span>
-                      </p>
-                    </div>
-                    <div className="campanha-actions">
-                      <button
-                        className={`campanha-switch ${cp.status === "ATIVO" ? "on" : "off"} ${campStatusLoadingId === cp.id ? "loading" : ""}`}
-                        title={cp.status === "ATIVO" ? "Encerrar campanha" : "Ativar campanha"}
-                        aria-label={cp.status === "ATIVO" ? "Encerrar campanha" : "Ativar campanha"}
-                        disabled={campStatusLoadingId === cp.id}
-                        onClick={() => toggleCampanhaStatus(cp)}
-                      >
-                        <span aria-hidden="true" />
-                      </button>
-                      {cp.status === "ENCERRADO" && (
-                        <button className="campanha-icon-btn" title="Relatorio" aria-label="Abrir relatorio" onClick={() => openCampanhaRelatorio(cp)}>{I.rpt}</button>
-                      )}
-                      <button className="campanha-icon-btn" title="Ver link/QR" aria-label="Abrir link e QR" onClick={() => openCampanha("qr", cp)}>{I.link}</button>
-                      <button className="campanha-icon-btn" title="Copiar link publico" aria-label="Copiar link publico" onClick={async () => { try { await copyText(cp.public_url); } catch (err) { setCampErr(err.message); } }}>{I.copy}</button>
-                      <button className="campanha-icon-btn" title="Editar campanha" aria-label="Editar campanha" onClick={() => openCampanha("edit", cp)}>{I.edit}</button>
-                      <button className="campanha-icon-btn danger" title="Excluir campanha" aria-label="Excluir campanha" onClick={() => openCampanha("delete", cp)}>{I.del}</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <div className="empresas-pagination" aria-label="Paginacao de campanhas">
-                <div className="empresas-pagination-info">
-                  Mostrando {campPageStart + 1}-{Math.min(campPageEnd, campanhasFiltradas.length)} de {campanhasFiltradas.length}
+                    </article>
+                  ))}
                 </div>
-                <div className="empresas-pagination-actions">
-                  <button type="button" className="secondary" disabled={campCurrentPage <= 1} onClick={() => setCampPage((p) => Math.max(1, p - 1))}>
-                    Anterior
-                  </button>
-                  <span className="empresas-pagination-page">Pagina {campCurrentPage} de {campTotalPages}</span>
-                  <button type="button" className="secondary" disabled={campCurrentPage >= campTotalPages} onClick={() => setCampPage((p) => Math.min(campTotalPages, p + 1))}>
-                    Proxima
-                  </button>
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de campanhas">
+                  <div className="text-sm text-slate-600">
+                    Mostrando {campPageStart + 1}-{Math.min(campPageEnd, campanhasFiltradas.length)} de {campanhasFiltradas.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={campCurrentPage <= 1} onClick={() => setCampPage((p) => Math.max(1, p - 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      Anterior
+                    </button>
+                    <span className="text-sm font-medium text-slate-600">Pagina {campCurrentPage} de {campTotalPages}</span>
+                    <button type="button" disabled={campCurrentPage >= campTotalPages} onClick={() => setCampPage((p) => Math.min(campTotalPages, p + 1))} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      Proxima
+                    </button>
+                  </div>
                 </div>
-              </div>
               </>
             )
           )}
@@ -4419,6 +4544,21 @@ export default function App() {
       {cModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cModal.type === "delete" ? "Excluir consultor" : cModal.type === "edit" ? "Editar consultor" : "Novo consultor"}</h3>{cModal.type === "delete" ? <><p>Deseja realmente excluir {cModal.item?.email}?</p>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeC}>Cancelar</button><button className="danger" onClick={delConsultor} disabled={cSaving}>{cSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveConsultor} className="login-form"><label>E-mail</label><input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} required /><label>Senha {cModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={cPass} onChange={(e) => setCPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={cActive} onChange={(e) => setCActive(e.target.checked)} />Ativo</label>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeC}>Cancelar</button><button disabled={cSaving}>{cSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
       {sModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sModal.type === "delete" ? "Excluir setor" : sModal.type === "edit" ? "Editar setor" : "Novo setor"}</h3>{sModal.type === "delete" ? <><p>Deseja realmente excluir o setor {sModal.item?.name}?</p>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSetor}>Cancelar</button><button className="danger" onClick={delSetor} disabled={sSaving}>{sSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSetor} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(sEmpresa || setorEmpresaFiltro))?.company_name || sModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do setor</label><input value={sNome} onChange={(e) => setSNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={sDesc} onChange={(e) => setSDesc(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sAtivo} onChange={(e) => setSAtivo(e.target.checked)} />Ativo</label>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSetor}>Cancelar</button><button type="submit" disabled={sSaving}>{sSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+      {setorInativarModal.item && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Inativar setor</h3>
+            <p>Deseja realmente inativar o setor {setorInativarModal.item?.name}?</p>
+            {setorInativarModal.err && <p className="error">{setorInativarModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={closeSetorInativarConfirm} disabled={setorInativarModal.saving}>Cancelar</button>
+              <button type="button" onClick={confirmSetorInativar} disabled={setorInativarModal.saving}>
+                {setorInativarModal.saving ? "Inativando..." : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {gModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{gModal.type === "delete" ? "Excluir GHE" : gModal.type === "edit" ? "Editar GHE" : "Novo GHE"}</h3>{gModal.type === "delete" ? <><p>Deseja realmente excluir o GHE {gModal.item?.name}?</p>{gErr && <p className="error">{gErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeGhe}>Cancelar</button><button className="danger" onClick={delGhe} disabled={gSaving}>{gSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveGhe} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(gEmpresa || gheEmpresaFiltro))?.company_name || gModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do GHE</label><input value={gNome} onChange={(e) => setGNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={gDesc} onChange={(e) => setGDesc(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={gAtivo} onChange={(e) => setGAtivo(e.target.checked)} />Ativo</label>{gErr && <p className="error">{gErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeGhe}>Cancelar</button><button type="submit" disabled={gSaving}>{gSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 

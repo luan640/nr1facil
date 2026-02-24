@@ -1736,6 +1736,8 @@ class MeView(APIView):
 
     def get(self, request):
         user = request.user
+        if hasattr(user, 'has_system_access') and not user.has_system_access():
+            return Response({'detail': 'Acesso expirado.'}, status=status.HTTP_403_FORBIDDEN)
         return Response(
             {
                 'id': user.id,
@@ -1750,13 +1752,20 @@ class MeView(APIView):
 class IsAdmUser(BasePermission):
     def has_permission(self, request, view):
         user = request.user
-        return bool(user and user.is_authenticated and (user.is_superuser or user.user_type == UserType.ADM))
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_superuser or user.user_type == UserType.ADM)
+            and (not hasattr(user, 'has_system_access') or user.has_system_access())
+        )
 
 
 class IsConsultorOrAdmUser(BasePermission):
     def has_permission(self, request, view):
         user = request.user
         if not user or not user.is_authenticated:
+            return False
+        if hasattr(user, 'has_system_access') and not user.has_system_access():
             return False
         return user.is_superuser or user.user_type in [UserType.ADM, UserType.CONSULTOR]
 

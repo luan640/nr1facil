@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: #102a43;
@@ -1065,85 +1069,6 @@ td {
   background: #92400e;
 }
 
-.campanha-list {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.campanha-row {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
-}
-
-.campanha-main {
-  min-width: 0;
-  flex: 1;
-}
-
-.campanha-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.campanha-top h3 {
-  margin: 0;
-  font-size: 0.98rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.campanha-status {
-  margin-top: 0;
-  min-height: 26px;
-  border-radius: 999px;
-  padding: 0 10px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.campanha-status.on {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.campanha-status.off {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.campanha-meta {
-  margin: 6px 0 0;
-  color: #6b7280;
-  font-size: 0.82rem;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.campanha-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
 .campanha-icon-btn {
   margin-top: 0;
   width: 32px;
@@ -1185,70 +1110,6 @@ td {
 
 .campanha-icon-btn.danger:hover {
   background: #fee2e2;
-}
-
-.campanha-switch {
-  margin-top: 0;
-  width: 50px;
-  height: 26px;
-  min-height: 26px;
-  border-radius: 999px;
-  border: 2px solid #20106f;
-  background: #2a1296;
-  padding: 0;
-  position: relative;
-  display: inline-block;
-  line-height: 0;
-  box-shadow: none;
-  transition: background-color 120ms ease, border-color 120ms ease;
-}
-
-.campanha-switch.off {
-  background: #d9d9d9;
-  border-color: #d9d9d9;
-}
-
-.campanha-switch span {
-  position: absolute;
-  top: 2px;
-  left: 26px;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
-  transition: left 120ms ease;
-}
-
-.campanha-switch.off span {
-  left: 2px;
-}
-
-.campanha-switch.loading {
-  cursor: wait;
-  opacity: 0.9;
-}
-
-.campanha-switch.loading span {
-  opacity: 0;
-}
-
-.campanha-switch.loading::after {
-  content: "";
-  position: absolute;
-  top: 6px;
-  left: 18px;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  border-top-color: #ffffff;
-  animation: spin-loading 0.75s linear infinite;
-}
-
-.campanha-switch.off.loading::after {
-  border-color: rgba(71, 85, 105, 0.35);
-  border-top-color: #475569;
 }
 
 .qr-wrap {
@@ -1412,8 +1273,8 @@ h3 {
 }
 
 .empresa-grid-compact {
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .empresas-pagination {
@@ -1451,16 +1312,36 @@ h3 {
 }
 
 .empresa-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 14px 14px 12px;
-  background: #ffffff;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  background:
+    radial-gradient(circle at top right, rgba(219, 234, 254, 0.28), transparent 55%),
+    #ffffff;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.06),
+    0 2px 6px rgba(15, 23, 42, 0.03);
+  min-height: 152px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.empresa-card:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow:
+    0 14px 28px rgba(15, 23, 42, 0.08),
+    0 4px 10px rgba(15, 23, 42, 0.04);
 }
 
 .empresa-card.inactive {
-  opacity: 0.8;
-  background: #f8fafc;
+  opacity: 0.9;
+  background:
+    linear-gradient(0deg, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0.95)),
+    #ffffff;
+  border-color: #e5e7eb;
 }
 
 .empresa-card p {
@@ -1472,30 +1353,31 @@ h3 {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .empresa-heading {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
 .empresa-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(150deg, #dbeafe 0%, #bfdbfe 100%);
-  border: 1px solid #bfdbfe;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #dbeafe 0%, #93c5fd 100%);
+  border: 1px solid #93c5fd;
   color: #ffffff;
   display: grid;
   place-items: center;
   font-weight: 700;
   color: #1d4ed8;
-  flex: 0 0 34px;
+  flex: 0 0 42px;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .empresa-avatar img {
@@ -1506,22 +1388,25 @@ h3 {
 
 .empresa-card-top h3 {
   margin: 0;
-  font-size: 0.98rem;
-  line-height: 1.2;
-  max-width: 185px;
-  white-space: nowrap;
+  font-size: 1.03rem;
+  line-height: 1.25;
+  color: #0f172a;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .empresa-type-pill {
   border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 0.68rem;
+  padding: 5px 10px;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .empresa-type-pill.setor {
@@ -1535,9 +1420,10 @@ h3 {
 }
 
 .empresa-doc-row {
-  margin: 0 0 10px !important;
-  color: #6b7280;
-  font-size: 0.88rem !important;
+  margin: 0 0 12px !important;
+  color: #64748b;
+  font-size: 0.9rem !important;
+  line-height: 1.35;
 }
 
 .empresa-doc-row strong {
@@ -1546,12 +1432,13 @@ h3 {
 }
 
 .empresa-card-actions-soft {
-  margin-top: 8px;
+  margin-top: auto;
+  padding-top: 4px;
 }
 
 .empresa-card-actions-soft button {
-  min-height: 36px;
-  border-radius: 9px;
+  min-height: 38px;
+  border-radius: 10px;
   font-weight: 700;
 }
 
@@ -1594,6 +1481,11 @@ h3 {
     justify-content: space-between;
   }
 
+  .empresa-grid-compact {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
   .empresa-doc-options {
     grid-template-columns: 1fr;
     max-width: none;
@@ -1614,6 +1506,12 @@ h3 {
 
   .config-tech-actions {
     justify-content: flex-end;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  .empresa-grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

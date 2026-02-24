@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 import uuid
 
 
@@ -49,6 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=UserType.EMPRESA,
     )
     is_active = models.BooleanField(default=True)
+    access_expires_on = models.DateField(blank=True, null=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
@@ -68,6 +70,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         if self.is_superuser and self.user_type != UserType.ADM:
             self.user_type = UserType.ADM
         super().save(*args, **kwargs)
+
+    def has_system_access(self):
+        if not self.is_active:
+            return False
+        if self.access_expires_on and self.access_expires_on < timezone.localdate():
+            return False
+        return True
 
 
 class DocumentType(models.TextChoices):

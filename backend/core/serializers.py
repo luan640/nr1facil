@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate
 from django.conf import settings
+from django.utils import timezone
 from io import BytesIO
 import base64
 import hashlib
@@ -21,6 +22,8 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError('E-mail ou senha invalidos.')
         if not user.is_active:
             raise serializers.ValidationError('Usuario inativo.')
+        if user.access_expires_on and user.access_expires_on < timezone.localdate():
+            raise serializers.ValidationError('Acesso expirado. Entre em contato com o administrador.')
 
         attrs['user'] = user
         return attrs
@@ -31,7 +34,7 @@ class ConsultorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'password', 'is_active', 'date_joined']
+        fields = ['id', 'email', 'password', 'is_active', 'access_expires_on', 'date_joined']
         read_only_fields = ['id', 'date_joined']
 
     def create(self, validated_data):
@@ -429,7 +432,7 @@ class CampanhaSerializer(serializers.ModelSerializer):
 
     def get_public_url(self, obj):
         base = getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', 'http://127.0.0.1:5173').rstrip('/')
-        return f'{base}/#/questionario/{obj.share_token}/'
+        return f'{base}/questionario/{obj.share_token}/'
 
     def _build_qr_data_uri(self, text):
         try:
