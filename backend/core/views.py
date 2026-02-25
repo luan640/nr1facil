@@ -16,6 +16,7 @@ from django.http import HttpResponse
 import os
 import uuid
 import boto3
+import math
 from io import BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -77,14 +78,14 @@ REPORT_STEP_DEFS = [
         'model': CampanhaRespostaStep2,
         'question_fields': ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'],
         'questions': [
-            'Diferentes setores/areas no trabalho exigem coisas de mim que sao dificeis de conciliar?',
-            'Tenho prazos impossiveis de cumprir?',
-            'Preciso trabalhar com muita intensidade?',
-            'Preciso deixar algumas tarefas de lado porque tenho muitas demandas?',
-            'Nao tenho possibilidade de fazer pausas suficientes?',
-            'Sofro pressao para trabalhar longas horas?',
-            'Preciso trabalhar muito rapido?',
-            'Tenho pausas temporarias impossiveis de cumprir?',
+            'As diferentes áreas do meu trabalho fazem exigências difíceis de conciliar entre si?',
+            'Recebo prazos que considero impossíveis de cumprir?',
+            'Meu trabalho exige que eu atue com nível muito alto de intensidade?',
+            'Preciso abandonar ou adiar tarefas porque a quantidade de demandas é excessiva?',
+            'Não consigo realizar pausas adequadas durante a jornada de trabalho?',
+            'Sinto pressão para trabalhar por longos períodos ou fazer horas extras?',
+            'Preciso executar minhas atividades em ritmo muito acelerado?',
+            'As pausas previstas no trabalho são difíceis ou inviáveis de cumprir?',
         ],
     },
     {
@@ -95,27 +96,27 @@ REPORT_STEP_DEFS = [
         'model': CampanhaRespostaStep3,
         'question_fields': ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'],
         'questions': [
-            'Posso decidir quando fazer uma pausa?',
-            'Tenho voz para decidir a velocidade do meu proprio trabalho?',
-            'Tenho autonomia para decidir como faco meu trabalho?',
-            'Tenho autonomia para decidir o que faco no trabalho?',
-            'Tenho alguma influencia sobre a forma como realizo meu trabalho?',
-            'Meu horario de trabalho pode ser flexivel?',
+            'Tenho autonomia para escolher quando fazer uma pausa?',
+            'Posso decidir o ritmo em que realizo meu trabalho?',
+            'Tenho liberdade para definir como executo minhas atividades?',
+            'Tenho autonomia para decidir quais tarefas realizo no trabalho?',
+            'Possuo influência sobre a forma como desempenho minhas atividades?',
+            'Meu horário de trabalho permite flexibilidade?',                
         ],
     },
     {
         'step': 4,
         'key': 'step4',
-        'domain': 'Apoio da Gestao',
+        'domain': 'Apoio da Gestão',
         'orientation': 'positive',
         'model': CampanhaRespostaStep4,
         'question_fields': ['q1', 'q2', 'q3', 'q4', 'q5'],
         'questions': [
-            'Recebo informacoes e suporte que me ajudam no trabalho que eu faco?',
-            'Posso contar com meu supervisor direto para me ajudar com problemas no trabalho?',
-            'Posso conversar com meu supervisor direto sobre algo que me incomoda no trabalho?',
-            'Recebo apoio em trabalhos emocionalmente exigentes?',
-            'Meu supervisor direto me incentiva no trabalho?',
+            'Recebo informações e suporte adequados para desempenhar meu trabalho?',
+            'Posso contar com meu supervisor direto quando enfrento dificuldades no trabalho?',
+            'Consigo conversar com meu supervisor direto sobre situações que me incomodam no trabalho?',
+            'Recebo apoio quando realizo atividades emocionalmente exigentes?',
+            'Meu supervisor direto me oferece incentivo e encorajamento no trabalho?',
         ],
     },
     {
@@ -126,10 +127,10 @@ REPORT_STEP_DEFS = [
         'model': CampanhaRespostaStep5,
         'question_fields': ['q1', 'q2', 'q3', 'q4'],
         'questions': [
-            'Se o trabalho ficar dificil, meus colegas podem me ajudar?',
-            'Recebo o apoio de que preciso dos meus colegas?',
-            'Recebo o respeito que mereco dos meus colegas?',
-            'Meus colegas estao dispostos a ouvir meus problemas relacionados ao trabalho?',
+            'Quando o trabalho se torna difícil, posso contar com a ajuda dos meus colegas?',
+            'Recebo dos meus colegas o apoio necessário para realizar meu trabalho?',
+            'Sou tratado com o respeito que mereço pelos meus colegas?',
+            'Meus colegas estão dispostos a ouvir quando tenho problemas relacionados ao trabalho?',
         ],
     },
     {
@@ -140,38 +141,38 @@ REPORT_STEP_DEFS = [
         'model': CampanhaRespostaStep6,
         'question_fields': ['q1', 'q2', 'q3', 'q4'],
         'questions': [
-            'Sou perseguido no trabalho?',
-            'Ha atritos ou desentendimentos entre colegas?',
-            'Falam ou se comportam comigo de forma dura?',
-            'Os relacionamentos no trabalho estao desgastados?',
+            'Sinto que sou alvo de perseguição no ambiente de trabalho?',
+            'Existem conflitos ou desentendimentos frequentes entre colegas?',
+            'Sou tratado ou abordado de forma rude ou excessivamente dura?',
+            'Os relacionamentos no ambiente de trabalho estão desgastados?',
         ],
     },
     {
         'step': 7,
         'key': 'step7',
-        'domain': 'Clareza de Papel | Funcao',
+        'domain': 'Clareza de Papel | Função',
         'orientation': 'positive',
         'model': CampanhaRespostaStep7,
         'question_fields': ['q1', 'q2', 'q3', 'q4', 'q5'],
         'questions': [
-            'Eu entendo claramente o que e esperado de mim no trabalho?',
-            'Sei como realizar meu trabalho?',
-            'Sei claramente quais sao minhas funcoes e responsabilidades?',
+            'Eu entendo claramente o que é esperado de mim no trabalho?',
+            'Sei como realizar minhas atividades de forma adequada?',
+            'Tenho clareza sobre minhas funções e responsabilidades?',
             'Compreendo os objetivos e metas do meu departamento?',
-            'Compreendo como o meu trabalho contribui para o objetivo geral da organizacao?',
+            'Entendo como o meu trabalho contribui para os objetivos gerais da organização?',
         ],
     },
     {
         'step': 8,
         'key': 'step8',
-        'domain': 'Gerenciamento de Mudancas',
+        'domain': 'Gerenciamento de Mudanças',
         'orientation': 'positive',
         'model': CampanhaRespostaStep8,
         'question_fields': ['q1', 'q2', 'q3'],
         'questions': [
-            'Tenho oportunidades suficientes para questionar os gestores sobre mudancas no trabalho?',
-            'Os funcionarios sao sempre consultados sobre mudancas no trabalho?',
-            'Quando ha mudancas no trabalho, compreendo claramente como elas serao aplicadas na pratica?',
+            'Tenho oportunidades suficientes para questionar os gestores sobre mudanças no trabalho?',
+            'Os funcionários são consultados sobre mudanças que afetam o trabalho?',
+            'Quando ocorrem mudanças no trabalho, compreendo claramente como elas serão aplicadas na prática?',
         ],
     },
 ]
@@ -179,9 +180,9 @@ REPORT_STEP_DEFS = [
 
 def _report_zone(percent):
     if percent < 40:
-        return {'key': 'red', 'label': 'Critico'}
+        return {'key': 'red', 'label': 'Crítico'}
     if percent < 75:
-        return {'key': 'yellow', 'label': 'Atencao'}
+        return {'key': 'yellow', 'label': 'Atenção'}
     return {'key': 'green', 'label': 'Bom'}
 
 
@@ -321,9 +322,9 @@ def _build_dashboard_overview(user, empresa_id=None):
         'empresas': [{'id': e['id'], 'name': e['company_name']} for e in available_empresas],
         'summary_cards': [
             {'key': 'empresas', 'label': 'Total de Empresas', 'value': total_empresas, 'color': 'blue'},
-            {'key': 'questionarios_abertos', 'label': 'Questionarios em aberto', 'value': questionarios_em_aberto, 'color': 'green'},
+            {'key': 'questionarios_abertos', 'label': 'Questionários em aberto', 'value': questionarios_em_aberto, 'color': 'green'},
             {'key': 'relatorios', 'label': 'Relatorios Salvos', 'value': relatorios_salvos, 'color': 'yellow'},
-            {'key': 'avaliacoes', 'label': 'Avaliacoes Encontradas', 'value': completed_count, 'color': 'purple'},
+            {'key': 'avaliacoes', 'label': 'Avaliações Encontradas', 'value': completed_count, 'color': 'purple'},
             {'key': 'denuncias', 'label': 'Denuncias', 'value': comentarios_count, 'color': 'red'},
         ],
         'domain_distribution': [
@@ -374,41 +375,9 @@ def _draw_pdf_cover_page(c, campanha, empresa_name):
     width, height = A4
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
-
-    top_y = height - 32 * mm
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 20)
-    c.drawCentredString(width / 2, top_y, 'RELATORIO DE SAUDE ORGANIZACIONAL')
-
-    c.setFont('Helvetica', 9)
-    c.setFillColor(colors.HexColor('#4b5563'))
-    c.drawCentredString(width / 2, top_y - 9 * mm, 'Avaliacao ergonomica preliminar dos fatores de risco psicossociais')
-    c.drawCentredString(width / 2, top_y - 13 * mm, 'relacionados ao ambiente de trabalho')
-
-    c.setFont('Helvetica-Bold', 8)
-    c.setFillColor(colors.HexColor('#1d4ed8'))
-    c.drawCentredString(width / 2, top_y - 20 * mm, 'AEP-FRPRT | NR-1 | NR-17 | HSE-SIT-UK')
-
-    box_w = width - 54 * mm
-    box_h = 44 * mm
-    box_x = (width - box_w) / 2
-    box_y = top_y - 68 * mm
-    c.setStrokeColor(colors.HexColor('#cbd5e1'))
-    c.setLineWidth(1)
-    c.rect(box_x, box_y, box_w, box_h, stroke=1, fill=0)
-
-    c.setFillColor(colors.HexColor('#1f2937'))
-    c.setFont('Helvetica-Bold', 11)
-    c.drawCentredString(width / 2, box_y + box_h - 11 * mm, 'RELATORIO DE FATORES DE RISCO PSICOSSOCIAIS')
-    c.drawCentredString(width / 2, box_y + box_h - 16 * mm, 'RELACIONADOS AO TRABALHO (FRPRT)')
-    c.setFont('Helvetica-Bold', 9)
-    c.drawCentredString(width / 2, box_y + box_h - 25 * mm, 'AVALIACAO ERGONOMICA PRELIMINAR (AEP)')
-    c.setFont('Helvetica', 8)
-    c.setFillColor(colors.HexColor('#4b5563'))
-    c.drawCentredString(width / 2, box_y + box_h - 31 * mm, f'Empresa: {empresa_name}')
-
-    c.setFont('Helvetica', 6.8)
-    c.drawCentredString(width / 2, box_y + 4 * mm, 'Base normativa: NR-1 | NR-17 | Guia de Fatores Psicossociais | HSE-SIT-UK')
+    c.setFont('Helvetica-Bold', 18)
+    c.drawCentredString(width / 2, height / 2, 'Relatório de Fatores de Risco Psicossociais')
     c.showPage()
 
 
@@ -426,28 +395,28 @@ def _draw_pdf_summary_page(c):
     y -= 10 * mm
 
     items = [
-        'IDENTIFICACAO',
+        'IDENTIFICAÇÃO',
         'OBJETIVO',
         'METODOLOGIA',
-        'IMPORTANCIA DA PARTICIPACAO DOS TRABALHADORES',
+        'IMPORTÂNCIA DA PARTICIPAÇÃO DOS TRABALHADORES',
         'RESULTADOS GERAIS',
-        'CONCLUSOES E RECOMENDACOES PRELIMINARES',
-        'LIMITACOES',
+        'CONCLUSÕES E RECOMENDAÇÕES PRELIMINARES',
+        'LIMITAÇÕES',
         'RESPONSABILIDADES',
         'ANEXOS',
     ]
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
 
     for i, text in enumerate(items, start=1):
         c.setFillColor(blue)
         c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
         c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y + 0.2, str(i))
+        c.drawCentredString(margin_x + 2, y - 0.6, str(i))
 
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica', 9)
-        c.drawString(margin_x + 8 * mm, y - 0.5, text)
+        c.drawString(margin_x + 8 * mm, y - 0.2, text)
         y -= 6.5 * mm
 
     c.showPage()
@@ -459,7 +428,7 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
     y = height - 18 * mm
     summary = report_data.get('overall', {}).get('summary', {})
     domains = report_data.get('overall', {}).get('domains', [])
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
@@ -467,7 +436,7 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
     c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y + 0.2, '5')
+    c.drawCentredString(margin_x + 2, y - 0.6, '5')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 10)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'RESULTADOS GERAIS')
@@ -481,7 +450,6 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
     top_w = width - 2 * margin_x
     top_h = 24 * mm
     c.setStrokeColor(colors.HexColor('#d1d5db'))
-    c.rect(top_x, y - top_h, top_w, top_h, stroke=1, fill=0)
     c.line(top_x + top_w / 2, y, top_x + top_w / 2, y - top_h)
 
     company_pct = float(summary.get('company_mean_percent', 0) or 0)
@@ -494,7 +462,7 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
 
     c.setFont('Helvetica', 7)
     c.setFillColor(colors.HexColor('#6b7280'))
-    c.drawCentredString(top_x + top_w * 0.25, y - 5 * mm, 'Media geral da empresa')
+    c.drawCentredString(top_x + top_w * 0.25, y - 5 * mm, 'Média geral da empresa')
     c.setFillColor(zone_color_company)
     c.setFont('Helvetica-Bold', 16)
     c.drawCentredString(top_x + top_w * 0.25, y - 13 * mm, f'{company_pct:.1f}%')
@@ -514,36 +482,123 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
     c.drawCentredString(top_x + top_w * 0.75, y - 21 * mm, str((summary.get('sample_zone') or {}).get('label', 'Critico')))
     y -= (top_h + 7 * mm)
 
-    # Domain box
+    def _zone_color(zone_key):
+        if zone_key == 'green':
+            return colors.HexColor('#22c55e')
+        if zone_key == 'yellow':
+            return colors.HexColor('#f59e0b')
+        return colors.HexColor('#ef4444')
+
+    # Domain box (radar + list)
     box_x = margin_x
     box_w = width - 2 * margin_x
-    row_h = 6.5 * mm
-    box_h = 12 * mm + (len(domains) * row_h) + 4 * mm
-    c.setStrokeColor(colors.HexColor('#d1d5db'))
-    c.rect(box_x, y - box_h, box_w, box_h, stroke=1, fill=0)
+    box_h = 92 * mm
     c.setFont('Helvetica', 8)
     c.setFillColor(colors.HexColor('#6b7280'))
-    c.drawString(box_x + 4 * mm, y - 5 * mm, 'Media por dominio')
-    y_rows = y - 11 * mm
+    c.drawString(box_x + 4 * mm, y - 5 * mm, 'Média por domínio')
 
-    track_w = 92 * mm
-    for d in domains:
-        c.setFont('Helvetica-Bold', 8.6)
-        c.setFillColor(colors.HexColor('#111827'))
-        c.drawString(box_x + 4 * mm, y_rows, d.get('domain', ''))
-        bar_x = box_x + 58 * mm
-        bar_y = y_rows - 3
+    # Radar area (left)
+    radar_left = box_x + 12 * mm
+    radar_top = y - 10 * mm
+    radar_w = 92 * mm
+    radar_h = box_h - 16 * mm
+    cx = radar_left + (radar_w * 0.50)
+    cy = (radar_top - radar_h) + (radar_h * 0.52)
+    radius = min(radar_w, radar_h) * 0.34
+    n_domains = max(1, len(domains))
+
+    def _radar_point(idx, pct=100.0, r_extra=0):
+        angle = (math.pi / 2.0) - ((2.0 * math.pi * idx) / n_domains)
+        rr = (max(0.0, min(100.0, float(pct))) / 100.0) * radius + r_extra
+        return (cx + (math.cos(angle) * rr), cy + (math.sin(angle) * rr))
+
+    def _draw_poly(points, stroke=1, fill=0):
+        p = c.beginPath()
+        first = True
+        for px, py in points:
+            if first:
+                p.moveTo(px, py)
+                first = False
+            else:
+                p.lineTo(px, py)
+        p.close()
+        c.drawPath(p, stroke=stroke, fill=fill)
+
+    # Grid rings
+    for lvl in (20, 40, 60, 80, 100):
         c.setStrokeColor(colors.HexColor('#cbd5e1'))
-        c.setFillColor(colors.HexColor('#e5e7eb'))
-        c.roundRect(bar_x, bar_y, track_w, 4.5 * mm, 2, stroke=1, fill=1)
+        c.setLineWidth(0.7)
+        c.setDash(2, 2) if lvl < 100 else c.setDash()
+        _draw_poly([_radar_point(i, lvl) for i in range(n_domains)], stroke=1, fill=0)
+    c.setDash()
+
+    # Axes
+    c.setStrokeColor(colors.HexColor('#cbd5e1'))
+    c.setLineWidth(0.7)
+    for i in range(n_domains):
+        px, py = _radar_point(i, 100)
+        c.line(cx, cy, px, py)
+
+    # Data polygon
+    data_points = []
+    for i, d in enumerate(domains):
         pct = max(0, min(100, float(d.get('percent', 0) or 0)))
+        data_points.append(_radar_point(i, pct))
+    if data_points:
+        c.setStrokeColor(colors.HexColor('#60a5fa'))
+        c.setLineWidth(1.6)
+        _draw_poly(data_points, stroke=1, fill=0)
+
+    # Data points
+    for i, d in enumerate(domains):
+        pct = max(0, min(100, float(d.get('percent', 0) or 0)))
+        px, py = _radar_point(i, pct)
+        c.setFillColor(_zone_color((d.get('zone') or {}).get('key', 'red')))
+        c.setStrokeColor(colors.white)
+        c.setLineWidth(1)
+        c.circle(px, py, 2.2, stroke=1, fill=1)
+
+    # Tick labels (top axis)
+    c.setFont('Helvetica', 6.5)
+    c.setFillColor(colors.HexColor('#6b7280'))
+    for lvl in (20, 40, 60, 80, 100):
+        _, py = _radar_point(0, lvl)
+        c.drawString(cx + 3, py - 1.5, f'{lvl}%')
+
+    # Domain labels around radar
+    c.setFont('Helvetica', 6.8)
+    c.setFillColor(colors.HexColor('#334155'))
+    for i, d in enumerate(domains):
+        label = str(d.get('domain', '') or '')
+        lx, ly = _radar_point(i, 100, 7 * mm)
+        if lx > cx + 6:
+            c.drawString(lx, ly - 2, label)
+        elif lx < cx - 6:
+            c.drawRightString(lx, ly - 2, label)
+        else:
+            c.drawCentredString(lx, ly - 2, label)
+
+    # Legend/list area (right)
+    list_x = box_x + 110 * mm
+    list_right = box_x + box_w - 4 * mm
+    row_h = 9 * mm
+    y_rows = y - 13 * mm
+    c.setFont('Helvetica-Bold', 7.5)
+    c.setFillColor(colors.HexColor('#475569'))
+    # c.drawString(list_x, y_rows, '')
+    y_rows -= 5.5 * mm
+    for d in domains:
         zone_key = (d.get('zone') or {}).get('key', 'red')
-        fill = colors.HexColor('#ef4444') if zone_key == 'red' else colors.HexColor('#f59e0b') if zone_key == 'yellow' else colors.HexColor('#22c55e')
-        c.setFillColor(fill)
-        c.roundRect(bar_x, bar_y, track_w * (pct / 100.0), 4.5 * mm, 2, stroke=0, fill=1)
-        c.setFont('Helvetica-Bold', 8)
+        c.setFillColor(_zone_color(zone_key))
+        c.circle(list_x + 2, y_rows + 1, 1.5, stroke=0, fill=1)
+
         c.setFillColor(colors.HexColor('#111827'))
-        c.drawRightString(box_x + box_w - 4 * mm, y_rows, f"{d.get('percent', 0)}% | {d.get('avg_score', 0)}")
+        c.setFont('Helvetica-Bold', 7.1)
+        c.drawString(list_x + 6, y_rows, str(d.get('domain', '') or ''))
+
+        c.setFont('Helvetica', 6.8)
+        c.setFillColor(colors.HexColor('#334155'))
+        c.drawRightString(list_right, y_rows, f"{float(d.get('percent', 0) or 0):.1f}% | {float(d.get('avg_score', 0) or 0):.1f}")
         y_rows -= row_h
     y -= (box_h + 6 * mm)
 
@@ -552,9 +607,9 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
     zone_total_w = width - 2 * margin_x
     col_w = zone_total_w / 3
     zone_specs = [
-        ('Zona Vermelha (0% a 39,99%)', 'Risco elevado: acao corretiva imediata', colors.HexColor('#ef4444')),
-        ('Zona Amarela (40% a 74,99%)', 'Atencao: possivel risco psicossocial;', colors.HexColor('#f59e0b')),
-        ('Zona Verde (75% a 100%)', 'Boa percepcao: manutencao recomendada.', colors.HexColor('#22c55e')),
+        ('Zona Vermelha (0% a 39,99%)', 'Risco elevado: ação corretiva imediata', colors.HexColor('#ef4444')),
+        ('Zona Amarela (40% a 74,99%)', 'Atenção: possível risco psicossocial;', colors.HexColor('#f59e0b')),
+        ('Zona Verde (75% a 100%)', 'Boa percepção: manutenção recomendada.', colors.HexColor('#22c55e')),
     ]
     for idx, (title, text, bg) in enumerate(zone_specs):
         x = margin_x + (idx * col_w)
@@ -682,7 +737,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
             y_local = height - 20 * mm
             c.setFillColor(colors.HexColor('#111827'))
             c.setFont('Helvetica-Bold', 12)
-            c.drawCentredString(width / 2, y_local, 'Grafico dos resultados')
+            c.drawCentredString(width / 2, y_local, 'Gráfico dos resultados')
             y_local -= 8 * mm
             c.setFont('Helvetica-Bold', 18)
             c.drawCentredString(width / 2, y_local, step_title[:90])
@@ -699,7 +754,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         # Step summary (same page start of step)
         c.setFont('Helvetica-Bold', 8)
         c.setFillColor(colors.HexColor('#111827'))
-        c.drawString(margin_x + 10 * mm, y, 'Media Geral')
+        c.drawString(margin_x + 10 * mm, y, 'Média Geral')
         bar_row(y, '', step.get('percent', 0), step.get('avg_score', 0), step.get('zone', {}), x_bar, x_bar, x_val, track_w)
         y -= 11 * mm
         c.setStrokeColor(colors.HexColor('#e5e7eb'))
@@ -708,7 +763,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
 
         c.setFont('Helvetica-Bold', 9)
         c.setFillColor(colors.HexColor('#111827'))
-        c.drawString(margin_x + 10 * mm, y, f'Analise por {ref_label}')
+        c.drawString(margin_x + 10 * mm, y, f'Análise por {ref_label}')
         y -= 7 * mm
 
         step_refs = []
@@ -728,7 +783,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         y -= 10 * mm
         c.setFont('Helvetica-Bold', 16)
         c.setFillColor(colors.HexColor('#111827'))
-        c.drawCentredString(width / 2, y, f"{step_title} (Analise Geral)")
+        c.drawCentredString(width / 2, y, f"{step_title} (Análise Geral)")
         y -= 8 * mm
         draw_legend(y)
         y -= 8 * mm
@@ -763,7 +818,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
 def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
     width, height = A4
     margin_x = 15 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
     measures = report_data.get('preliminary_measures', []) or []
     whens = report_data.get('preliminary_whens', []) or []
     overall_steps = (report_data.get('overall') or {}).get('steps', []) or []
@@ -783,7 +838,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
                 'score': q.get('avg_score', 0),
                 'percent': q.get('percent', 0),
                 'question': q.get('question', ''),
-                'scope_label': 'Analise geral',
+                'scope_label': 'Análise geral',
             }
     eval_type = ((report_data.get('filters') or {}).get('evaluation_type') or '')
     for ref_item in per_ref:
@@ -851,10 +906,10 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
         c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y + 0.2, '6')
+        c.drawCentredString(margin_x + 2, y - 0.6, '6')
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
-        c.drawString(margin_x + 8 * mm, y - 0.5, 'CONCLUSOES E RECOMENDACOES PRELIMINARES')
+        c.drawString(margin_x + 8 * mm, y - 0.5, 'CONCLUSÕES E RECOMENDAÇÕES PRELIMINARES')
         c.setStrokeColor(blue)
         c.setLineWidth(1)
         c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -888,10 +943,10 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
 
     # Intro bullets (espelho do anexo)
     intro = [
-        'Priorizar dominios com risco elevado.',
-        f'Reavaliar periodicamente: daqui {review_months} meses.',
-        'Promover treinamentos sobre saude mental e fatores psicossociais.',
-        'Caso necessario, realizar AET aprofundada conforme NR-17.',
+        'Priorizar os domínios que apresentem maior nível de risco.',
+        f'Realizar nova avaliação em até {review_months} meses.',
+        'Implementar ações de capacitação sobre saúde mental e fatores psicossociais.',
+        'Quando aplicável, conduzir Análise Ergonômica do Trabalho (AET) detalhada, conforme a NR-17.',
     ]
     c.setFont('Helvetica', 7)
     c.setFillColor(colors.HexColor('#111827'))
@@ -902,7 +957,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
     y -= 2 * mm
     c.setFillColor(colors.HexColor('#9a3412'))
     c.setFont('Helvetica-Bold', 8)
-    c.drawString(margin_x, y, 'Plano de Acao Recomendado')
+    c.drawString(margin_x, y, 'Plano de Ação Recomendado')
     y -= 8 * mm
 
     if not measures:
@@ -934,7 +989,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         domain_name = step_domain_lookup.get(step_no, f'Step {step_no}')
         question = info.get('question') or f"Pergunta {m.get('question_field', '')}"
         score = float(info.get('score', 0) or 0)
-        scope_label = info.get('scope_label') or ('Analise geral' if m.get('scope_type') == 'GERAL' else f"{ref_label}: {m.get('setor_name') or m.get('ghe_name') or '-'}")
+        scope_label = info.get('scope_label') or ('Análise geral' if m.get('scope_type') == 'GERAL' else f"{ref_label}: {m.get('setor_name') or m.get('ghe_name') or '-'}")
         when_data = whens_lookup.get(key)
         when_months = (when_data or {}).get('when_months', [])
         when_range = format_when_range(when_months)
@@ -1052,7 +1107,7 @@ def _draw_pdf_limitacoes_page(c):
     width, height = A4
     margin_x = 15 * mm
     y = height - 18 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
@@ -1061,22 +1116,22 @@ def _draw_pdf_limitacoes_page(c):
     c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y + 0.2, '7')
+    c.drawCentredString(margin_x + 2, y - 0.6, '7')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
-    c.drawString(margin_x + 8 * mm, y - 0.5, 'LIMITACOES')
+    c.drawString(margin_x + 8 * mm, y - 0.5, 'LIMITAÇÕES')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
     y -= 11 * mm
 
     paragraphs = [
-        'Esta Avaliacao Ergonomica Preliminar (AEP) possui carater preliminar, sendo realizada em conformidade com os requisitos da NR-17 (Portaria MTP n 423/2021), item 17.3.2, que determina a necessidade de avaliacao inicial para subsidiar o gerenciamento dos fatores de risco relacionados a ergonomia no ambiente de trabalho.',
-        'A AEP tem como objetivo identificar indicios de fatores de risco, subsidiar o Programa de Gerenciamento de Riscos (PGR) e o Gerenciamento de Riscos Ocupacionais (GRO), conforme exigido pela NR-1 (Portaria SEPRT n 6.730/2020), e auxiliar na priorizacao de medidas corretivas e preventivas no ambiente laboral. No entanto, este instrumento nao substitui a Analise Ergonomica do Trabalho (AET), que possui carater aprofundado e investigativo, exigindo observacoes diretas em campo, medicoes ambientais e biomecanicas, entrevistas e avaliacoes detalhadas das condicoes de trabalho.',
-        'A NR-17 dispoe que "as condicoes de trabalho que possam afetar a saude dos trabalhadores devem ser objeto de AET", especialmente quando forem identificados riscos significativos ou quando houver indicios de que os fatores psicossociais, fisicos ou organizacionais estao impactando de forma relevante a saude e a produtividade dos trabalhadores. Nesse sentido, a AET torna-se obrigatoria em situacoes em que a AEP aponta a necessidade de medidas adicionais de controle ou quando os resultados indicam a presenca de condicoes criticas que requeiram investigacao aprofundada.',
-        'Conforme o Guia de Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE), a avaliacao preliminar deve ser parte de um processo continuo de monitoramento, sendo considerada um ponto de partida no gerenciamento de riscos psicossociais, mas nao encerrando o processo de analise de forma definitiva.',
-        'Alem disso, os resultados obtidos por meio desta plataforma representam a percepcao dos trabalhadores sobre o ambiente de trabalho em um periodo especifico, podendo sofrer alteracoes em virtude de mudancas organizacionais, tecnologicas ou de processos de trabalho. Portanto, os dados devem ser utilizados de forma critica, sendo recomendada sua atualizacao periodica para manter a rastreabilidade das informacoes e a efetividade das acoes de prevencao e controle implementadas.',
-        'Por fim, destaca-se que a participacao dos trabalhadores nesta avaliacao e voluntaria e confidencial e, embora a amostra seja representativa, podem existir limitacoes relacionadas a fatores como receio de exposicao, interpretacao subjetiva das perguntas e condicoes especificas do local de trabalho nao observadas no momento da avaliacao, reforcando a necessidade de utilizacao da AEP como ferramenta de triagem e priorizacao dentro do sistema de gestao de SST, e nao como avaliacao conclusiva sobre todos os aspectos ergonomicos da organizacao.',
+        'Esta Avaliação Ergonômica Preliminar (AEP) possui caráter preliminar, sendo realizada em conformidade com os requisitos da NR-17 (Portaria MTP nº 423/2021), item 17.3.2, que determina a necessidade de avaliação inicial para subsidiar o gerenciamento dos fatores de risco relacionados à ergonomia no ambiente de trabalho.',
+        'A AEP tem como objetivo identificar indícios de fatores de risco, subsidiar o Programa de Gerenciamento de Riscos (PGR) e o Gerenciamento de Riscos Ocupacionais (GRO), conforme exigido pela NR-1 (Portaria SEPRT nº 6.730/2020), e auxiliar na priorização de medidas corretivas e preventivas no ambiente laboral. No entanto, este instrumento não substitui a Análise Ergonômica do Trabalho (AET), que possui caráter aprofundado e investigativo, exigindo observações diretas em campo, medições ambientais e biomecânicas, entrevistas e avaliações detalhadas das condições de trabalho.',
+        'A NR-17 dispõe que "as condições de trabalho que possam afetar a saúde dos trabalhadores devem ser objeto de AET", especialmente quando forem identificados riscos significativos ou quando houver indícios de que os fatores psicossociais, físicos ou organizacionais estão impactando de forma relevante a saúde e a produtividade dos trabalhadores. Nesse sentido, a AET torna-se obrigatória em situações em que a AEP aponta a necessidade de medidas adicionais de controle ou quando os resultados indicam a presença de condições críticas que requeiram investigação aprofundada.',
+        'Conforme o Guia de Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE), a avaliação preliminar deve ser parte de um processo contínuo de monitoramento, sendo considerada um ponto de partida no gerenciamento de riscos psicossociais, mas não encerrando o processo de análise de forma definitiva.',
+        'Além disso, os resultados obtidos por meio desta plataforma representam a percepção dos trabalhadores sobre o ambiente de trabalho em um período específico, podendo sofrer alterações em virtude de mudanças organizacionais, tecnológicas ou de processos de trabalho. Portanto, os dados devem ser utilizados de forma crítica, sendo recomendada sua atualização periódica para manter a rastreabilidade das informações e a efetividade das ações de prevenção e controle implementadas.',
+        'Por fim, destaca-se que a participação dos trabalhadores nesta avaliação é voluntária e confidencial e, embora a amostra seja representativa, podem existir limitações relacionadas a fatores como receio de exposição, interpretação subjetiva das perguntas e condições específicas do local de trabalho não observadas no momento da avaliação, reforçando a necessidade de utilização da AEP como ferramenta de triagem e priorização dentro do sistema de gestão de SST, e não como avaliação conclusiva sobre todos os aspectos ergonômicos da organização.',
     ]
 
     text_obj = c.beginText()
@@ -1120,7 +1175,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     width, height = A4
     margin_x = 15 * mm
     y = height - 18 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
     gray = colors.HexColor('#6b7280')
 
     c.setFillColor(colors.white)
@@ -1130,7 +1185,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y + 0.2, '8')
+    c.drawCentredString(margin_x + 2, y - 0.6, '8')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'RESPONSABILIDADES')
@@ -1170,7 +1225,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     c.drawCentredString(left_x + col_w / 2, line_y - 12 * mm, left_consultoria[:58])
     c.setFillColor(blue)
     c.setFont('Helvetica-Bold', 6.5)
-    c.drawCentredString(left_x + col_w / 2, line_y - 16 * mm, 'Responsavel pela avaliacao')
+    c.drawCentredString(left_x + col_w / 2, line_y - 16 * mm, 'Responsável pela avaliação')
 
     # Right signer
     c.setFillColor(colors.HexColor('#111827'))
@@ -1185,13 +1240,13 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     c.drawCentredString(right_x + col_w / 2, line_y - 12 * mm, right_empresa[:58])
     c.setFillColor(blue)
     c.setFont('Helvetica-Bold', 6.5)
-    c.drawCentredString(right_x + col_w / 2, line_y - 16 * mm, 'Responsavel pela aprovacao')
+    c.drawCentredString(right_x + col_w / 2, line_y - 16 * mm, 'Responsável pela aprovação')
 
     y = line_y - 28 * mm
 
     paragraphs = [
-        'Ressalta-se que a responsabilidade pela implementacao, monitoramento e acompanhamento das acoes corretivas e preventivas recomendadas neste relatorio e integralmente da empresa, conforme estabelece a NR-1 (item 1.5.3.1) e o Programa de Gerenciamento de Riscos (PGR), cabendo a organizacao avaliar a aplicabilidade das medidas no contexto de suas operacoes, garantindo a conformidade com as normas regulamentadoras vigentes e as melhores praticas de saude, seguranca e ergonomia ocupacional.',
-        'Este relatorio, elaborado com rigor tecnico e em conformidade com a NR-1, NR-17 e o Guia de Fatores de Riscos Psicossociais Relacionados ao Trabalho, visa subsidiar a gestao da empresa na tomada de decisoes informadas, mantendo rastreabilidade e evidencias tecnicas para auditorias, fiscalizacoes e processos de melhoria continua do sistema de gestao de SST.',
+        'Ressalta-se que a responsabilidade pela implementação, monitoramento e acompanhamento das ações corretivas e preventivas recomendadas neste relatório é integralmente da empresa, conforme estabelece a NR-1 (item 1.5.3.1) e o Programa de Gerenciamento de Riscos (PGR), cabendo à organização avaliar a aplicabilidade das medidas no contexto de suas operações, garantindo a conformidade com as normas regulamentadoras vigentes e as melhores práticas de saúde, segurança e ergonomia ocupacional.',
+        'Este relatório, elaborado com rigor técnico e em conformidade com a NR-1, NR-17 e o Guia de Fatores de Riscos Psicossociais Relacionados ao Trabalho, visa subsidiar a gestão da empresa na tomada de decisões informadas, mantendo rastreabilidade e evidências técnicas para auditorias, fiscalizações e processos de melhoria contínua do sistema de gestão de SST.',
     ]
 
     text_obj = c.beginText()
@@ -1221,7 +1276,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
 def _draw_pdf_anexos_pages(c, report_data):
     width, height = A4
     margin_x = 15 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
     anexos = report_data.get('attachments', []) or []
 
     def new_page():
@@ -1232,7 +1287,7 @@ def _draw_pdf_anexos_pages(c, report_data):
         c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
         c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y + 0.2, '9')
+        c.drawCentredString(margin_x + 2, y - 0.6, '9')
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
         c.drawString(margin_x + 8 * mm, y - 0.5, 'ANEXOS')
@@ -1314,15 +1369,15 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
 
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
     c.setFillColor(blue)
     c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y + 0.2, '1')
+    c.drawCentredString(margin_x + 2, y - 0.6, '1')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
-    c.drawString(margin_x + 8 * mm, y - 0.5, 'IDENTIFICACAO')
+    c.drawString(margin_x + 8 * mm, y - 0.5, 'IDENTIFICAÇÃO')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -1351,14 +1406,14 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     y -= 3 * mm
     c.setFillColor(blue)
     c.setFont('Helvetica-Bold', 8)
-    c.drawString(margin_x, y, '1.1 Responsaveis tecnicos pela ferramenta de avaliacao FRPRT')
+    c.drawString(margin_x, y, '1.1 Responsáveis técnicos pela ferramenta de avaliação FRPRT')
     y -= 8 * mm
 
     table_x = margin_x
     table_w = width - (2 * margin_x)
     col_w = [table_w * 0.38, table_w * 0.42, table_w * 0.20]
     row_h = 6 * mm
-    headers = ['Nome', 'Formacao', 'Registro']
+    headers = ['Nome', 'Formação', 'Registro']
     rows = _get_consultoria_tecnicos_rows(empresa=empresa, consultoria_cfg=consultoria_cfg)
 
     c.setStrokeColor(colors.HexColor('#d1d5db'))
@@ -1397,7 +1452,7 @@ def _draw_pdf_objetivo_page(c):
     width, height = A4
     margin_x = 15 * mm
     y = height - 18 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
@@ -1406,7 +1461,7 @@ def _draw_pdf_objetivo_page(c):
     c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y + 0.2, '2')
+    c.drawCentredString(margin_x + 2, y - 0.6, '2')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'OBJETIVO')
@@ -1416,15 +1471,15 @@ def _draw_pdf_objetivo_page(c):
     y -= 11 * mm
 
     text = (
-        'Esta Avaliacao Ergonomica Preliminar (AEP) tem por finalidade identificar e examinar tecnicamente os fatores de '
+        'Esta Avaliação Ergonômica Preliminar (AEP) tem por finalidade identificar e examinar tecnicamente os fatores de '
         'risco psicossociais existentes no contexto de trabalho, que possam contribuir para o estresse ocupacional e afetar '
-        'a saude, o bem-estar e o desempenho dos colaboradores. O presente relatorio encontra-se em plena conformidade com '
-        'a NR-17 e a NR-1 (GRO e PGR), observando o Guia de Informacoes sobre Fatores de Riscos Psicossociais Relacionados '
-        'ao Trabalho (MTE) e as diretrizes da HSE-SIT-UK, assegurando alinhamento com as melhores praticas nacionais e '
-        'internacionais em saude e seguranca do trabalho. Alem de atender as exigencias legais, este AEP-FRPRT fornece '
-        'fundamentos tecnicos consistentes para subsidiar decisoes quanto as necessidades de aprofundamento por meio da '
-        'Analise Ergonomica do Trabalho (AET), a priorizacao de medidas de controle e a definicao de planos de acao '
-        'integrados ao PGR, com o proposito de promover ambientes laborais mais seguros, saudaveis e produtivos.'
+        'a saúde, o bem-estar e o desempenho dos colaboradores. O presente relatório encontra-se em plena conformidade com '
+        'a NR-17 e a NR-1 (GRO e PGR), observando o Guia de Informações sobre Fatores de Riscos Psicossociais Relacionados '
+        'ao Trabalho (MTE) e as diretrizes da HSE-SIT-UK, assegurando alinhamento com as melhores práticas nacionais e '
+        'internacionais em saúde e segurança do trabalho. Além de atender às exigências legais, esta AEP-FRPRT fornece '
+        'fundamentos técnicos consistentes para subsidiar decisões quanto às necessidades de aprofundamento por meio da '
+        'Análise Ergonômica do Trabalho (AET), a priorização de medidas de controle e a definição de planos de ação '
+        'integrados ao PGR, com o propósito de promover ambientes laborais mais seguros, saudáveis e produtivos.'
     )
 
     text_obj = c.beginText()
@@ -1455,7 +1510,7 @@ def _draw_pdf_metodologia_pages(c):
     width, height = A4
     margin_x = 15 * mm
     top_y = height - 18 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
 
     def draw_header(page_num='3', title='METODOLOGIA'):
         y = top_y
@@ -1465,7 +1520,7 @@ def _draw_pdf_metodologia_pages(c):
         c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
         c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y + 0.2, page_num)
+        c.drawCentredString(margin_x + 2, y - 0.6, page_num)
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
         c.drawString(margin_x + 8 * mm, y - 0.5, title)
@@ -1499,22 +1554,22 @@ def _draw_pdf_metodologia_pages(c):
 
     y = draw_header()
     paragraphs_page1 = [
-        'Para a conducao desta Avaliacao Ergonomica Preliminar (AEP), foi empregado o Stress Indicator Tool (SIT), instrumento de avaliacao psicossocial reconhecido internacionalmente e validado pelo Health and Safety Executive (HSE) do Reino Unido (UK), devidamente adaptado a realidade organizacional brasileira, em conformidade com os principios da NR-1, da NR-17 e do Guia de Fatores Psicossociais Relacionados ao Trabalho, elaborados pelo Ministerio do Trabalho e Emprego (MTE).',
-        'O instrumento e composto por 35 questoes estruturadas, organizadas nos dominios Demandas, Controle, Apoio, Relacionamentos, Papel e Mudancas, reconhecidos pela literatura cientifica e pelas normas tecnicas como fatores determinantes relevantes para a saude mental e o bem-estar dos trabalhadores.',
-        'A aplicacao da metodologia permite a realizacao de uma analise tecnica detalhada dos fatores criticos presentes no ambiente laboral, contemplando os seguintes etapas:',
+        'Para a condução desta Avaliação Ergonômica Preliminar (AEP), foi empregado o Stress Indicator Tool (SIT), instrumento de avaliação psicossocial reconhecido internacionalmente e validado pelo Health and Safety Executive (HSE) do Reino Unido (UK), devidamente adaptado à realidade organizacional brasileira, em conformidade com os princípios da NR-1, da NR-17 e do Guia de Fatores Psicossociais Relacionados ao Trabalho, elaborados pelo Ministério do Trabalho e Emprego (MTE).',
+        'O instrumento é composto por 35 questões estruturadas, organizadas nos domínios Demandas, Controle, Apoio, Relacionamentos, Papel e Mudanças, reconhecidos pela literatura científica e pelas normas técnicas como fatores determinantes relevantes para a saúde mental e o bem-estar dos trabalhadores.',
+        'A aplicação da metodologia permite a realização de uma análise técnica detalhada dos fatores críticos presentes no ambiente laboral, contemplando as seguintes etapas:',
     ]
     for p in paragraphs_page1:
         y = draw_paragraph(y, p)
         y -= 2 * mm
 
     bullets = [
-        'Realizacao de coleta estruturada e sigilosa das percepcoes dos trabalhadores, garantindo confidencialidade e confiabilidade das respostas;',
-        'Classificacao, consolidacao e analise estatistica das informacoes obtidas, possibilitando a identificacao de areas sensiveis e pontos prioritarios de intervencao;',
-        'Avaliacao tecnica dos resultados em conformidade com a legislacao vigente e com as melhores praticas nacionais e internacionais de Saude e Seguranca do Trabalho, assegurando rastreabilidade dos dados e subsidiando a elaboracao de acoes integradas ao GRO e ao PGR.',
-        'A utilizacao do Stress Indicator Tool (SIT) neste processo permite a identificacao estruturada e confiavel dos riscos psicossociais existentes no ambiente laboral, proporcionando-se como base para a definicao e priorizacao de medidas preventivas e corretivas, alem de possibilitar o acompanhamento continuo da evolucao das condicoes psicossociais ao longo do tempo.',
-        'Ressalta-se que o SIT e uma das ferramentas indicadas pelo Health and Safety Executive (HSE-UK), em virtude de sua efetividade na coleta estruturada e objetiva das percepcoes dos trabalhadores. Cabe destacar que os resultados obtidos refletem a percepcao dos colaboradores em um contexto e periodo especificos, o que reforca a importancia de reavaliacoes periodicas, em alinhamento com o ciclo de monitoramento previsto no GRO e no PGR.',
-        'A eficacia da metodologia adotada esta diretamente vinculada ao comprometimento institucional e a participacao ativa dos trabalhadores ao longo de todo o processo, considerando que sao os proprios colaboradores que vivenciam as rotinas laborais e detem a experiencia pratica necessaria para fornecer informacoes confiaveis e relevantes sobre os fatores que influenciam sua saude, bem-estar e desempenho.',
-        'Adicionalmente, a metodologia empregada favorece a promocao de ambientes laborais mais seguros, equilibrados e produtivos, permitindo que a organizacao atue de forma preventiva, estruturada e sistematizada na gestao dos fatores psicossociais relacionados ao trabalho, em conformidade com a legislacao brasileira vigente e com as referencias internacionais de gestao em saude e seguranca ocupacional.',
+        'Realização de coleta estruturada e sigilosa das percepções dos trabalhadores, garantindo confidencialidade e confiabilidade das respostas;',
+        'Classificação, consolidação e análise estatística das informações obtidas, possibilitando a identificação de áreas sensíveis e pontos prioritários de intervenção;',
+        'Avaliação técnica dos resultados em conformidade com a legislação vigente e com as melhores práticas nacionais e internacionais de Saúde e Segurança do Trabalho, assegurando rastreabilidade dos dados e subsidiando a elaboração de ações integradas ao GRO e ao PGR;',
+        'A utilização do Stress Indicator Tool (SIT) neste processo permite a identificação estruturada e confiável dos riscos psicossociais existentes no ambiente laboral, proporcionando base para a definição e priorização de medidas preventivas e corretivas, além de possibilitar o acompanhamento contínuo da evolução das condições psicossociais ao longo do tempo;',
+        'Ressalta-se que o SIT é uma das ferramentas indicadas pelo Health and Safety Executive (HSE-UK), em virtude de sua efetividade na coleta estruturada e objetiva das percepções dos trabalhadores. Cabe destacar que os resultados obtidos refletem a percepção dos colaboradores em um contexto e período específicos, o que reforça a importância de reavaliações periódicas, em alinhamento com o ciclo de monitoramento previsto no GRO e no PGR;',
+        'A eficácia da metodologia adotada está diretamente vinculada ao comprometimento institucional e à participação ativa dos trabalhadores ao longo de todo o processo, considerando que são os próprios colaboradores que vivenciam as rotinas laborais e detêm a experiência prática necessária para fornecer informações confiáveis e relevantes sobre os fatores que influenciam sua saúde, bem-estar e desempenho;',
+        'Adicionalmente, a metodologia empregada favorece a promoção de ambientes laborais mais seguros, equilibrados e produtivos, permitindo que a organização atue de forma preventiva, estruturada e sistematizada na gestão dos fatores psicossociais relacionados ao trabalho, em conformidade com a legislação brasileira vigente e com as referências internacionais de gestão em saúde e segurança ocupacional.',
     ]
     c.setFont('Helvetica', 7.8)
     for b in bullets:
@@ -1528,7 +1583,7 @@ def _draw_pdf_metodologia_pages(c):
     c.setFillColor(colors.HexColor('#111827'))
     c.drawString(margin_x, y, 'Selecionando uma amostra')
     y -= 5 * mm
-    y = draw_paragraph(y, 'Ha varias questoes a serem consideradas na selecao de uma populacao de pesquisa:')
+    y = draw_paragraph(y, 'Há várias questões a serem consideradas na seleção de uma população de pesquisa:')
     for line in ['Quais listas de trabalhadores podem ser utilizadas;', 'Quantos trabalhadores devem compor a amostra; e', 'Como selecionar a amostra de trabalhadores.']:
         y = draw_paragraph(y, f'- {line}')
         y -= 1 * mm
@@ -1544,20 +1599,20 @@ def _draw_pdf_metodologia_pages(c):
     c.rect(0, 0, width, height, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 8)
-    c.drawString(margin_x, y, 'Tamanho minimo de amostra recomendado')
+    c.drawString(margin_x, y, 'Tamanho mínimo de amostra recomendado')
     y -= 5 * mm
-    y = draw_paragraph(y, 'A realizacao de uma pesquisa envolvendo todos os colaboradores tende a proporcionar um retrato mais fiel da realidade organizacional do que a utilizacao de uma amostra. Por outro lado, optar pelo tamanho minimo de amostra recomendado apresenta como beneficios a reducao de custos e a diminuicao do tempo demandado pela equipe. Os quantitativos minimos foram definidos de modo a assegurar que os resultados obtidos sejam estatisticamente representativos das percepcoes do conjunto de trabalhadores da organizacao.')
-    y = draw_paragraph(y, 'A adocao de uma amostra ampliada possibilita analises mais aprofundadas de subgrupos (como por categoria profissional) e amplia a oportunidade para que um numero maior de colaboradores manifeste suas percepcoes. Em contrapartida, essa escolha pode implicar maior investimento de tempo e recursos para sua execucao.')
-    y = draw_paragraph(y, 'Os tamanhos de amostra recomendados sao fornecidos na tabela abaixo:')
+    y = draw_paragraph(y, 'A realização de uma pesquisa envolvendo todos os colaboradores tende a proporcionar um retrato mais fiel da realidade organizacional do que a utilização de uma amostra. Por outro lado, optar pelo tamanho mínimo de amostra recomendado apresenta como benefícios a redução de custos e a diminuição do tempo demandado pela equipe. Os quantitativos mínimos foram definidos de modo a assegurar que os resultados obtidos sejam estatisticamente representativos das percepções do conjunto de trabalhadores da organização.')
+    y = draw_paragraph(y, 'A adoção de uma amostra ampliada possibilita análises mais aprofundadas de subgrupos (como por categoria profissional) e amplia a oportunidade para que um número maior de colaboradores manifeste suas percepções. Em contrapartida, essa escolha pode implicar maior investimento de tempo e recursos para sua execução.')
+    y = draw_paragraph(y, 'Os tamanhos de amostra recomendados são fornecidos na tabela abaixo:')
     y -= 2 * mm
 
     table_x = margin_x
     table_w = width - (2 * margin_x)
     col_w = [table_w * 0.45, table_w * 0.55]
     row_h = 6 * mm
-    headers = ['Numero total de trabalhadores', 'Tamanho de amostra recomendado']
+    headers = ['Número total de trabalhadores', 'Tamanho de amostra recomendado']
     rows = [
-        ['<= 500', 'Todos os funcionarios'],
+        ['<= 500', 'Todos os funcionários'],
         ['501 - 1.000', '500 respostas'],
         ['1.001 - 2.000', '650 respostas'],
         ['2.001 - 3.000', '700 respostas'],
@@ -1597,7 +1652,7 @@ def _draw_pdf_importancia_participacao_page(c):
     width, height = A4
     margin_x = 15 * mm
     y = height - 18 * mm
-    blue = colors.HexColor('#1d4ed8')
+    blue = colors.HexColor('#14532d')
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
@@ -1606,42 +1661,42 @@ def _draw_pdf_importancia_participacao_page(c):
     c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y + 0.2, '4')
+    c.drawCentredString(margin_x + 2, y - 0.6, '4')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 8.5)
-    c.drawString(margin_x + 8 * mm, y - 0.5, 'IMPORTANCIA DA PARTICIPACAO DOS TRABALHADORES')
+    c.drawString(margin_x + 8 * mm, y - 0.5, 'IMPORTÂNCIA DA PARTICIPAÇÃO DOS TRABALHADORES')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
     y -= 11 * mm
 
     text = (
-        'A participacao ativa, consciente e transparente dos trabalhadores constitui elemento fundamental para a efetividade '
-        'desta Avaliacao Ergonomica Preliminar (AEP), em consonancia com os principios de participacao estabelecidos na '
-        'NR-1 (item 1.5.3.1) e na NR-17, que ressaltam a relevancia do envolvimento dos colaboradores na identificacao e '
+        'A participação ativa, consciente e transparente dos trabalhadores constitui elemento fundamental para a efetividade '
+        'desta Avaliação Ergonômica Preliminar (AEP), em consonância com os princípios de participação estabelecidos na '
+        'NR-1 (item 1.5.3.1) e na NR-17, que ressaltam a relevância do envolvimento dos colaboradores na identificação e '
         'no gerenciamento dos riscos ocupacionais, inclusive daqueles relacionados aos fatores psicossociais do trabalho.\n\n'
-        'Os trabalhadores sao aqueles que vivenciam cotidianamente os processos, as exigencias e os desafios do ambiente '
-        'de trabalho, detendo conhecimento pratico e percepcoes concretas acerca dos fatores que influenciam sua saude, '
-        'bem-estar, seguranca e desempenho. Nesse sentido, a participacao efetiva dos trabalhadores permite ao analista '
-        'de AEP captar condicoes de trabalho que muitas vezes nao sao plenamente visiveis a observacao externa.\n\n'
-        'A obtencao de percepcoes diretamente junto aos trabalhadores, de maneira anonima e confidencial, minimiza vieses '
-        'de avaliacao e permite a identificacao de aspectos subjetivos que nao seriam evidenciados apenas por meio de '
-        'observacoes tecnicas ou analise documental. Ademais, a participacao efetiva dos colaboradores fortalece o '
-        'compromisso coletivo com a saude e a seguranca, estimulando o engajamento nas acoes de melhoria que venham a ser '
+        'Os trabalhadores são aqueles que vivenciam cotidianamente os processos, as exigências e os desafios do ambiente '
+        'de trabalho, detendo conhecimento prático e percepções concretas acerca dos fatores que influenciam sua saúde, '
+        'bem-estar, segurança e desempenho. Nesse sentido, a participação efetiva dos trabalhadores permite ao analista '
+        'de AEP captar condições de trabalho que muitas vezes não são plenamente visíveis à observação externa.\n\n'
+        'A obtenção de percepções diretamente junto aos trabalhadores, de maneira anônima e confidencial, minimiza vieses '
+        'de avaliação e permite a identificação de aspectos subjetivos que não seriam evidenciados apenas por meio de '
+        'observações técnicas ou análise documental. Ademais, a participação efetiva dos colaboradores fortalece o '
+        'compromisso coletivo com a saúde e a segurança, estimulando o engajamento nas ações de melhoria que venham a ser '
         'implementadas posteriormente.\n\n'
-        'A ausencia de engajamento dos trabalhadores pode resultar em lacunas relevantes nas informacoes coletadas, '
-        'tornando o diagnostico impreciso ou parcial e comprometendo a efetividade das medidas preventivas e corretivas '
-        'propostas. Por essa razao, ressalta-se que a qualidade dos dados obtidos esta diretamente vinculada a consistencia '
-        'de um ambiente de confianca, no qual os colaboradores se sintam seguros para manifestar suas percepcoes de forma '
-        'transparente, sem receio de retaliacoes ou julgamentos.\n\n'
-        'A promocao da transparencia, da escuta ativa e do dialogo permanente constitui estrategia essencial para assegurar '
-        'essa participacao, em consonancia com o ciclo de melhoria continua do Gerenciamento de Risco Ocupacionais (GRO) e '
-        'do Programa de Gerenciamento de Riscos (PGR). Essa abordagem participativa fortalece a cultura de saude e seguranca '
-        'na organizacao, contribuindo para a construcao de um ambiente de trabalho mais seguro, saudavel, equilibrado e produtivo.\n\n'
-        'Por fim, destaca-se que a participacao dos trabalhadores no processo de identificacao e avaliacao dos riscos '
-        'psicossociais esta em consonancia com as melhores praticas internacionais recomendadas pela HSE-UK, configurando-se '
-        'como um diferencial para organizacoes que buscam excelencia em seus sistemas de gestao de saude e seguranca do trabalho, '
-        'promovendo resultados sustentaveis e valorizando o bem-estar de seus colaboradores.'
+        'A ausência de engajamento dos trabalhadores pode resultar em lacunas relevantes nas informações coletadas, '
+        'tornando o diagnóstico impreciso ou parcial e comprometendo a efetividade das medidas preventivas e corretivas '
+        'propostas. Por essa razão, ressalta-se que a qualidade dos dados obtidos está diretamente vinculada à consistência '
+        'de um ambiente de confiança, no qual os colaboradores se sintam seguros para manifestar suas percepções de forma '
+        'transparente, sem receio de retaliações ou julgamentos.\n\n'
+        'A promoção da transparência, da escuta ativa e do diálogo permanente constitui estratégia essencial para assegurar '
+        'essa participação, em consonância com o ciclo de melhoria contínua do Gerenciamento de Risco Ocupacionais (GRO) e '
+        'do Programa de Gerenciamento de Riscos (PGR). Essa abordagem participativa fortalece a cultura de saúde e segurança '
+        'na organização, contribuindo para a construção de um ambiente de trabalho mais seguro, saudável, equilibrado e produtivo.\n\n'
+        'Por fim, destaca-se que a participação dos trabalhadores no processo de identificação e avaliação dos riscos '
+        'psicossociais está em consonância com as melhores práticas internacionais recomendadas pela HSE-UK, configurando-se '
+        'como um diferencial para organizações que buscam excelência em seus sistemas de gestão de saúde e segurança do trabalho, '
+        'promovendo resultados sustentáveis e valorizando o bem-estar de seus colaboradores.'
     )
 
     text_obj = c.beginText()
@@ -1854,7 +1909,7 @@ class ConsultoriaResponsavelTecnicoDetailView(APIView):
     def patch(self, request, tecnico_id):
         item = self._get_object(request, tecnico_id)
         if not item:
-            return Response({'detail': 'Responsavel tecnico nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Responsável técnico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = ConsultoriaResponsavelTecnicoSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         item = serializer.save()
@@ -1863,7 +1918,7 @@ class ConsultoriaResponsavelTecnicoDetailView(APIView):
     def put(self, request, tecnico_id):
         item = self._get_object(request, tecnico_id)
         if not item:
-            return Response({'detail': 'Responsavel tecnico nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Responsável técnico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = ConsultoriaResponsavelTecnicoSerializer(item, data=request.data, partial=False)
         serializer.is_valid(raise_exception=True)
         item = serializer.save()
@@ -1872,7 +1927,7 @@ class ConsultoriaResponsavelTecnicoDetailView(APIView):
     def delete(self, request, tecnico_id):
         item = self._get_object(request, tecnico_id)
         if not item:
-            return Response({'detail': 'Responsavel tecnico nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Responsável técnico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1902,14 +1957,14 @@ class ConsultorDetailView(APIView):
     def get(self, request, consultor_id):
         consultor = self.get_object(consultor_id)
         if not consultor:
-            return Response({'detail': 'Consultor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Consultor não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = ConsultorSerializer(consultor)
         return Response(serializer.data)
 
     def put(self, request, consultor_id):
         consultor = self.get_object(consultor_id)
         if not consultor:
-            return Response({'detail': 'Consultor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Consultor não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ConsultorSerializer(consultor, data=request.data, partial=False)
         serializer.is_valid(raise_exception=True)
@@ -1920,7 +1975,7 @@ class ConsultorDetailView(APIView):
     def patch(self, request, consultor_id):
         consultor = self.get_object(consultor_id)
         if not consultor:
-            return Response({'detail': 'Consultor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Consultor não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ConsultorSerializer(consultor, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -1972,14 +2027,14 @@ class EmpresaDetailView(APIView):
     def get(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = EmpresaSerializer(empresa)
         return Response(serializer.data)
 
     def patch(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = EmpresaSerializer(empresa, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         empresa = serializer.save()
@@ -1988,7 +2043,7 @@ class EmpresaDetailView(APIView):
     def put(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = EmpresaSerializer(empresa, data=request.data, partial=False, context={'request': request})
         serializer.is_valid(raise_exception=True)
         empresa = serializer.save()
@@ -2005,7 +2060,7 @@ class EmpresaInativarView(APIView):
         empresa = queryset.first()
 
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
         empresa.is_active = False
         empresa.save(update_fields=['is_active', 'updated_at'])
@@ -2038,7 +2093,7 @@ class EmpresaCanalDenunciasLinkView(APIView):
     def get(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         token = self._ensure_token(empresa, regenerate=False)
         return Response({
             'empresa_id': empresa.id,
@@ -2050,7 +2105,7 @@ class EmpresaCanalDenunciasLinkView(APIView):
     def post(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         regenerate = bool(request.data.get('regenerate'))
         token = self._ensure_token(empresa, regenerate=regenerate)
         return Response({
@@ -2083,7 +2138,7 @@ class EmpresaTotemLinkView(APIView):
     def get(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         token = self._ensure_token(empresa, regenerate=False)
         return Response({
             'empresa_id': empresa.id,
@@ -2095,7 +2150,7 @@ class EmpresaTotemLinkView(APIView):
     def post(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
-            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         regenerate = bool(request.data.get('regenerate'))
         token = self._ensure_token(empresa, regenerate=regenerate)
         return Response({
@@ -2115,7 +2170,7 @@ class TotemPublicView(APIView):
     def get(self, request, token):
         empresa = Empresa.objects.filter(totem_token=token, is_active=True).first()
         if not empresa:
-            return Response({'detail': 'Totem nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Totem não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         ghes = list(Ghe.objects.filter(empresa=empresa, is_active=True).order_by('name').values('id', 'name'))
         cargos_qs = Cargo.objects.filter(empresa=empresa, is_active=True).prefetch_related('ghes').order_by('name')
         cargos = [
@@ -2171,7 +2226,7 @@ class CanalDenunciasPublicView(APIView):
     def get(self, request, token):
         empresa = self.get_empresa(token)
         if not empresa:
-            return Response({'detail': 'Canal de denuncias nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Canal de denúncias não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         ghes = list(Ghe.objects.filter(empresa=empresa, is_active=True).order_by('name').values('id', 'name'))
         cargos_qs = Cargo.objects.filter(empresa=empresa, is_active=True).prefetch_related('ghes').order_by('name')
         cargos = [
@@ -2191,7 +2246,7 @@ class CanalDenunciasPublicView(APIView):
     def post(self, request, token):
         empresa = self.get_empresa(token)
         if not empresa:
-            return Response({'detail': 'Canal de denuncias nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Canal de denúncias não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         file_obj = request.FILES.get('evidencia_arquivo')
         if file_obj and file_obj.size > 20 * 1024 * 1024:
@@ -2913,59 +2968,59 @@ class CampanhaPublicView(APIView):
                 'ghes': ghes,
                 'cargos': cargos_data,
                 'step2_questions': [
-                    'Diferentes setores/areas no trabalho exigem coisas de mim que sao dificeis de conciliar?',
-                    'Tenho prazos impossiveis de cumprir?',
-                    'Preciso trabalhar com muita intensidade?',
-                    'Preciso deixar algumas tarefas de lado porque tenho muitas demandas?',
-                    'Nao tenho possibilidade de fazer pausas suficientes?',
-                    'Sofro pressao para trabalhar longas horas?',
-                    'Preciso trabalhar muito rapido?',
-                    'Tenho pausas temporarias impossiveis de cumprir?',
+                    'As diferentes áreas do meu trabalho fazem exigências difíceis de conciliar entre si?',
+                    'Recebo prazos que considero impossíveis de cumprir?',
+                    'Meu trabalho exige que eu atue com nível muito alto de intensidade?',
+                    'Preciso abandonar ou adiar tarefas porque a quantidade de demandas é excessiva?',
+                    'Não consigo realizar pausas adequadas durante a jornada de trabalho?',
+                    'Sinto pressão para trabalhar por longos períodos ou fazer horas extras?',
+                    'Preciso executar minhas atividades em ritmo muito acelerado?',
+                    'As pausas previstas no trabalho são difíceis ou inviáveis de cumprir?',
                 ],
                 'step2_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step3_questions': [
-                    'Posso decidir quando fazer uma pausa?',
-                    'Tenho voz para decidir a velocidade do meu proprio trabalho?',
-                    'Tenho autonomia para decidir como faco meu trabalho?',
-                    'Tenho autonomia para decidir o que faco no trabalho?',
-                    'Tenho alguma influencia sobre a forma como realizo meu trabalho?',
-                    'Meu horario de trabalho pode ser flexivel?',
+                    'Tenho autonomia para escolher quando fazer uma pausa?',
+                    'Posso decidir o ritmo em que realizo meu trabalho?',
+                    'Tenho liberdade para definir como executo minhas atividades?',
+                    'Tenho autonomia para decidir quais tarefas realizo no trabalho?',
+                    'Possuo influência sobre a forma como desempenho minhas atividades?',
+                    'Meu horário de trabalho permite flexibilidade?',                
                 ],
                 'step3_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step4_questions': [
-                    'Recebo informacoes e suporte que me ajudam no trabalho que eu faco?',
-                    'Posso contar com meu supervisor direto para me ajudar com problemas no trabalho?',
-                    'Posso conversar com meu supervisor direto sobre algo que me incomoda no trabalho?',
-                    'Recebo apoio em trabalhos emocionalmente exigentes?',
-                    'Meu supervisor direto me incentiva no trabalho?',
+                    'Recebo informações e suporte adequados para desempenhar meu trabalho?',
+                    'Posso contar com meu supervisor direto quando enfrento dificuldades no trabalho?',
+                    'Consigo conversar com meu supervisor direto sobre situações que me incomodam no trabalho?',
+                    'Recebo apoio quando realizo atividades emocionalmente exigentes?',
+                    'Meu supervisor direto me oferece incentivo e encorajamento no trabalho?',
                 ],
                 'step4_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step5_questions': [
-                    'Se o trabalho ficar dificil, meus colegas podem me ajudar?',
-                    'Recebo o apoio de que preciso dos meus colegas?',
-                    'Recebo o respeito que mereco dos meus colegas?',
-                    'Meus colegas estao dispostos a ouvir meus problemas relacionados ao trabalho?',
+                    'Quando o trabalho se torna difícil, posso contar com a ajuda dos meus colegas?',
+                    'Recebo dos meus colegas o apoio necessário para realizar meu trabalho?',
+                    'Sou tratado com o respeito que mereço pelos meus colegas?',
+                    'Meus colegas estão dispostos a ouvir quando tenho problemas relacionados ao trabalho?',
                 ],
                 'step5_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step6_questions': [
-                    'Sou perseguido no trabalho?',
-                    'Ha atritos ou desentendimentos entre colegas?',
-                    'Falam ou se comportam comigo de forma dura?',
-                    'Os relacionamentos no trabalho estao desgastados?',
+                    'Sinto que sou alvo de perseguição no ambiente de trabalho?',
+                    'Existem conflitos ou desentendimentos frequentes entre colegas?',
+                    'Sou tratado ou abordado de forma rude ou excessivamente dura?',
+                    'Os relacionamentos no ambiente de trabalho estão desgastados?',
                 ],
                 'step6_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step7_questions': [
-                    'Eu entendo claramente o que e esperado de mim no trabalho?',
-                    'Sei como realizar meu trabalho?',
-                    'Sei claramente quais sao minhas funcoes e responsabilidades?',
+                    'Eu entendo claramente o que é esperado de mim no trabalho?',
+                    'Sei como realizar minhas atividades de forma adequada?',
+                    'Tenho clareza sobre minhas funções e responsabilidades?',
                     'Compreendo os objetivos e metas do meu departamento?',
-                    'Compreendo como o meu trabalho contribui para o objetivo geral da organizacao?',
+                    'Entendo como o meu trabalho contribui para os objetivos gerais da organização?',
                 ],
                 'step7_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step8_questions': [
-                    'Tenho oportunidades suficientes para questionar os gestores sobre mudancas no trabalho?',
-                    'Os funcionarios sao sempre consultados sobre mudancas no trabalho?',
-                    'Quando ha mudancas no trabalho, compreendo claramente como elas serao aplicadas na pratica?',
+                    'Tenho oportunidades suficientes para questionar os gestores sobre mudanças no trabalho?',
+                    'Os funcionários são consultados sobre mudanças que afetam o trabalho?',
+                    'Quando ocorrem mudanças no trabalho, compreendo claramente como elas serão aplicadas na prática?',
                 ],
                 'step8_options': ['NUNCA', 'RARAMENTE', 'AS_VEZES', 'FREQUENTEMENTE', 'SEMPRE'],
                 'step9_prompt': 'Se desejar, deixe um comentario adicional:',

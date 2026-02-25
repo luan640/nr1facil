@@ -98,6 +98,7 @@ const I = {
   rpt: <svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7zM15 3v5h4M10 12h6M10 16h6M10 8h2" /></svg>,
   link: <svg viewBox="0 0 24 24"><path d="M10 14l4-4M7 17a4 4 0 010-6l2-2a4 4 0 016 0M17 7a4 4 0 010 6l-2 2a4 4 0 01-6 0" /></svg>,
   copy: <svg viewBox="0 0 24 24"><path d="M9 9h10v12H9zM5 3h10v12" /></svg>,
+  x: <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>,
   edit: <svg viewBox="0 0 24 24"><path d="M4 20l4.5-1 9-9-3.5-3.5-9 9L4 20zM13.5 6.5l3.5 3.5M4 20h6" /></svg>,
   del: <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>,
   power: <svg viewBox="0 0 24 24"><path d="M12 3v8M7.8 5.8a9 9 0 101.4-1.1M16.2 4.7a9 9 0 011.4 1.1" /></svg>,
@@ -108,6 +109,227 @@ function LoadingSpinner({ label = "Carregando..." }) {
     <div className="loading-wrap" role="status" aria-live="polite">
       <span className="loading-spinner" aria-hidden="true" />
       <span>{label}</span>
+    </div>
+  );
+}
+
+function ReportDomainsRadar({ domains = [], fmtPct, fmtScore }) {
+  const items = (domains || []).map((d, idx) => ({
+    key: d?.key || `domain-${idx}`,
+    domain: String(d?.domain || d?.label || `Domínio ${idx + 1}`),
+    percent: Math.max(0, Math.min(100, Number(d?.percent || 0))),
+    avg_score: Number(d?.avg_score || 0),
+    zoneKey: String(d?.zone?.key || "red").toLowerCase(),
+  }));
+
+  if (!items.length) {
+    return <p className="empty-state">Nenhum domínio disponível.</p>;
+  }
+
+  const size = 530;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 138;
+  const labelRadius = radius + 32;
+  const levels = [20, 40, 60, 80, 100];
+  const zoneColor = (zoneKey) => {
+    if (zoneKey === "green") return "#22c55e";
+    if (zoneKey === "yellow") return "#f59e0b";
+    return "#ef4444";
+  };
+
+  const pointAt = (index, pct, rOffset = 0) => {
+    const angle = (-Math.PI / 2) + (2 * Math.PI * index) / items.length;
+    const r = ((Math.max(0, Math.min(100, pct)) / 100) * radius) + rOffset;
+    return {
+      x: cx + Math.cos(angle) * r,
+      y: cy + Math.sin(angle) * r,
+      angle,
+    };
+  };
+
+  const polygonPoints = (pct) => items.map((_, idx) => {
+    const p = pointAt(idx, pct);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+
+  const dataPolygonPoints = items.map((item, idx) => {
+    const p = pointAt(idx, item.percent);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+
+  return (
+    <div className="report-domain-radar-wrap">
+      <div className="report-domain-radar-canvas" aria-label="Radar de média por domínio">
+        <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-hidden="true">
+          <defs>
+            <linearGradient id="reportDomainRadarFill" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#2563eb" stopOpacity="0.14" />
+            </linearGradient>
+          </defs>
+
+          {levels.map((lvl) => (
+            <polygon
+              key={`ring-${lvl}`}
+              points={polygonPoints(lvl)}
+              fill="none"
+              stroke="#cbd5e1"
+              strokeWidth="1"
+              strokeDasharray={lvl === 100 ? undefined : "3 4"}
+            />
+          ))}
+
+          {items.map((_, idx) => {
+            const p = pointAt(idx, 100);
+            return <line key={`axis-${idx}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#cbd5e1" strokeWidth="1" />;
+          })}
+
+          <polygon points={dataPolygonPoints} fill="url(#reportDomainRadarFill)" stroke="#2563eb" strokeWidth="2" />
+
+          {items.map((item, idx) => {
+            const p = pointAt(idx, item.percent);
+            return (
+              <g key={`point-${item.key}`}>
+                <circle cx={p.x} cy={p.y} r="4.5" fill={zoneColor(item.zoneKey)} stroke="#fff" strokeWidth="1.5" />
+              </g>
+            );
+          })}
+
+          {levels.map((lvl) => (
+            <text
+              key={`tick-${lvl}`}
+              x={cx + 6}
+              y={cy - ((lvl / 100) * radius) + 4}
+              fontSize="12"
+              fontWeight="500"
+              fill="#6b7280"
+              stroke="none"
+            >
+              {lvl}%
+            </text>
+          ))}
+
+          {items.map((item, idx) => {
+            const p = pointAt(idx, 100, 24);
+            const anchor = p.x > cx + 8 ? "start" : (p.x < cx - 8 ? "end" : "middle");
+            const dy = p.y > cy + 6 ? 12 : (p.y < cy - 6 ? -6 : 4);
+            return (
+              <text
+                key={`label-${item.key}`}
+                x={p.x}
+                y={p.y + dy}
+                textAnchor={anchor}
+                fontSize="12"
+                fontWeight="500"
+                fill="#334155"
+                stroke="none"
+              >
+                {item.domain}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="report-domain-radar-legend">
+        {items.map((item) => (
+          <div key={`legend-${item.key}`} className="report-domain-radar-legend-item">
+            <span className={`report-domain-radar-dot ${item.zoneKey}`} aria-hidden="true" />
+            <span className="report-domain-radar-label">{item.domain}</span>
+            <span className="report-domain-values">{fmtPct(item.percent)} | {fmtScore(item.avg_score)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardSegmentsRadar({ domains = [], fmtPct }) {
+  const items = (domains || []).map((d, idx) => ({
+    key: d?.key || `seg-${idx}`,
+    label: String(d?.label || d?.domain || `Segmento ${idx + 1}`),
+    percent: Math.max(0, Math.min(100, Number(d?.percent || 0))),
+    zoneKey: String(d?.zone?.key || "red").toLowerCase(),
+  }));
+
+  if (!items.length) {
+    return <p className="empty-state">Sem dados suficientes.</p>;
+  }
+
+  const size = 760;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 305;
+  const levels = [20, 40, 60, 80, 100];
+  const zoneColor = (zoneKey) => {
+    if (zoneKey === "green") return "#22c55e";
+    if (zoneKey === "yellow") return "#f59e0b";
+    return "#ef4444";
+  };
+  const pointAt = (index, pct, extra = 0) => {
+    const angle = (-Math.PI / 2) + (2 * Math.PI * index) / items.length;
+    const r = ((Math.max(0, Math.min(100, pct)) / 100) * radius) + extra;
+    return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+  };
+  const polyPoints = (pct) => items.map((_, idx) => {
+    const p = pointAt(idx, pct);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+  const dataPoints = items.map((it, idx) => {
+    const p = pointAt(idx, it.percent);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+
+  return (
+    <div className="dash-radar-wrap">
+      <div className="dash-radar-canvas" aria-label="Radar de distribuição por segmento">
+        <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-hidden="true">
+          {levels.map((lvl) => (
+            <polygon
+              key={`dash-ring-${lvl}`}
+              points={polyPoints(lvl)}
+              fill="none"
+              stroke="#cbd5e1"
+              strokeWidth="1"
+              strokeDasharray={lvl === 100 ? undefined : "3 4"}
+            />
+          ))}
+          {items.map((_, idx) => {
+            const p = pointAt(idx, 100);
+            return <line key={`dash-axis-${idx}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#cbd5e1" strokeWidth="1" />;
+          })}
+          <polygon points={dataPoints} fill="none" stroke="#60a5fa" strokeWidth="2" />
+          {items.map((it, idx) => {
+            const p = pointAt(idx, it.percent);
+            return <circle key={`dash-point-${it.key}`} cx={p.x} cy={p.y} r="4.5" fill={zoneColor(it.zoneKey)} stroke="#fff" strokeWidth="1.5" />;
+          })}
+          {levels.map((lvl) => (
+            <text key={`dash-tick-${lvl}`} x={cx + 6} y={cy - ((lvl / 100) * radius) + 4} fontSize="10" fill="#6b7280" stroke="none">
+              {lvl}%
+            </text>
+          ))}
+          {items.map((it, idx) => {
+            const p = pointAt(idx, 100, 18);
+            const anchor = p.x > cx + 8 ? "start" : (p.x < cx - 8 ? "end" : "middle");
+            const dy = p.y > cy + 6 ? 12 : (p.y < cy - 6 ? -6 : 4);
+            return (
+              <text
+                key={`dash-label-${it.key}`}
+                x={p.x}
+                y={p.y + dy}
+                textAnchor={anchor}
+                fontSize="11"
+                fontWeight="500"
+                fill="#334155"
+                stroke="none"
+              >
+                {it.label}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
 }
@@ -409,12 +631,12 @@ export default function App() {
     return m;
   }, [user]);
   const currentPageTitle = useMemo(() => {
-    if (section === "campanhas-relatorio") return "Relatorio";
+    if (section === "campanhas-relatorio") return "Relatório";
     if (section === "comparar-campanhas") return "Comparar campanhas";
-    if (section === "canal-denuncias") return "Canal de denuncias";
-    if (section === "denuncias-empresa") return "Denuncias por empresa";
+    if (section === "canal-denuncias") return "Canal de denúncias";
+    if (section === "denuncias-empresa") return "Denúncias por empresa";
     if (section === "totem") return "Totem";
-    if (section === "configuracoes") return "Configuracoes";
+    if (section === "configuracoes") return "Configurações";
     if (section === "setor") return "Setor";
     if (section === "ghe") return "GHE";
     if (section === "cargos") return "Cargos";
@@ -530,11 +752,11 @@ export default function App() {
     const byNum = {
       2: "Demandas",
       3: "Controle",
-      4: "Apoio da Gestao",
+      4: "Apoio da Gestão",
       5: "Suporte dos Colegas",
       6: "Relacionamentos",
-      7: "Clareza de Papel | Funcao",
-      8: "Gerenciamento de Mudancas",
+      7: "Clareza de Papel | Função",
+      8: "Gerenciamento de Mudanças",
     };
     return byNum[num] || step?.label || `Bloco ${step?.step || ""}`.trim();
   }
@@ -555,14 +777,14 @@ export default function App() {
     const dir = cmpDirection(curr, prev);
     if (dir === "up") return "Melhorou";
     if (dir === "down") return "Piorou";
-    return "Estavel";
+    return "Estável";
   }
 
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      throw new Error("Nao foi possivel copiar o link.");
+      throw new Error("Não foi possível copiar o link.");
     }
   }
 
@@ -2010,7 +2232,7 @@ export default function App() {
     if (s === 1 && !eForm.document_type) return "Selecione CPF ou CNPJ.";
     if (s === 2 && !eForm.establishment_type) return "Selecione o tipo do estabelecimento.";
     if (s === 3) {
-      const req = [["company_name", "Nome da empresa"], ["document_number", eForm.document_type], ["responsible_name", "Nome do responsavel"], ["responsible_email", "E-mail do responsavel"], ["establishment_name", "Nome do estabelecimento"], ["evaluation_type", "Tipo de avaliacao"], ["risk_level", "Grau de risco"], ["employee_count", "Numero de funcionarios"], ["postal_code", "CEP"], ["state", "UF"], ["city", "Cidade"], ["neighborhood", "Bairro"], ["street", "Rua"], ["number", "Numero"]];
+      const req = [["company_name", "Nome da empresa"], ["document_number", eForm.document_type], ["responsible_name", "Nome do responsável"], ["responsible_email", "E-mail do responsavel"], ["establishment_name", "Nome do estabelecimento"], ["evaluation_type", "Tipo de avaliacao"], ["risk_level", "Grau de risco"], ["employee_count", "Numero de funcionarios"], ["postal_code", "CEP"], ["state", "UF"], ["city", "Cidade"], ["neighborhood", "Bairro"], ["street", "Rua"], ["number", "Numero"]];
       for (const [k, l] of req) if (!String(eForm[k] || "").trim()) return `Preencha: ${l}.`;
       if (eMode === "create" && !eForm.responsible_password.trim()) return "Senha do responsavel e obrigatoria.";
     }
@@ -2116,7 +2338,7 @@ export default function App() {
               <div className="dash-grid-panels">
                 <div className="dash-panel">
                   <div className="dash-panel-header">
-                    <h3>Distribuicao por Segmento</h3>
+                    <h3 className="dash-panel-title-strong">Distribuicao por Segmento</h3>
                   </div>
                   {domains.length === 0 ? (
                     <p className="empty-state">Sem dados suficientes.</p>
@@ -2137,8 +2359,8 @@ export default function App() {
 
                 <div className="dash-panel">
                   <div className="dash-panel-header">
-                    <h3>Historico de Avaliacoes</h3>
-                    <span className="subtitle">Ultimos 6 meses</span>
+                    <h3 className="dash-panel-title-strong">Histórico de Avaliações</h3>
+                    <span className="subtitle">Últimos 6 meses</span>
                   </div>
                   {histValues.length === 0 ? (
                     <p className="empty-state">Sem historico.</p>
@@ -2284,8 +2506,8 @@ export default function App() {
       <section className="admin-panel empresas-panel">
         <div className="empresas-hero">
           <div>
-            <h2>Empresas Cadastradas</h2>
-            <p>Gerencie todas as empresas do sistema</p>
+            {/* <h2>Empresas Cadastradas</h2>
+            <p>Gerencie todas as empresas do sistema</p> */}
           </div>
           <button onClick={openEmpresaCreate}>+ Nova Empresa</button>
         </div>
@@ -2440,11 +2662,11 @@ export default function App() {
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de Setor</h2>
+                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de Setor</h2> */}
                 <p className="text-sm font-medium text-slate-500">Gerencie os setores por empresa.</p>
               </div>
               <div className="w-full md:max-w-sm">
-                <label htmlFor="empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                {/* <label htmlFor="empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
                 <div className="relative w-full">
                   <input
                     id="empresa-search"
@@ -2591,11 +2813,11 @@ export default function App() {
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de GHE</h2>
+                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de GHE</h2> */}
                 <p className="text-sm font-medium text-slate-500">Gerencie os GHEs por empresa.</p>
               </div>
               <div className="w-full md:max-w-sm">
-                <label htmlFor="ghe-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                {/* <label htmlFor="ghe-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
                 <div className="relative w-full">
                   <input
                     id="ghe-empresa-search"
@@ -2742,11 +2964,11 @@ export default function App() {
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de Cargos</h2>
+                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Cadastro de Cargos</h2> */}
                 <p className="text-sm font-medium text-slate-500">Gerencie os cargos por empresa.</p>
               </div>
               <div className="w-full md:max-w-sm">
-                <label htmlFor="cargo-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                {/* <label htmlFor="cargo-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
                 <div className="relative w-full">
                   <input
                     id="cargo-empresa-search"
@@ -2928,15 +3150,18 @@ export default function App() {
               {title && <small>{title}</small>}
               <h3>{step.domain.toUpperCase()}</h3>
             </div>
+          </div>
+          <div className="report-subcard-summary">
+            <span className="report-subcard-summary-label">Media geral</span>
             <div className="report-step-summary">
               <div className="report-progress compact">
                 <span className={`report-progress-fill ${reportZoneClass(step.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(step.percent || 0)))}%` }} />
               </div>
-              <span>{fmtPct(step.percent)} | {fmtScore(step.avg_score)} / 5</span>
+              <span>{fmtPct(step.percent)} | {fmtScore(step.avg_score)} / 5 | {reportZoneLabel(step.zone)}</span>
             </div>
           </div>
           <p className="report-step-legend">
-            {step.response_count || 0} respostas | {step.orientation === "negative" ? "dominio com perguntas negativas" : "dominio com perguntas positivas"}
+            {step.response_count || 0} respostas | {step.orientation === "negative" ? "domínio com perguntas negativas" : "domínio com perguntas positivas"}
           </p>
           <div className="report-question-list">
             {(step.questions || []).map((q, idx) => (
@@ -2954,19 +3179,21 @@ export default function App() {
 
       return (
         <section className="admin-panel report-panel">
+          <button type="button" className="floating-back-button" onClick={() => goSection("campanhas")}>
+            Voltar para campanhas
+          </button>
           <button type="button" className="floating-pdf-button" onClick={exportCampanhaRelatorioPdf} disabled={campPdfLoading}>
             {campPdfLoading ? "Gerando PDF..." : "Exportar PDF"}
           </button>
-          <div className="report-header">
+          {/* <div className="report-header">
             <div>
-              <button className="secondary" type="button" onClick={() => goSection("campanhas")}>Voltar para campanhas</button>
               <h2>Relatorio da campanha</h2>
               <p>{rel?.campaign?.title || campRelCampanha?.title || "-"} | {rel?.empresa?.name || campRelCampanha?.empresa_name || "-"}</p>
             </div>
             <div className="report-header-meta">
               <span className="subtitle">Visao geral e por {String(filtros.ref_label || "Setor/GHE").toLowerCase()}</span>
             </div>
-          </div>
+          </div> */}
 
           {campRelLoad && <LoadingSpinner label="Carregando relatorio..." />}
           {campRelErr && <p className="error">{campRelErr}</p>}
@@ -2974,16 +3201,16 @@ export default function App() {
 
           {!campRelLoad && rel && (
             <>
-              <div className="report-card report-section-title">
+              {/* <div className="report-card report-section-title">
                 <div>
                   <h2>Resultados Gerais</h2>
-                  <p className="subtitle">Total concluido na campanha: {rel?.summary?.total_completed_all_filters || 0}</p>
+                  <p className="subtitle">Total de respostas concluidas na campanha: {rel?.summary?.total_completed_all_filters || 0}</p>
                 </div>
-              </div>
+              </div> */}
 
               <div className="report-summary-grid">
                 <article className="report-summary-card">
-                  <p className="report-summary-label">Media geral</p>
+                  <p className="report-summary-label">Média geral</p>
                   <strong className={`report-score ${reportZoneClass(overallSummary.company_zone)}`}>{fmtPct(overallSummary.company_mean_percent)}</strong>
                   <span className={`report-zone ${reportZoneClass(overallSummary.company_zone)}`}>{fmtScore(overallSummary.company_mean_score)} de 5 | {reportZoneLabel(overallSummary.company_zone)}</span>
                 </article>
@@ -2997,23 +3224,13 @@ export default function App() {
 
               <div className="report-card">
                 <div className="admin-header report-card-header">
-                  <h2>Media por dominio (percentual | score 1-5)</h2>
+                  <h2>Média por domínio (percentual | score 1-5)</h2>
                 </div>
-                <div className="report-domain-list">
-                  {overallDomains.map((d) => (
-                    <div key={`overall-domain-${d.key}`} className="report-domain-row">
-                      <div className="report-domain-name">{d.domain}</div>
-                      <div className="report-progress">
-                        <span className={`report-progress-fill ${reportZoneClass(d.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(d.percent || 0)))}%` }} />
-                      </div>
-                      <div className="report-domain-values">{fmtPct(d.percent)} | {fmtScore(d.avg_score)}</div>
-                    </div>
-                  ))}
-                </div>
+                <ReportDomainsRadar domains={overallDomains} fmtPct={fmtPct} fmtScore={fmtScore} />
                 <div className="report-zones">
-                  <div className="report-zone-box red"><strong>Zona Vermelha (0% a 39,9%)</strong><span>Risco elevado: acao corretiva imediata</span></div>
-                  <div className="report-zone-box yellow"><strong>Zona Amarela (40% a 74,9%)</strong><span>Atencao: possivel risco psicossocial</span></div>
-                  <div className="report-zone-box green"><strong>Zona Verde (75% a 100%)</strong><span>Boa percepcao e manutencao recomendada</span></div>
+                  <div className="report-zone-box red"><strong>Zona Vermelha (0% a 39,9%)</strong><span>Risco elevado: ação corretiva imediata</span></div>
+                  <div className="report-zone-box yellow"><strong>Zona Amarela (40% a 74,9%)</strong><span>Atenção: possível risco psicossocial</span></div>
+                  <div className="report-zone-box green"><strong>Zona Verde (75% a 100%)</strong><span>Boa percepção e manutenção recomendada</span></div>
                 </div>
               </div>
 
@@ -3023,7 +3240,7 @@ export default function App() {
                   .filter((x) => x.step);
                 return (
                   <div key={`step-group-${step.key}`} className="report-step-group">
-                    {renderStepAnalysis(step, "overall", `Step ${step.step} | Analise Geral`)}
+                    {renderStepAnalysis(step, "overall", "Analise Geral")}
                     {refsForStep.length > 0 && (
                       <div className="report-step-subresults">
                         <h4>Resultado por {filtros.ref_label || "Setor/GHE"}</h4>
@@ -3031,7 +3248,20 @@ export default function App() {
                           <div key={`ref-step-${item.ref?.id}-${step.key}`} className="report-subcard">
                             <div className="report-subcard-header">
                               <strong>{item.ref?.name || "-"}</strong>
-                              <span>{fmtPct(refStep.percent)} | {fmtScore(refStep.avg_score)} / 5 | {reportZoneLabel(refStep.zone)}</span>
+                            </div>
+                            <div className="report-subcard-summary">
+                              <span className="report-subcard-summary-label">
+                                Média por {String(filtros.ref_label || "Setor/GHE").toLowerCase()}
+                              </span>
+                              <div className="report-step-summary">
+                                <div className="report-progress compact">
+                                  <span
+                                    className={`report-progress-fill ${reportZoneClass(refStep.zone)}`}
+                                    style={{ width: `${Math.max(0, Math.min(100, Number(refStep.percent || 0)))}%` }}
+                                  />
+                                </div>
+                                <span>{fmtPct(refStep.percent)} | {fmtScore(refStep.avg_score)} / 5 | {reportZoneLabel(refStep.zone)}</span>
+                              </div>
                             </div>
                             <div className="report-question-list">
                               {(refStep.questions || []).map((q, idx) => (
@@ -3054,11 +3284,11 @@ export default function App() {
 
               <div className="report-card">
                 <div className="admin-header report-card-header">
-                  <h2>Step 9 - Comentarios (Geral)</h2>
-                  <span className="subtitle">{overallComments.length} comentarios exibidos</span>
+                  <h2>Comentários (Geral)</h2>
+                  <span className="subtitle">{overallComments.length} comentários exibidos</span>
                 </div>
                 {overallComments.length === 0 ? (
-                  <p className="empty-state">Nenhum comentario informado.</p>
+                  <p className="empty-state">Nenhum comentário informado.</p>
                 ) : (
                   <div className="report-comments">
                     {overallComments.map((c) => (
@@ -3081,9 +3311,9 @@ export default function App() {
                 </div>
                 <div className="conclusion-intro">
                   <ul>
-                    <li>Priorizar dominios com risco elevado.</li>
+                    <li>Priorizar os domínios que apresentem maior nível de risco.</li>
                     <li className="conclusion-review-line">
-                      <span>Reavaliar periodicamente: daqui</span>
+                      <span>Realizar nova avaliação em até</span>
                       <input
                         type="number"
                         min="1"
@@ -3092,14 +3322,18 @@ export default function App() {
                         onChange={(e) => setCampReviewMonths(e.target.value)}
                       />
                       <span>meses.</span>
-                      <button type="button" className="secondary" disabled={campReviewSaving} onClick={saveCampanhaReviewMonths}>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={campReviewSaving}
+                        onClick={saveCampanhaReviewMonths}
+                      >
                         {campReviewSaving ? "Salvando..." : "Salvar"}
                       </button>
                     </li>
-                    <li>Promover treinamentos sobre saude mental e fatores psicossociais.</li>
-                    <li>Caso necessario, realizar AET aprofundada conforme NR-17.</li>
-                  </ul>
-                  <p>Plano de Acao Recomendado</p>
+                    <li>Implementar ações de capacitação sobre saúde mental e fatores psicossociais.</li>
+                    <li>Quando aplicável, conduzir Análise Ergonômica do Trabalho (AET) detalhada, conforme a NR-17.</li>                  </ul>
+                  <p>Plano de Ação Recomendado</p>
                 </div>
                 {campMeasureErr && <p className="error">{campMeasureErr}</p>}
                 {lowScoreByStep.length === 0 ? (
@@ -3227,7 +3461,7 @@ export default function App() {
                                     <div className="conclusion-add-actions">
                                       <button type="button" className="secondary" onClick={() => toggleMeasureWhen(item, effectiveWhenMonths)}>Cancelar</button>
                                       <button type="button" disabled={campWhenSavingKey === key} onClick={() => savePreliminaryWhen(item)}>
-                                        {campWhenSavingKey === key ? "Salvando..." : "Salvar quando"}
+                                        {campWhenSavingKey === key ? "Salvando..." : "Salvar"}
                                       </button>
                                     </div>
                                   </div>
@@ -3242,9 +3476,24 @@ export default function App() {
                                         maxLength={500}
                                       />
                                       <div className="conclusion-add-actions">
-                                        <button type="button" className="secondary" onClick={() => closeMeasureDraft(item)}>Cancelar</button>
-                                        <button type="button" disabled={campMeasureSavingKey === key} onClick={() => addPreliminaryMeasure(item)}>
-                                          {campMeasureSavingKey === key ? "Salvando..." : "Salvar medida"}
+                                        <button
+                                          type="button"
+                                          className="campanha-icon-btn"
+                                          title="Cancelar"
+                                          aria-label="Cancelar"
+                                          onClick={() => closeMeasureDraft(item)}
+                                        >
+                                          {I.x}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="campanha-icon-btn danger"
+                                          title={campMeasureSavingKey === key ? "Salvando..." : "Salvar medida"}
+                                          aria-label={campMeasureSavingKey === key ? "Salvando medida" : "Salvar medida"}
+                                          disabled={campMeasureSavingKey === key}
+                                          onClick={() => addPreliminaryMeasure(item)}
+                                        >
+                                          {I.del}
                                         </button>
                                       </div>
                                     </div>
@@ -3520,10 +3769,12 @@ export default function App() {
       const rightStepByKey = Object.fromEntries((rightSteps || []).map((s) => [s.key, s]));
       return (
         <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Comparar Campanhas</h2>
-              <p>Selecione campanhas para comparar resultados e indicadores.</p>
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Comparar Campanhas</h2> */}
+                <p className="text-sm font-medium text-slate-500">Selecione campanhas para comparar resultados e indicadores.</p>
+              </div>
             </div>
           </div>
           <section className="config-card">
@@ -3591,7 +3842,7 @@ export default function App() {
           {cmpSubmitted && campanhaA && campanhaB && cmpResult && (
             <section className="config-card">
               <div className="config-card-header">
-                <h2>Comparacao selecionada</h2>
+                <h2>Comparação selecionada</h2>
                 <p>Setas mostram o que melhorou (↑) ou piorou (↓) da Campanha 1 para a Campanha 2.</p>
               </div>
               <div className="compare-summary-grid">
@@ -3628,12 +3879,12 @@ export default function App() {
                       <th>Indicador</th>
                       <th>{campanhaA.title}</th>
                       <th>{campanhaB.title}</th>
-                      <th>Variacao</th>
+                      <th>Variação</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Media geral (0-5)</td>
+                      <td>Média geral (0-5)</td>
                       <td>{fmtScore(leftOverall.company_mean_score)}</td>
                       <td>{fmtScore(rightOverall.company_mean_score)}</td>
                       <td className={`compare-delta ${cmpDirection(rightOverall.company_mean_score, leftOverall.company_mean_score)}`}>
@@ -3649,7 +3900,7 @@ export default function App() {
                       </td>
                     </tr>
                     <tr>
-                      <td>Avaliacoes concluidas</td>
+                      <td>Avaliações concluidas</td>
                       <td>{Number(leftOverall.completed_responses || 0)}</td>
                       <td>{Number(rightOverall.completed_responses || 0)}</td>
                       <td className={`compare-delta ${cmpDirection(rightOverall.completed_responses, leftOverall.completed_responses)}`}>
@@ -3706,7 +3957,7 @@ export default function App() {
                         <div>
                           <h3>{questionarioBlockName(step)}</h3>
                           <p>
-                            Bloco do questionario • {cmpStatusText(otherStep.avg_score, step.avg_score)} no resultado do bloco
+                            {cmpStatusText(otherStep.avg_score, step.avg_score)} no resultado
                           </p>
                         </div>
                         <div className={`compare-step-summary ${cmpDirection(otherStep.avg_score, step.avg_score)}`}>
@@ -3754,7 +4005,7 @@ export default function App() {
 
                       {stable.length > 0 && (
                         <details className="compare-step-stable">
-                          <summary>Estaveis ({stable.length})</summary>
+                          <summary>Estáveis ({stable.length})</summary>
                           <ul>
                             {stable.map((item) => (
                               <li key={`stb-${step.key}-${item.field}`}>
@@ -3785,10 +4036,12 @@ export default function App() {
       ).slice(0, 8);
       return (
         <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Canal de Denuncias</h2>
-              <p>Gere um link unico para a empresa compartilhar com os colaboradores.</p>
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Canal de Denuncias</h2> */}
+                <p className="text-sm font-medium text-slate-500">Gere um link unico para a empresa compartilhar com os colaboradores.</p>
+              </div>
             </div>
           </div>
 
@@ -3883,19 +4136,20 @@ export default function App() {
         : denuncias.filter((d) => String(d.status || "") === denListStatusFiltro);
       return (
         <section className="admin-panel">
-          <div className="setor-hero">
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2>Denuncias por Empresa</h2>
-              <p>Visualize as denuncias recebidas no canal por empresa.</p>
+              {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Denuncias por Empresa</h2> */}
+              <p className="text-sm font-medium text-slate-500">Visualize as denuncias recebidas no canal por empresa.</p>
             </div>
-            <div className="setor-hero-right">
-              <label htmlFor="den-list-empresa-search">Empresa</label>
+            <div className="w-full md:max-w-sm">
+              {/* <label htmlFor="den-list-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
               <div className="relative w-full">
                 <input
                   id="den-list-empresa-search"
                   placeholder="Buscar empresa..."
                   autoComplete="off"
-                  className="w-full"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                   value={denListEmpresaBusca}
                   onFocus={() => setDenListEmpresaMenuOpen(true)}
                   onBlur={() => setTimeout(() => setDenListEmpresaMenuOpen(false), 120)}
@@ -3923,11 +4177,12 @@ export default function App() {
                 )}
               </div>
             </div>
+            </div>
           </div>
 
           <div className="admin-header">
             <h2>Lista de denuncias</h2>
-            <button type="button" onClick={loadDenunciasEmpresa} disabled={!denListEmpresaFiltro || denListLoad}>
+            <button type="button" className="denuncias-load-btn" onClick={loadDenunciasEmpresa} disabled={!denListEmpresaFiltro || denListLoad}>
               {denListLoad ? "Carregando..." : "Carregar denuncias"}
             </button>
           </div>
@@ -4998,27 +5253,27 @@ export default function App() {
                 <div><label>Nome da empresa</label><input value={eForm.company_name} onChange={(e) => eChange("company_name", e.target.value)} /></div>
                 <div><label>CNAE</label><input value={eForm.cnae} onChange={(e) => eChange("cnae", e.target.value)} placeholder="Ex.: 47.11-3-02" /></div>
                 <div><label>{eForm.document_type}</label><input value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
-                <div><label>Nome do responsavel</label><input value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
-                <div><label>E-mail do responsavel</label><input type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
-                <div><label>Senha do responsavel {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div>
+                <div><label>Nome do responsável</label><input value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
+                <div><label>E-mail do responsável</label><input type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
+                <div><label>Senha do responsável {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div>
                 <div><label>Nome do estabelecimento</label><input value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
-                <div><label>Tipo de avaliacao</label><select value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
+                <div><label>Tipo de avaliação</label><select value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
                 <div><label>Grau de risco</label><select value={eForm.risk_level} onChange={(e) => eChange("risk_level", e.target.value)}><option value="">Selecione</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-                <div><label>Numero de funcionarios</label><input type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
+                <div><label>Número de funcionários</label><input type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
                 <div><label>CEP</label><input value={eForm.postal_code} onChange={(e) => eChange("postal_code", e.target.value)} /></div>
                 <div><label>UF</label><input maxLength={2} value={eForm.state} onChange={(e) => eChange("state", e.target.value.toUpperCase())} /></div>
                 <div><label>Cidade</label><input value={eForm.city} onChange={(e) => eChange("city", e.target.value)} /></div>
                 <div><label>Bairro</label><input value={eForm.neighborhood} onChange={(e) => eChange("neighborhood", e.target.value)} /></div>
                 <div><label>Rua</label><input value={eForm.street} onChange={(e) => eChange("street", e.target.value)} /></div>
-                <div><label>Numero</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
+                <div><label>Número</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
                 <div><label>Complemento</label><input value={eForm.complement} onChange={(e) => eChange("complement", e.target.value)} /></div>
               </div>}
 
               {eErr && <p className="error">{eErr}</p>}
               <div className="modal-actions">
-                <button type="button" className="secondary" onClick={closeEmpresa}>Cancelar</button>
+                {/* <button type="button" className="secondary" onClick={closeEmpresa}>Cancelar</button> */}
                 {eStep > 1 && <button type="button" className="secondary" onClick={prevStep}>Voltar</button>}
-                {eStep < 3 ? <button type="button" onClick={nextStep}>Proximo</button> : <button type="submit" disabled={eSaving}>{eSaving ? "Salvando..." : eMode === "create" ? "Criar empresa" : "Salvar"}</button>}
+                {eStep < 3 ? <button type="button" onClick={nextStep}>Próximo</button> : <button type="submit" disabled={eSaving}>{eSaving ? "Salvando..." : eMode === "create" ? "Criar empresa" : "Salvar"}</button>}
               </div>
             </form>
           </div>
