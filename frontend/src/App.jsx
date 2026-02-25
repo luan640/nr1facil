@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 const TOKEN_KEY = "nr01_token";
@@ -366,6 +366,8 @@ export default function App() {
   const [cfgLogoFile, setCfgLogoFile] = useState(null);
   const [cfgTecs, setCfgTecs] = useState([]), [cfgTecErr, setCfgTecErr] = useState(""), [cfgTecSaving, setCfgTecSaving] = useState(false);
   const [cfgTecForm, setCfgTecForm] = useState({ id: null, nome: "", formacao: "", registro: "" });
+  const [cfgTecModalOpen, setCfgTecModalOpen] = useState(false);
+  const [cfgTecDeleteModal, setCfgTecDeleteModal] = useState({ item: null, saving: false, err: "" });
 
   const [consultores, setConsultores] = useState([]), [consErr, setConsErr] = useState(""), [consLoad, setConsLoad] = useState(false);
   const [cModal, setCModal] = useState({ type: "", item: null }), [cEmail, setCEmail] = useState(""), [cPass, setCPass] = useState(""), [cActive, setCActive] = useState(true), [cErr, setCErr] = useState(""), [cSaving, setCSaving] = useState(false);
@@ -378,7 +380,7 @@ export default function App() {
   const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
   const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1), [setorEmpresaMenuOpen, setSetorEmpresaMenuOpen] = useState(false);
   const [ghes, setGhes] = useState([]), [gheErr, setGheErr] = useState(""), [gheLoad, setGheLoad] = useState(false);
-  const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
+  const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gSetores, setGSetores] = useState([]), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
   const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false);
   const [cargos, setCargos] = useState([]), [cargoErr, setCargoErr] = useState(""), [cargoLoad, setCargoLoad] = useState(false);
   const [cgModal, setCgModal] = useState({ type: "", item: null }), [cgEmpresa, setCgEmpresa] = useState(""), [cgNome, setCgNome] = useState(""), [cgDesc, setCgDesc] = useState(""), [cgAtivo, setCgAtivo] = useState(true), [cgSetores, setCgSetores] = useState([]), [cgGhes, setCgGhes] = useState([]), [cgErr, setCgErr] = useState(""), [cgSaving, setCgSaving] = useState(false);
@@ -436,6 +438,11 @@ export default function App() {
     if (method === "PATCH" || method === "PUT") return "Atualizado com sucesso";
     if (method === "DELETE") return "Excluído com sucesso";
     return "Operação concluída";
+  }
+
+  function isPublicQuestionarioStepMutation(url, method) {
+    if (!["POST", "PATCH", "PUT"].includes(method)) return false;
+    return /\/api\/campanhas\/public\/[^/]+\/step\d+\/?$/i.test(String(url || ""));
   }
 
   function parseToastMessageFromBody(body) {
@@ -524,7 +531,11 @@ export default function App() {
           } catch { }
           pushToast(res.status >= 500 ? "error" : "warning", res.status >= 500 ? "Erro" : "Atenção", message || `Falha na requisicao (${res.status}).`);
         } else if (res.ok && isMutation && isApiRequest) {
-          pushToast("success", toastTitleForMethod(method));
+          if (isPublicQuestionarioStepMutation(url, method)) {
+            pushToast("success", "Informação salva!");
+          } else {
+            pushToast("success", toastTitleForMethod(method));
+          }
         }
         return res;
       } catch (err) {
@@ -542,7 +553,7 @@ export default function App() {
   }, [user]);
   useEffect(() => { if (user && canEmp(user) && section === "empresas") loadEmpresas(); }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "setor") { loadEmpresas(); loadSetores(); } }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "ghe") { loadEmpresas(); loadGhes(); } }, [user, section]);
+  useEffect(() => { if (user && canEmp(user) && section === "ghe") { loadEmpresas(); loadSetores(); loadGhes(); } }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "cargos") { loadEmpresas(); loadSetores(); loadGhes(); loadCargos(); } }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "comparar-campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section]);
@@ -571,6 +582,16 @@ export default function App() {
       .catch((err) => setPubErr(err.message))
       .finally(() => setPubLoad(false));
   }, [isPublicQuestionario, publicToken]);
+
+  useEffect(() => {
+    if (!isPublicQuestionario) return;
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isPublicQuestionario]);
 
   useEffect(() => {
     if (!isPublicCanalDenuncias) return;
@@ -626,8 +647,8 @@ export default function App() {
     if (user && canEmp(user)) m.push({ key: "empresas", label: "Empresas", icon: I.emp });
     if (user && canEmp(user)) m.push({ key: "campanhas", label: "Campanhas", icon: I.camp });
     if (user && canEmp(user)) m.push({ key: "comparar-campanhas", label: "Comparar campanhas", icon: I.cmp });
-    if (user && canEmp(user)) m.push({ key: "canal-denuncias", label: "Canal de denuncias", icon: I.link });
-    if (user && canEmp(user)) m.push({ key: "denuncias-empresa", label: "Ver denuncias", icon: I.rpt });
+    if (user && canEmp(user)) m.push({ key: "canal-denuncias", label: "Canal de denúncias", icon: I.link });
+    if (user && canEmp(user)) m.push({ key: "denuncias-empresa", label: "Ver denúncias", icon: I.rpt });
     return m;
   }, [user]);
   const currentPageTitle = useMemo(() => {
@@ -783,6 +804,7 @@ export default function App() {
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
+      pushToast("success", "Sucesso", "Link copiado com sucesso");
     } catch {
       throw new Error("Não foi possível copiar o link.");
     }
@@ -953,14 +975,16 @@ export default function App() {
     if (!token) return;
     setCfgLoad(true); setCfgErr(""); setCfgTecErr("");
     try {
-      const [cfgResp, tecResp] = await Promise.all([
-        fetch(`${API}/consultoria-configuracao/`, { headers: { Authorization: `Token ${token}` } }),
-        fetch(`${API}/consultoria-configuracao/responsaveis-tecnicos/`, { headers: { Authorization: `Token ${token}` } }),
-      ]);
+      // Evita concorrencia de dois get_or_create simultaneos na mesma configuracao
+      // (pode travar/lockar em bancos locais como SQLite).
+      const cfgResp = await fetch(`${API}/consultoria-configuracao/`, { headers: { Authorization: `Token ${token}` } });
       const cfgJson = await cfgResp.json();
-      const tecJson = await tecResp.json();
       if (!cfgResp.ok) throw new Error(pErr(cfgJson));
+
+      const tecResp = await fetch(`${API}/consultoria-configuracao/responsaveis-tecnicos/`, { headers: { Authorization: `Token ${token}` } });
+      const tecJson = await tecResp.json();
       if (!tecResp.ok) throw new Error(pErr(tecJson));
+
       setCfgData(cfgJson);
       setCfgForm({
         cnpj: cfgJson.cnpj || "",
@@ -1019,9 +1043,25 @@ export default function App() {
     setCfgTecForm({ id: null, nome: "", formacao: "", registro: "" });
   }
 
-  function editCfgTecnico(item) {
+  function openCfgTecnicoModal(item = null) {
     setCfgTecErr("");
-    setCfgTecForm({ id: item.id, nome: item.nome || "", formacao: item.formacao || "", registro: item.registro || "" });
+    if (item) {
+      setCfgTecForm({ id: item.id, nome: item.nome || "", formacao: item.formacao || "", registro: item.registro || "" });
+    } else {
+      resetCfgTecForm();
+    }
+    setCfgTecModalOpen(true);
+  }
+
+  function closeCfgTecnicoModal() {
+    setCfgTecModalOpen(false);
+    setCfgTecErr("");
+    setCfgTecSaving(false);
+    resetCfgTecForm();
+  }
+
+  function editCfgTecnico(item) {
+    openCfgTecnicoModal(item);
   }
 
   async function saveCfgTecnico(e) {
@@ -1040,7 +1080,7 @@ export default function App() {
         if (!isEdit) return [...prev, d];
         return prev.map((x) => (x.id === d.id ? d : x));
       });
-      resetCfgTecForm();
+      closeCfgTecnicoModal();
     } catch (err) {
       setCfgTecErr(err.message);
     } finally {
@@ -1061,9 +1101,29 @@ export default function App() {
         throw new Error(pErr(d));
       }
       setCfgTecs((prev) => prev.filter((x) => x.id !== id));
-      if (cfgTecForm.id === id) resetCfgTecForm();
+      if (cfgTecForm.id === id) closeCfgTecnicoModal();
     } catch (err) {
       setCfgTecErr(err.message);
+      throw err;
+    }
+  }
+
+  function openDeleteCfgTecnicoConfirm(item) {
+    setCfgTecDeleteModal({ item, saving: false, err: "" });
+  }
+
+  function closeDeleteCfgTecnicoConfirm() {
+    setCfgTecDeleteModal({ item: null, saving: false, err: "" });
+  }
+
+  async function confirmDeleteCfgTecnico() {
+    if (!cfgTecDeleteModal.item) return;
+    setCfgTecDeleteModal((prev) => ({ ...prev, saving: true, err: "" }));
+    try {
+      await deleteCfgTecnico(cfgTecDeleteModal.item.id);
+      closeDeleteCfgTecnicoConfirm();
+    } catch (err) {
+      setCfgTecDeleteModal((prev) => ({ ...prev, saving: false, err: err.message || "Nao foi possivel excluir tecnico." }));
     }
   }
 
@@ -1287,7 +1347,7 @@ export default function App() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(pErr(d));
-      setPubOk("Questionario enviado com sucesso.");
+      setPubOk("Questionário enviado com sucesso.");
       setPubStep(10);
     } catch (err) {
       setPubErr(err.message);
@@ -1477,8 +1537,9 @@ export default function App() {
     setGNome(item?.name || "");
     setGDesc(item?.description || "");
     setGAtivo(item?.is_active ?? true);
+    setGSetores((item?.setores_data || []).map((s) => s.id));
   }
-  function closeGhe() { setGModal({ type: "", item: null }); setGErr(""); setGSaving(false); }
+  function closeGhe() { setGModal({ type: "", item: null }); setGErr(""); setGSaving(false); setGSetores([]); }
 
   async function saveGhe(e) {
     e.preventDefault(); setGSaving(true); setGErr("");
@@ -1486,7 +1547,7 @@ export default function App() {
       if (!gEmpresa) throw new Error("Selecione a empresa.");
       if (!gNome.trim()) throw new Error("Informe o nome do GHE.");
       const isEdit = gModal.type === "edit" && gModal.item;
-      const payload = { empresa_id: Number(gEmpresa), name: gNome.trim(), description: gDesc, is_active: gAtivo };
+      const payload = { empresa_id: Number(gEmpresa), name: gNome.trim(), description: gDesc, is_active: gAtivo, setor_ids: gSetores };
       const r = await fetch(isEdit ? `${API}/ghes/${gModal.item.id}/` : `${API}/ghes/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setGhes((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]);
@@ -1526,6 +1587,10 @@ export default function App() {
     setGheEmpresaFiltro(String(emp.id));
     setGhePage(1);
     setGheEmpresaMenuOpen(false);
+  }
+
+  function toggleGheSetor(id) {
+    setGSetores((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }
 
   async function loadCargos() {
@@ -2338,7 +2403,7 @@ export default function App() {
               <div className="dash-grid-panels">
                 <div className="dash-panel">
                   <div className="dash-panel-header">
-                    <h3 className="dash-panel-title-strong">Distribuicao por Segmento</h3>
+                    <h3 className="dash-panel-title-strong">Distribuição por Segmento</h3>
                   </div>
                   {domains.length === 0 ? (
                     <p className="empty-state">Sem dados suficientes.</p>
@@ -2397,9 +2462,9 @@ export default function App() {
           <section className="config-card">
             <div className="config-card-header">
               <h2>Dados cadastrais</h2>
-              <p>Informacoes da consultoria para uso interno e no relatorio.</p>
+              <p>Informações da consultoria para uso interno e no relatório.</p>
             </div>
-            {cfgLoad && <LoadingSpinner label="Carregando configuracoes..." />}
+            {cfgLoad && <LoadingSpinner label="Carregando configurações..." />}
             {!cfgLoad && (
               <form onSubmit={saveConsultoriaConfig} className="config-form-grid">
                 <div>
@@ -2411,11 +2476,11 @@ export default function App() {
                   <input value={cfgForm.nome_consultoria} onChange={(e) => setCfgForm((p) => ({ ...p, nome_consultoria: e.target.value }))} />
                 </div>
                 <div>
-                  <label>Responsavel legal</label>
+                  <label>Responsável legal</label>
                   <input value={cfgForm.responsavel_legal} onChange={(e) => setCfgForm((p) => ({ ...p, responsavel_legal: e.target.value }))} />
                 </div>
                 <div>
-                  <label>Representante legal (relatorio/PDF)</label>
+                  <label>Representante legal (relatório/PDF)</label>
                   <input value={cfgForm.representante_legal_relatorio} onChange={(e) => setCfgForm((p) => ({ ...p, representante_legal_relatorio: e.target.value }))} />
                 </div>
                 <div>
@@ -2453,30 +2518,22 @@ export default function App() {
           </section>
 
           <section className="config-card">
-            <div className="config-card-header">
-              <h2>Sessao de relatorio</h2>
-              <p>Responsaveis tecnicos (nome, formacao e registro) e assinatura do representante legal.</p>
-            </div>
-
-            <form onSubmit={saveCfgTecnico} className="config-tech-form">
-              <div><label>Nome</label><input value={cfgTecForm.nome} onChange={(e) => setCfgTecForm((p) => ({ ...p, nome: e.target.value }))} required /></div>
-              <div><label>Formacao</label><input value={cfgTecForm.formacao} onChange={(e) => setCfgTecForm((p) => ({ ...p, formacao: e.target.value }))} required /></div>
-              <div><label>Registro</label><input value={cfgTecForm.registro} onChange={(e) => setCfgTecForm((p) => ({ ...p, registro: e.target.value }))} required /></div>
-              <div className="config-tech-actions">
-                {cfgTecForm.id && <button type="button" className="secondary" onClick={resetCfgTecForm}>Cancelar edicao</button>}
-                <button type="submit" disabled={cfgTecSaving}>{cfgTecSaving ? "Salvando..." : cfgTecForm.id ? "Salvar tecnico" : "Adicionar tecnico"}</button>
+            <div className="config-card-header config-card-header-split">
+              <div>
+                <h2>Responsáveis técnicos</h2>
+                <p>Configure nome, formação, registro e assinatura do representante legal.</p>
               </div>
-            </form>
-            {cfgTecErr && <p className="error">{cfgTecErr}</p>}
+              <button type="button" className="config-card-header-action-btn" onClick={() => openCfgTecnicoModal()}>Adicionar responsável</button>
+            </div>
 
             <div className="table-wrap config-table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>Nome</th>
-                    <th>Formacao</th>
+                    <th>Formação</th>
                     <th>Registro</th>
-                    <th>Acoes</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2490,7 +2547,7 @@ export default function App() {
                         <td>{t.registro}</td>
                         <td className="actions">
                           <button type="button" onClick={() => editCfgTecnico(t)}>Editar</button>
-                          <button type="button" className="danger" onClick={() => deleteCfgTecnico(t.id)}>Excluir</button>
+                          <button type="button" className="danger" onClick={() => openDeleteCfgTecnicoConfirm(t)}>Excluir</button>
                         </td>
                       </tr>
                     ))
@@ -2499,6 +2556,43 @@ export default function App() {
               </table>
             </div>
           </section>
+
+          {cfgTecDeleteModal.item && (
+            <div className="modal-backdrop">
+              <div className="modal-card">
+                <h3>Excluir responsável técnico</h3>
+                <p>Deseja realmente excluir {cfgTecDeleteModal.item.nome}?</p>
+                {cfgTecDeleteModal.err && <p className="error">{cfgTecDeleteModal.err}</p>}
+                <div className="modal-actions">
+                  <button type="button" className="secondary" onClick={closeDeleteCfgTecnicoConfirm} disabled={cfgTecDeleteModal.saving}>Cancelar</button>
+                  <button type="button" className="danger" onClick={confirmDeleteCfgTecnico} disabled={cfgTecDeleteModal.saving}>
+                    {cfgTecDeleteModal.saving ? "Excluindo..." : "Confirmar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {cfgTecModalOpen && (
+            <div className="modal-backdrop">
+              <div className="modal-card">
+                <h3>{cfgTecForm.id ? "Editar representante técnico" : "Novo representante técnico"}</h3>
+                <form onSubmit={saveCfgTecnico} className="login-form">
+                  <label>Nome</label>
+                  <input value={cfgTecForm.nome} onChange={(e) => setCfgTecForm((p) => ({ ...p, nome: e.target.value }))} required />
+                  <label>Formação</label>
+                  <input value={cfgTecForm.formacao} onChange={(e) => setCfgTecForm((p) => ({ ...p, formacao: e.target.value }))} required />
+                  <label>Registro</label>
+                  <input value={cfgTecForm.registro} onChange={(e) => setCfgTecForm((p) => ({ ...p, registro: e.target.value }))} required />
+                  {cfgTecErr && <p className="error">{cfgTecErr}</p>}
+                  <div className="modal-actions">
+                    <button type="button" className="secondary" onClick={closeCfgTecnicoModal} disabled={cfgTecSaving}>Cancelar</button>
+                    <button type="submit" disabled={cfgTecSaving}>{cfgTecSaving ? "Salvando..." : "Salvar"}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     );
@@ -2573,6 +2667,7 @@ export default function App() {
                   </div>
 
                   <p className="empresa-doc-row"><strong>{e.document_type === "CNPJ" ? "CNPJ" : "CPF"}:</strong> {e.document_number}</p>
+                  <p className="empresa-doc-row"><strong>Criada em:</strong> {e.created_at ? fDate(e.created_at) : "-"}</p>
 
                   <div className="mt-3 flex items-center justify-end gap-2">
                     <button
@@ -2704,7 +2799,7 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="m-0 text-lg font-semibold text-slate-900">Setores</h2>
+            <h2 className="m-0 text-lg font-semibold text-slate-900"></h2>
             <button
               disabled={!setorEmpresaFiltro}
               title={!setorEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
@@ -2855,7 +2950,7 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="m-0 text-lg font-semibold text-slate-900">GHEs</h2>
+            <h2 className="m-0 text-lg font-semibold text-slate-900"></h2>
             <button
               disabled={!gheEmpresaFiltro}
               title={!gheEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
@@ -3006,7 +3101,7 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="m-0 text-lg font-semibold text-slate-900">Cargos</h2>
+            <h2 className="m-0 text-lg font-semibold text-slate-900"></h2>
             <button
               disabled={!cargoEmpresaFiltro}
               title={!cargoEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
@@ -3632,7 +3727,7 @@ export default function App() {
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <h2 className="m-0 text-lg font-semibold text-slate-900">Lista de campanhas</h2>
+              {/* <h2 className="m-0 text-lg font-semibold text-slate-900">Lista de campanhas</h2> */}
               <div className="flex items-center gap-2">
                 <label htmlFor="camp-status-filter" className="text-sm font-medium text-slate-600">Status</label>
                 <select
@@ -3673,6 +3768,11 @@ export default function App() {
                 <div className="space-y-3">
                   {campanhasVisiveis.map((cp) => (
                     <article key={cp.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      {(() => {
+                        const empresaCampanha = empresas.find((emp) => String(emp.id) === String(cp.empresa));
+                        const totalRespostasEsperadas = Number(empresaCampanha?.employee_count || 0);
+                        const totalRespostasRecebidas = Number(cp.completed_count || 0);
+                        return (
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0 flex-1">
                           <div className="mb-2">
@@ -3680,7 +3780,7 @@ export default function App() {
                           </div>
                           <div className="flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
                             <span>{fDate(cp.start_date)} - {fDate(cp.end_date)}</span>
-                            <span>{Number(cp.completed_count || 0)} avaliacoes</span>
+                            <span>{totalRespostasRecebidas}/{totalRespostasEsperadas || 0} respostas</span>
                             <span
                               className={`inline-flex min-h-6 items-center self-start rounded-full px-2.5 py-0.5 text-xs font-bold uppercase leading-none tracking-wide sm:self-auto ${
                                 cp.status === "ATIVO"
@@ -3702,7 +3802,7 @@ export default function App() {
                             onClick={() => toggleCampanhaStatus(cp)}
                             className={`relative inline-flex h-7 w-14 shrink-0 self-center items-center rounded-full border p-0 align-middle transition disabled:cursor-not-allowed disabled:opacity-60 ${
                               cp.status === "ATIVO"
-                                ? "border-emerald-200 bg-emerald-100"
+                                ? "border-emerald-800 bg-emerald-700"
                                 : "border-slate-300 bg-slate-200"
                             }`}
                           >
@@ -3722,6 +3822,8 @@ export default function App() {
                           <button className="campanha-icon-btn danger" title="Excluir campanha" aria-label="Excluir campanha" onClick={() => openCampanha("delete", cp)}>{I.del}</button>
                         </div>
                       </div>
+                        );
+                      })()}
                     </article>
                   ))}
                 </div>
@@ -4040,7 +4142,7 @@ export default function App() {
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Canal de Denuncias</h2> */}
-                <p className="text-sm font-medium text-slate-500">Gere um link unico para a empresa compartilhar com os colaboradores.</p>
+                <p className="text-sm font-medium text-slate-500">Gere um link único para a empresa compartilhar com os colaboradores.</p>
               </div>
             </div>
           </div>
@@ -4048,7 +4150,7 @@ export default function App() {
           <section className="config-card">
             <div className="config-card-header">
               <h2>Gerar Link</h2>
-              <p>Selecione a empresa e gere/copiei o link do canal de denuncias.</p>
+              <p>Selecione a empresa e gere/copiei o link do canal de denúncias.</p>
             </div>
             <div className="config-form-grid">
               <div className="config-full-row">
@@ -4140,7 +4242,7 @@ export default function App() {
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Denuncias por Empresa</h2> */}
-              <p className="text-sm font-medium text-slate-500">Visualize as denuncias recebidas no canal por empresa.</p>
+              <p className="text-sm font-medium text-slate-500">Visualize as denúncias recebidas no canal por empresa.</p>
             </div>
             <div className="w-full md:max-w-sm">
               {/* <label htmlFor="den-list-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
@@ -4181,7 +4283,7 @@ export default function App() {
           </div>
 
           <div className="admin-header">
-            <h2>Lista de denuncias</h2>
+            <h2>Lista de denúncias</h2>
             <button type="button" className="denuncias-load-btn" onClick={loadDenunciasEmpresa} disabled={!denListEmpresaFiltro || denListLoad}>
               {denListLoad ? "Carregando..." : "Carregar denuncias"}
             </button>
@@ -4191,7 +4293,7 @@ export default function App() {
           {denListData && (
             <section className="config-card denuncias-list-card">
               <div className="config-card-header">
-                <h2>Denuncias recebidas</h2>
+                <h2>Denúncias recebidas</h2>
                 <p>{denListData.empresa_name} • {Number(denListData.count || 0)} registro(s)</p>
               </div>
               <div className="empresas-toolbar">
@@ -4206,7 +4308,7 @@ export default function App() {
                 </div>
               </div>
               {denunciasFiltradas.length === 0 ? (
-                <p className="empty-state">Nenhuma denuncia registrada para esta empresa.</p>
+                <p className="empty-state">Nenhuma denúncia registrada para esta empresa.</p>
               ) : (
                 <div className="table-wrap">
                   <table>
@@ -4216,13 +4318,13 @@ export default function App() {
                         <th>Data</th>
                         <th>Origem</th>
                         <th>Status</th>
-                        <th>Vinculo</th>
-                        <th>Identificacao</th>
+                        <th>Vínculo</th>
+                        <th>Identificação</th>
                         <th>Tipo</th>
                         <th>GHE</th>
-                        <th>Funcao</th>
+                        <th>Função</th>
                         <th>Devolutiva</th>
-                        <th>Acoes</th>
+                        <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4259,8 +4361,8 @@ export default function App() {
                             <button
                               type="button"
                               className="campanha-icon-btn"
-                              title="Adicionar atualizacao"
-                              aria-label="Adicionar atualizacao"
+                              title="Adicionar atualização"
+                              aria-label="Adicionar atualização"
                               onClick={() => openDenunciaAtualizacaoModal(d)}
                             >
                               {I.edit}
@@ -4548,7 +4650,7 @@ export default function App() {
                   Voltar ao menu
                 </button>
                 <button type="submit" disabled={totemDenSaving}>
-                  {totemDenSaving ? "Enviando..." : "Enviar denuncia"}
+                  {totemDenSaving ? "Enviando..." : "Enviar denúncia"}
                 </button>
               </div>
             </form>
@@ -4576,10 +4678,10 @@ export default function App() {
       <main className="app-shell public-shell">
         {toastViewport}
         <section className="card public-card denuncia-public-card">
-          <h1>Canal de Denuncias</h1>
-          <p className="subtitle">Envie sua denuncia com sigilo. A identificacao e opcional.</p>
+          <h1>Canal de Denúncias</h1>
+          <p className="subtitle">Envie sua denúncia com sigilo. A identificação é opcional.</p>
 
-          {denPubLoad && <LoadingSpinner label="Carregando canal de denuncias..." />}
+          {denPubLoad && <LoadingSpinner label="Carregando canal de denúncias..." />}
           {denPubErr && <p className="error">{denPubErr}</p>}
 
           {!denPubLoad && denPubData && (
@@ -4587,13 +4689,13 @@ export default function App() {
               <div className="denuncia-intro-box">
                 <div className="denuncia-intro-title">Sobre este canal</div>
                 <p>
-                  Este e um canal de comunicacao disponibilizado para colaboradores e demais interessados que queiram relatar situacoes que violem a legislacao ou as normas internas da empresa <strong>{denPubData.empresa_name}</strong>. Podem ser encaminhadas denuncias relacionadas a assedio moral, sexual ou organizacional, ma gestao de mudancas, falta de clareza nas funcoes, ausencia de recompensas ou reconhecimento, carencia de suporte no ambiente de trabalho, baixa autonomia, sensacao de injustica organizacional, exposicao a eventos traumaticos, sobrecarga ou subcarga de tarefas, conflitos interpessoais, isolamento no trabalho remoto, dificuldades de comunicacao interna, bem como casos de discriminacao por raca, cor, religiao, sexo, condicao fisica ou social.
+                  Este é um canal de comunicação disponibilizado para colaboradores e demais interessados que queiram relatar situações que violem a legislação ou as normas internas da empresa <strong>{denPubData.empresa_name}</strong>. Podem ser encaminhadas denúncias relacionadas a assédio moral, sexual ou organizacional, má gestão de mudanças, falta de clareza nas funções, ausência de recompensas ou reconhecimento, carência de suporte no ambiente de trabalho, baixa autonomia, sensação de injustiça organizacional, exposição a eventos traumáticos, sobrecarga ou subcarga de tarefas, conflitos interpessoais, isolamento no trabalho remoto, dificuldades de comunicação interna, bem como casos de discriminação por raça, cor, religião, sexo, condição física ou social.
                 </p>
-                <p className="denuncia-intro-highlight">O objetivo e garantir um ambiente de trabalho seguro, saudavel e respeitoso para todos.</p>
+                <p className="denuncia-intro-highlight">O objetivo é garantir um ambiente de trabalho seguro, saudável e respeitoso para todos.</p>
               </div>
 
               <div className="denuncia-question">
-                <label>1. Voce possui vinculo com a empresa {denPubData.empresa_name}?</label>
+                <label>1. Você possui vínculo com a empresa {denPubData.empresa_name}?</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="den-vinculo" checked={denVinculo === "SIM"} onChange={() => setDenVinculo("SIM")} />Sim</label>
                   <label className="checkbox-line"><input type="radio" name="den-vinculo" checked={denVinculo === "NAO"} onChange={() => setDenVinculo("NAO")} />Nao</label>
@@ -4601,10 +4703,10 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>2. Voce gostaria de se identificar? Lembre-se que essa informacao e opcional!</label>
+                <label>2. Você gostaria de se identificar? Lembre-se que essa informação é opcional!</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="den-identificar" checked={denIdentificar === "SIM"} onChange={() => setDenIdentificar("SIM")} />Sim</label>
-                  <label className="checkbox-line"><input type="radio" name="den-identificar" checked={denIdentificar === "NAO"} onChange={() => { setDenIdentificar("NAO"); setDenContatoIdentificacao(""); }} />Nao</label>
+                  <label className="checkbox-line"><input type="radio" name="den-identificar" checked={denIdentificar === "NAO"} onChange={() => { setDenIdentificar("NAO"); setDenContatoIdentificacao(""); }} />Não</label>
                 </div>
                 {denIdentificar === "SIM" && (
                   <input
@@ -4696,11 +4798,11 @@ export default function App() {
               {denPubErr && <p className="error">{denPubErr}</p>}
 
               <div className="public-actions">
-                <button type="submit" disabled={denPubSaving}>{denPubSaving ? "Enviando..." : "Enviar denuncia"}</button>
+                <button type="submit" disabled={denPubSaving}>{denPubSaving ? "Enviando..." : "Enviar denúncia"}</button>
               </div>
 
               <div className="denuncia-thanks-note" aria-live="polite">
-                <strong>A nossa equipe de Compliance agradece a sua denuncia.</strong>
+                <strong>A nossa equipe de Compliance agradece a sua denúncia.</strong>
                 <p>Iremos analisar e apurar o seu relato e em breve entraremos em contato para demais esclarecimentos e tratativas.</p>
               </div>
             </form>
@@ -4729,6 +4831,17 @@ export default function App() {
     const step8Questions = pubData?.step8_questions || [];
     const step8Options = pubData?.step8_options || ["NUNCA", "RARAMENTE", "AS_VEZES", "FREQUENTEMENTE", "SEMPRE"];
     const step9Prompt = pubData?.step9_prompt || "Comentario adicional";
+    const publicStepLabels = [
+      "Identificação",
+      "Demandas",
+      "Controle",
+      "Apoio da Gestão",
+      "Suporte dos Colegas",
+      "Relacionamentos",
+      "Clareza de Papel | Função",
+      "Gerenciamento de Mudanças",
+      "Comentário",
+    ];
     const optionLabel = {
       NUNCA: "Nunca",
       RARAMENTE: "Raramente",
@@ -4741,30 +4854,34 @@ export default function App() {
       <main className="app-shell public-shell">
         {toastViewport}
         <section className="card public-card">
-          <h1>Questionario de Campanha</h1>
+          <h1>Questionário de Campanha</h1>
           {pubLoad && <LoadingSpinner label="Carregando..." />}
           {pubErr && <p className="error">{pubErr}</p>}
           {!pubLoad && pubData && (
             <>
               <p className="subtitle">{pubData.campaign?.title} | {pubData.empresa_name}</p>
-              <div className="wizard-steps"><span className={pubStep === 1 ? "active" : ""}>Step 1</span><span className={pubStep === 2 ? "active" : ""}>Step 2</span><span className={pubStep === 3 ? "active" : ""}>Step 3</span><span className={pubStep === 4 ? "active" : ""}>Step 4</span><span className={pubStep === 5 ? "active" : ""}>Step 5</span><span className={pubStep === 6 ? "active" : ""}>Step 6</span><span className={pubStep === 7 ? "active" : ""}>Step 7</span><span className={pubStep === 8 ? "active" : ""}>Step 8</span><span className={pubStep === 9 ? "active" : ""}>Step 9</span></div>
+              <div className="wizard-steps">
+                {publicStepLabels.map((label, idx) => (
+                  <span key={`pub-step-label-${idx + 1}`} className={pubStep === (idx + 1) ? "active" : ""}>{label}</span>
+                ))}
+              </div>
 
               {pubStep === 1 && (
                 <form onSubmit={submitPublicStep1} className="login-form">
                   <div className="info-block success">
-                    <h3>✅ AVALIACAO VALIDADA</h3>
-                    <p>Esta avaliacao integra uma campanha oficial. Seu CPF sera protegido por criptografia e utilizado exclusivamente para garantir que cada participante responda apenas uma vez. A empresa nao tera acesso ao seu CPF nem podera associar suas respostas a sua identidade.</p>
+                    <h3>✅ AVALIAÇÃO VALIDADA</h3>
+                    <p>Esta avaliação integra uma campanha oficial. Seu CPF será protegido por criptografia e utilizado exclusivamente para garantir que cada participante responda apenas uma vez. A empresa não terá acesso ao seu CPF nem poderá associar suas respostas à sua identidade.</p>
                   </div>
 
                   <div className="info-block neutral">
                     <h3>🔒 COMPROMISSO COM O ANONIMATO</h3>
-                    <p>Todas as informacoes coletadas neste formulario sao totalmente confidenciais. Seus dados pessoais nao serao compartilhados com a empresa. As respostas serao utilizadas somente para analises estatisticas consolidadas, com o objetivo de contribuir para a melhoria do ambiente de trabalho.</p>
-                    <p>O proposito desta avaliacao e compreender de forma mais ampla as condicoes de trabalho e identificar possiveis fatores de risco psicossocial que possam impactar a saude dos colaboradores, promovendo acoes de melhoria continua conforme previsto na NR 01.</p>
+                    <p>Todas as informações coletadas neste formulário são totalmente confidenciais. Seus dados pessoais não serão compartilhados com a empresa. As respostas serão utilizadas somente para análises estatísticas consolidadas, com o objetivo de contribuir para a melhoria do ambiente de trabalho.</p>
+                    <p>O propósito desta avaliação é compreender de forma mais ampla as condições de trabalho e identificar possíveis fatores de risco psicossocial que possam impactar a saúde dos colaboradores, promovendo ações de melhoria contínua conforme previsto na NR 01.</p>
                   </div>
 
                   <div className="public-step1-grid">
                     <div className="public-field">
-                      <label>CPF (obrigatorio)</label>
+                      <label>CPF (obrigatório)</label>
                       <input value={pubCpf} onChange={(e) => setPubCpf(e.target.value)} required />
                     </div>
 
@@ -4774,7 +4891,7 @@ export default function App() {
                     </div>
 
                     <div className="public-field">
-                      <label>Idade (obrigatorio)</label>
+                      <label>Idade (obrigatório)</label>
                       <input type="number" min="1" max="120" value={pubIdade} onChange={(e) => setPubIdade(e.target.value)} required />
                     </div>
 
@@ -4785,12 +4902,12 @@ export default function App() {
                         <option value="M">Masculino</option>
                         <option value="F">Feminino</option>
                         <option value="O">Outro</option>
-                        <option value="N">Prefiro nao informar</option>
+                        <option value="N">Prefiro não informar</option>
                       </select>
                     </div>
 
                     <div className="public-field">
-                      <label>{refLabel} (obrigatorio)</label>
+                      <label>{refLabel} (obrigatório)</label>
                       <select value={pubRef} onChange={(e) => onPublicRefChange(e.target.value)} required>
                         <option value="">Selecione</option>
                         {refs.map((r) => <option key={`pub-ref-${r.id}`} value={r.id}>{r.name}</option>)}
@@ -4798,7 +4915,7 @@ export default function App() {
                     </div>
 
                     <div className="public-field">
-                      <label>Cargo (obrigatorio)</label>
+                      <label>Cargo (obrigatório)</label>
                       <select value={pubCargo} onChange={(e) => setPubCargo(e.target.value)} disabled={!pubRef} required>
                         <option value="">{pubRef ? "Selecione" : `Selecione ${refLabel} primeiro`}</option>
                         {cargosOptions.map((c) => <option key={`pub-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
@@ -4808,7 +4925,7 @@ export default function App() {
 
                   {pubOk && <p className="ok-message">{pubOk}</p>}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 1"}</button>
+                  <button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button>
                 </form>
               )}
 
@@ -4831,7 +4948,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(1)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 2"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(1)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4854,7 +4971,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(2)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 3"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(2)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4877,7 +4994,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(3)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 4"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(3)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4900,7 +5017,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(4)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 5"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(4)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4923,7 +5040,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(5)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 6"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(5)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4946,7 +5063,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(6)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 7"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(6)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4969,7 +5086,7 @@ export default function App() {
                     );
                   })}
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(7)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Enviar Step 8"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(7)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Seguir"}</button></div>
                 </form>
               )}
 
@@ -4978,13 +5095,13 @@ export default function App() {
                   <label>{step9Prompt}</label>
                   <textarea className="text-area" rows={5} value={pubS9Comment} onChange={(e) => setPubS9Comment(e.target.value)} placeholder="Escreva aqui (opcional)..." />
                   {pubErr && <p className="error">{pubErr}</p>}
-                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(8)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Finalizar questionario"}</button></div>
+                  <div className="public-actions"><button type="button" className="secondary" onClick={() => setPubStep(8)}>Voltar</button><button disabled={pubSaving}>{pubSaving ? "Enviando..." : "Finalizar"}</button></div>
                 </form>
               )}
 
               {pubStep === 10 && (
                 <div className="public-finish">
-                  <p className="ok-message">{pubOk || "Questionario enviado com sucesso."}</p>
+                  <p className="ok-message">{pubOk || "Questionário enviado com sucesso."}</p>
                   <button type="button" className="secondary" onClick={restartPublicQuestionario}>Recomecar questionario</button>
                 </div>
               )}
@@ -5056,7 +5173,7 @@ export default function App() {
                 </div>
                 {sideUserMenuOpen && (
                   <div className="sidebar-user-menu">
-                    <button type="button" className="sidebar-user-menu-item" onClick={() => goSection("configuracoes")}>Configuracoes</button>
+                    <button type="button" className="sidebar-user-menu-item" onClick={() => goSection("configuracoes")}>Configurações</button>
                     <button type="button" className="sidebar-user-menu-item danger" onClick={logout}>Sair</button>
                   </div>
                 )}
@@ -5090,7 +5207,49 @@ export default function App() {
         </div>
       )}
 
-      {gModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{gModal.type === "delete" ? "Excluir GHE" : gModal.type === "edit" ? "Editar GHE" : "Novo GHE"}</h3>{gModal.type === "delete" ? <><p>Deseja realmente excluir o GHE {gModal.item?.name}?</p>{gErr && <p className="error">{gErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeGhe}>Cancelar</button><button className="danger" onClick={delGhe} disabled={gSaving}>{gSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveGhe} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(gEmpresa || gheEmpresaFiltro))?.company_name || gModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do GHE</label><input value={gNome} onChange={(e) => setGNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={gDesc} onChange={(e) => setGDesc(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={gAtivo} onChange={(e) => setGAtivo(e.target.checked)} />Ativo</label>{gErr && <p className="error">{gErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeGhe}>Cancelar</button><button type="submit" disabled={gSaving}>{gSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+      {gModal.type && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>{gModal.type === "delete" ? "Excluir GHE" : gModal.type === "edit" ? "Editar GHE" : "Novo GHE"}</h3>
+            {gModal.type === "delete" ? (
+              <>
+                <p>Deseja realmente excluir o GHE {gModal.item?.name}?</p>
+                {gErr && <p className="error">{gErr}</p>}
+                <div className="modal-actions">
+                  <button className="secondary" onClick={closeGhe}>Cancelar</button>
+                  <button className="danger" onClick={delGhe} disabled={gSaving}>{gSaving ? "Excluindo..." : "Excluir"}</button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={saveGhe} className="login-form">
+                <label>Empresa selecionada</label>
+                <input value={empresas.find((emp) => String(emp.id) === String(gEmpresa || gheEmpresaFiltro))?.company_name || gModal.item?.empresa_name || ""} disabled readOnly />
+                <label>Nome do GHE</label>
+                <input value={gNome} onChange={(e) => setGNome(e.target.value)} required />
+                <label>Descricao (opcional)</label>
+                <input value={gDesc} onChange={(e) => setGDesc(e.target.value)} />
+                <label>Setores vinculados</label>
+                <div className="multi-pick">
+                  {setores
+                    .filter((s) => String(s.empresa) === String(gEmpresa || gheEmpresaFiltro))
+                    .map((s) => (
+                      <label key={`ghe-setor-${s.id}`} className="checkbox-line">
+                        <input type="checkbox" checked={gSetores.includes(s.id)} onChange={() => toggleGheSetor(s.id)} />
+                        {s.name}
+                      </label>
+                    ))}
+                </div>
+                <label className="checkbox-line"><input type="checkbox" checked={gAtivo} onChange={(e) => setGAtivo(e.target.checked)} />Ativo</label>
+                {gErr && <p className="error">{gErr}</p>}
+                <div className="modal-actions">
+                  <button type="button" className="secondary" onClick={closeGhe}>Cancelar</button>
+                  <button type="submit" disabled={gSaving}>{gSaving ? "Salvando..." : "Salvar"}</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {cgModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cgModal.type === "delete" ? "Excluir cargo" : cgModal.type === "edit" ? "Editar cargo" : "Novo cargo"}</h3>{cgModal.type === "delete" ? <><p>Deseja realmente excluir o cargo {cgModal.item?.name}?</p>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCargo}>Cancelar</button><button className="danger" onClick={delCargo} disabled={cgSaving}>{cgSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveCargo} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(cgEmpresa || cargoEmpresaFiltro))?.company_name || cgModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do cargo</label><input value={cgNome} onChange={(e) => setCgNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={cgDesc} onChange={(e) => setCgDesc(e.target.value)} /><label>Setores</label><div className="multi-pick">{setores.filter((s) => String(s.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).map((s) => <label key={`cargo-setor-${s.id}`} className="checkbox-line"><input type="checkbox" checked={cgSetores.includes(s.id)} onChange={() => toggleCargoSetor(s.id)} />{s.name}</label>)}</div><label>GHEs</label><div className="multi-pick">{ghes.filter((g) => String(g.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).map((g) => <label key={`cargo-ghe-${g.id}`} className="checkbox-line"><input type="checkbox" checked={cgGhes.includes(g.id)} onChange={() => toggleCargoGhe(g.id)} />{g.name}</label>)}</div><label className="checkbox-line"><input type="checkbox" checked={cgAtivo} onChange={(e) => setCgAtivo(e.target.checked)} />Ativo</label>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCargo}>Cancelar</button><button type="submit" disabled={cgSaving}>{cgSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
@@ -5362,21 +5521,21 @@ export default function App() {
       {denUpdModal.item && (
         <div className="modal-backdrop">
           <div className="modal-card">
-            <h3>Adicionar atualizacao</h3>
-            <p className="subtitle">Denuncia #{denUpdModal.item.id}</p>
+            <h3>Adicionar atualização</h3>
+            <p className="subtitle">Denúncia #{denUpdModal.item.id}</p>
             <form onSubmit={submitDenunciaAtualizacaoModal} className="login-form">
-              <label>Atualizacao</label>
+              <label>Atualização</label>
               <textarea
                 className="text-area"
                 value={denUpdModal.text}
                 onChange={(e) => setDenUpdModal((p) => ({ ...p, text: e.target.value, err: "" }))}
-                placeholder="Descreva a atualizacao desta denuncia..."
+                placeholder="Descreva a atualização desta denúncia..."
                 required
               />
               {denUpdModal.err && <p className="error">{denUpdModal.err}</p>}
               <div className="modal-actions">
                 <button type="button" className="secondary" onClick={closeDenunciaAtualizacaoModal} disabled={denUpdModal.saving}>Cancelar</button>
-                <button type="submit" disabled={denUpdModal.saving}>{denUpdModal.saving ? "Salvando..." : "Salvar atualizacao"}</button>
+                <button type="submit" disabled={denUpdModal.saving}>{denUpdModal.saving ? "Salvando..." : "Salvar atualização"}</button>
               </div>
             </form>
           </div>
@@ -5385,8 +5544,8 @@ export default function App() {
       {denResolveModal.item && (
         <div className="modal-backdrop">
           <div className="modal-card">
-            <h3>Marcar denuncia como resolvida</h3>
-            <p>Deseja marcar a denuncia #{denResolveModal.item.id} como resolvida?</p>
+            <h3>Marcar denúncia como resolvida</h3>
+            <p>Deseja marcar a denúncia #{denResolveModal.item.id} como resolvida?</p>
             {denResolveModal.err && <p className="error">{denResolveModal.err}</p>}
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={closeResolveDenunciaModal} disabled={denResolveModal.saving}>Cancelar</button>
@@ -5400,8 +5559,8 @@ export default function App() {
       {denAnalyzeModal.item && (
         <div className="modal-backdrop">
           <div className="modal-card">
-            <h3>Mudar status para Em analise</h3>
-            <p>Deseja marcar a denuncia #{denAnalyzeModal.item.id} como em analise?</p>
+            <h3>Mudar status para Em análise</h3>
+            <p>Deseja marcar a denúncia #{denAnalyzeModal.item.id} como em análise?</p>
             {denAnalyzeModal.err && <p className="error">{denAnalyzeModal.err}</p>}
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={closeAnalyzeDenunciaModal} disabled={denAnalyzeModal.saving}>Cancelar</button>
@@ -5415,9 +5574,9 @@ export default function App() {
       {linkRegenModal.open && (
         <div className="modal-backdrop">
           <div className="modal-card">
-            <h3>Confirmar regeneracao de link</h3>
+            <h3>Confirmar regeneração de link</h3>
             <p>
-              Ao regenerar, o link antigo sera desabilitado e ninguem podera mais acessa-lo.
+              Ao regenerar, o link antigo será desabilitado e ninguém poderá mais acessá-lo.
             </p>
             <p>
               Deseja continuar?

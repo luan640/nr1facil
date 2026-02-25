@@ -151,13 +151,13 @@ class CanalDenuncia(models.Model):
         TOTEM = 'TOTEM', 'Totem'
 
     class Tipo(models.TextChoices):
-        ASSEDIO_MORAL = 'ASSEDIO_MORAL', 'Assedio moral'
-        ASSEDIO_SEXUAL = 'ASSEDIO_SEXUAL', 'Assedio sexual'
-        DISCRIMINACAO = 'DISCRIMINACAO', 'Discriminacao'
-        VIOLENCIA_VERBAL = 'VIOLENCIA_VERBAL', 'Violencia verbal'
-        VIOLENCIA_FISICA = 'VIOLENCIA_FISICA', 'Violencia fisica'
+        ASSEDIO_MORAL = 'ASSEDIO_MORAL', 'Assédio moral'
+        ASSEDIO_SEXUAL = 'ASSEDIO_SEXUAL', 'Assédio sexual'
+        DISCRIMINACAO = 'DISCRIMINACAO', 'Discriminação'
+        VIOLENCIA_VERBAL = 'VIOLENCIA_VERBAL', 'Violência verbal'
+        VIOLENCIA_FISICA = 'VIOLENCIA_FISICA', 'Violência física'
         FRAUDE = 'FRAUDE', 'Fraude'
-        CORRUPCAO = 'CORRUPCAO', 'Corrupcao'
+        CORRUPCAO = 'CORRUPCAO', 'Corrupção'
         DESVIO_CONDUTA = 'DESVIO_CONDUTA', 'Desvio de conduta'
         CONFLITO_INTERESSE = 'CONFLITO_INTERESSE', 'Conflito de interesse'
         OUTROS = 'OUTROS', 'Outros'
@@ -240,6 +240,7 @@ class Ghe(models.Model):
     )
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    setores = models.ManyToManyField(Setor, related_name='ghes', blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -367,7 +368,7 @@ class SexChoice(models.TextChoices):
     MASCULINO = 'M', 'Masculino'
     FEMININO = 'F', 'Feminino'
     OUTRO = 'O', 'Outro'
-    NAO_INFORMAR = 'N', 'Prefiro nao informar'
+    NAO_INFORMAR = 'N', 'Prefiro não informar'
 
 
 class CampanhaRespostaStep1(models.Model):

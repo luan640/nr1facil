@@ -1,11 +1,13 @@
 from django.contrib.auth import authenticate
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 from io import BytesIO
 import base64
 import hashlib
 from rest_framework import serializers
 
+from .company_defaults import seed_empresa_default_structure
 from .models import CanalDenuncia, CanalDenunciaAtualizacao, Campanha, CampanhaMedidaPreliminar, CampanhaQuandoPreliminar, CampanhaRelatorioAnexo, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, ConsultoriaConfiguracao, ConsultoriaResponsavelTecnico, DocumentType, Empresa, EstablishmentType, EvaluationType, FrequencyChoice, Ghe, MedidaScopeType, Setor, User, UserType
 
 
@@ -138,20 +140,21 @@ class EmpresaSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         responsible_email = validated_data.pop('responsible_email')
         responsible_password = validated_data.pop('responsible_password')
+        with transaction.atomic():
+            responsible_user = User.objects.create_user(
+                email=responsible_email,
+                password=responsible_password,
+                full_name=validated_data.get('responsible_name', ''),
+                user_type=UserType.EMPRESA,
+                is_active=validated_data.get('is_active', True),
+            )
 
-        responsible_user = User.objects.create_user(
-            email=responsible_email,
-            password=responsible_password,
-            full_name=validated_data.get('responsible_name', ''),
-            user_type=UserType.EMPRESA,
-            is_active=validated_data.get('is_active', True),
-        )
-
-        empresa = Empresa.objects.create(
-            consultor=request.user,
-            responsavel_usuario=responsible_user,
-            **validated_data,
-        )
+            empresa = Empresa.objects.create(
+                consultor=request.user,
+                responsavel_usuario=responsible_user,
+                **validated_data,
+            )
+            seed_empresa_default_structure(empresa)
         return empresa
 
     def update(self, instance, validated_data):
@@ -269,6 +272,8 @@ class GheSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     empresa_name = serializers.CharField(source='empresa.company_name', read_only=True)
+    setor_ids = serializers.PrimaryKeyRelatedField(source='setores', queryset=Setor.objects.all(), many=True, write_only=True, required=False)
+    setores_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Ghe
@@ -279,11 +284,13 @@ class GheSerializer(serializers.ModelSerializer):
             'empresa_name',
             'name',
             'description',
+            'setor_ids',
+            'setores_data',
             'is_active',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'empresa_name']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'empresa_name', 'setores_data']
 
     def validate_empresa(self, value):
         request = self.context.get('request')
@@ -298,7 +305,16 @@ class GheSerializer(serializers.ModelSerializer):
         empresa = attrs.get('empresa') or getattr(self.instance, 'empresa', None)
         if empresa:
             self.validate_empresa(empresa)
+
+        setores = attrs.get('setores', None)
+        if empresa and setores is not None:
+            invalid_setores = [s.id for s in setores if s.empresa_id != empresa.id]
+            if invalid_setores:
+                raise serializers.ValidationError('Um ou mais setores nao pertencem a empresa selecionada.')
         return attrs
+
+    def get_setores_data(self, obj):
+        return [{'id': setor.id, 'name': setor.name} for setor in obj.setores.all()]
 
 
 class CargoSerializer(serializers.ModelSerializer):
@@ -366,10 +382,10 @@ class CargoSerializer(serializers.ModelSerializer):
         return attrs
 
     def get_setores_data(self, obj):
-        return [{'id': setor.id, 'name': setor.name} for setor in obj.setores.all().order_by('name')]
+        return [{'id': setor.id, 'name': setor.name} for setor in obj.setores.all()]
 
     def get_ghes_data(self, obj):
-        return [{'id': ghe.id, 'name': ghe.name} for ghe in obj.ghes.all().order_by('name')]
+        return [{'id': ghe.id, 'name': ghe.name} for ghe in obj.ghes.all()]
 
 
 class CampanhaSerializer(serializers.ModelSerializer):

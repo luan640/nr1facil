@@ -1,6 +1,6 @@
 from rest_framework import status
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view
 from rest_framework.decorators import permission_classes
@@ -2424,10 +2424,15 @@ class SetorDetailView(APIView):
 class GheListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
+    def _base_queryset(self):
+        return Ghe.objects.select_related('empresa').prefetch_related(
+            Prefetch('setores', queryset=Setor.objects.order_by('name'))
+        )
+
     def get_queryset(self, request):
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
-            return Ghe.objects.select_related('empresa').all()
-        return Ghe.objects.select_related('empresa').filter(empresa__consultor=request.user)
+            return self._base_queryset().all()
+        return self._base_queryset().filter(empresa__consultor=request.user)
 
     def get(self, request):
         serializer = GheSerializer(self.get_queryset(request), many=True)
@@ -2444,7 +2449,9 @@ class GheDetailView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
     def get_object(self, request, ghe_id):
-        queryset = Ghe.objects.select_related('empresa').filter(id=ghe_id)
+        queryset = Ghe.objects.select_related('empresa').prefetch_related(
+            Prefetch('setores', queryset=Setor.objects.order_by('name'))
+        ).filter(id=ghe_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
         return queryset.filter(empresa__consultor=request.user).first()
@@ -2484,10 +2491,16 @@ class GheDetailView(APIView):
 class CargoListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
+    def _base_queryset(self):
+        return Cargo.objects.select_related('empresa').prefetch_related(
+            Prefetch('setores', queryset=Setor.objects.order_by('name')),
+            Prefetch('ghes', queryset=Ghe.objects.order_by('name')),
+        )
+
     def get_queryset(self, request):
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
-            return Cargo.objects.select_related('empresa').all()
-        return Cargo.objects.select_related('empresa').filter(empresa__consultor=request.user)
+            return self._base_queryset().all()
+        return self._base_queryset().filter(empresa__consultor=request.user)
 
     def get(self, request):
         serializer = CargoSerializer(self.get_queryset(request), many=True)
@@ -2504,7 +2517,10 @@ class CargoDetailView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
     def get_object(self, request, cargo_id):
-        queryset = Cargo.objects.select_related('empresa').filter(id=cargo_id)
+        queryset = Cargo.objects.select_related('empresa').prefetch_related(
+            Prefetch('setores', queryset=Setor.objects.order_by('name')),
+            Prefetch('ghes', queryset=Ghe.objects.order_by('name')),
+        ).filter(id=cargo_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
         return queryset.filter(empresa__consultor=request.user).first()
