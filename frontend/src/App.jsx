@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8083/api";
 const TOKEN_KEY = "nr01_token";
 const USER_CACHE_KEY = "nr01_user";
 const SECTION_CACHE_KEY = "nr01_section";
@@ -5130,15 +5130,15 @@ export default function App() {
             <div className="sidebar-top">
               {sideExpand ? (
                 <>
-                  <div className="sidebar-brand" title={cfgData?.nome_consultoria || "NR01 Riscos"}>
+                  <div className="sidebar-brand" title={cfgData?.nome_consultoria || "{logo_consultoria} {nome_consultoria}"}>
                     <div className="sidebar-brand-logo" aria-hidden="true">
                       {cfgData?.logo_url ? (
                         <img src={cfgData.logo_url} alt="" />
                       ) : (
-                        <strong>NR01</strong>
+                        <strong>{cfgData?.nome_consultoria || "{logo_consultoria}"}</strong>
                       )}
                     </div>
-                    <span className="sidebar-brand-text">{cfgData?.nome_consultoria || "Riscos"}</span>
+                    <span className="sidebar-brand-text">{cfgData?.nome_consultoria || "{nome_consultoria}"}</span>
                   </div>
                   <button className="icon-button collapse-btn" aria-label="Recolher menu lateral" onClick={() => setSideExpand((p) => !p)}>{I.menu}</button>
                 </>

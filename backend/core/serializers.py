@@ -448,7 +448,8 @@ class CampanhaSerializer(serializers.ModelSerializer):
 
     def get_public_url(self, obj):
         base = getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', 'http://127.0.0.1:5173').rstrip('/')
-        return f'{base}/questionario/{obj.share_token}/'
+        # Use hash route so links work even when the host does not rewrite SPA paths.
+        return f'{base}/#/questionario/{obj.share_token}/'
 
     def _build_qr_data_uri(self, text):
         try:
