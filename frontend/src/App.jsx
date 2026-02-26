@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8083/api";
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 const TOKEN_KEY = "nr01_token";
 const USER_CACHE_KEY = "nr01_user";
 const SECTION_CACHE_KEY = "nr01_section";
@@ -102,6 +103,7 @@ const I = {
   edit: <svg viewBox="0 0 24 24"><path d="M4 20l4.5-1 9-9-3.5-3.5-9 9L4 20zM13.5 6.5l3.5 3.5M4 20h6" /></svg>,
   del: <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>,
   power: <svg viewBox="0 0 24 24"><path d="M12 3v8M7.8 5.8a9 9 0 101.4-1.1M16.2 4.7a9 9 0 011.4 1.1" /></svg>,
+  moreV: <svg viewBox="0 0 24 24"><path d="M12 5h.01M12 12h.01M12 19h.01" /></svg>,
 };
 
 function LoadingSpinner({ label = "Carregando..." }) {
@@ -359,7 +361,7 @@ export default function App() {
 
   const [sideOpen, setSideOpen] = useState(false), [sideExpand, setSideExpand] = useState(true), [section, setSection] = useState(getCachedSection());
   const [sideUserMenuOpen, setSideUserMenuOpen] = useState(false);
-  const [cadOpen, setCadOpen] = useState(true);
+  const [cadOpen, setCadOpen] = useState(() => ["setor", "ghe", "cargos"].includes(getCachedSection()));
   const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState("");
   const [cfgData, setCfgData] = useState(null), [cfgLoad, setCfgLoad] = useState(false), [cfgErr, setCfgErr] = useState(""), [cfgSaving, setCfgSaving] = useState(false);
   const [cfgForm, setCfgForm] = useState({ cnpj: "", nome_consultoria: "", responsavel_legal: "", representante_legal_relatorio: "", cidade: "", uf: "" });
@@ -384,12 +386,18 @@ export default function App() {
   const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false);
   const [cargos, setCargos] = useState([]), [cargoErr, setCargoErr] = useState(""), [cargoLoad, setCargoLoad] = useState(false);
   const [cgModal, setCgModal] = useState({ type: "", item: null }), [cgEmpresa, setCgEmpresa] = useState(""), [cgNome, setCgNome] = useState(""), [cgDesc, setCgDesc] = useState(""), [cgAtivo, setCgAtivo] = useState(true), [cgSetores, setCgSetores] = useState([]), [cgGhes, setCgGhes] = useState([]), [cgErr, setCgErr] = useState(""), [cgSaving, setCgSaving] = useState(false);
+  const [gSetorBusca, setGSetorBusca] = useState("");
+  const [cgSetorBusca, setCgSetorBusca] = useState("");
+  const [cgGheBusca, setCgGheBusca] = useState("");
   const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1), [cargoEmpresaMenuOpen, setCargoEmpresaMenuOpen] = useState(false);
   const [campanhas, setCampanhas] = useState([]), [campErr, setCampErr] = useState(""), [campLoad, setCampLoad] = useState(false), [campStatusLoadingId, setCampStatusLoadingId] = useState(null);
   const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
   const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false);
   const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false);
   const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false);
+  const [denRowMenuOpenId, setDenRowMenuOpenId] = useState(null);
+  const [denRowMenuItem, setDenRowMenuItem] = useState(null);
+  const [denRowMenuPos, setDenRowMenuPos] = useState({ top: 0, left: 0, openUp: false });
   const [denHistModal, setDenHistModal] = useState(null);
   const [denUpdModal, setDenUpdModal] = useState({ item: null, text: "", saving: false, err: "" });
   const [denResolveModal, setDenResolveModal] = useState({ item: null, saving: false, err: "" });
@@ -432,6 +440,52 @@ export default function App() {
   function dismissToast(id) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
+
+  function closeDenunciaRowMenu() {
+    setDenRowMenuOpenId(null);
+    setDenRowMenuItem(null);
+  }
+
+  function toggleDenunciaRowMenu(e, item) {
+    if (denRowMenuOpenId === item.id) {
+      closeDenunciaRowMenu();
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 240;
+    const gap = 2;
+    const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+    const openUp = window.innerHeight - rect.bottom < 260;
+    const top = openUp ? rect.top - gap : rect.bottom + gap;
+    setDenRowMenuPos({ top: Math.max(8, top), left, openUp });
+    setDenRowMenuItem(item);
+    setDenRowMenuOpenId(item.id);
+  }
+
+  useEffect(() => {
+    if (!denRowMenuOpenId) return;
+    function onPointerDown(ev) {
+      const target = ev.target;
+      if (target instanceof Element && (target.closest(".denuncia-row-menu-list") || target.closest(".denuncia-row-menu-trigger"))) return;
+      closeDenunciaRowMenu();
+    }
+    function onKeyDown(ev) {
+      if (ev.key === "Escape") closeDenunciaRowMenu();
+    }
+    function onViewportChange() {
+      closeDenunciaRowMenu();
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [denRowMenuOpenId]);
 
   function toastTitleForMethod(method) {
     if (method === "POST") return "Criado com sucesso";
@@ -665,12 +719,33 @@ export default function App() {
     return found?.label || "Dashboard";
   }, [menu, section]);
 
+  useEffect(() => {
+    const baseTitle = "NR01 FACIL";
+    if (isPublicQuestionario) {
+      document.title = `${baseTitle} | Questionário`;
+      return;
+    }
+    if (isPublicCanalDenuncias) {
+      document.title = `${baseTitle} | Canal de denúncias`;
+      return;
+    }
+    if (isPublicTotem) {
+      document.title = `${baseTitle} | Totem`;
+      return;
+    }
+    document.title = `${baseTitle} | ${currentPageTitle}`;
+  }, [currentPageTitle, isPublicQuestionario, isPublicCanalDenuncias, isPublicTotem]);
+
   function isAdm(u) { return u?.is_superuser || u?.user_type === "ADM"; }
   function canEmp(u) { return isAdm(u) || u?.user_type === "CONSULTOR"; }
   function goSection(s) { setSection(s); setSideOpen(false); setSideUserMenuOpen(false); }
 
   useEffect(() => {
     localStorage.setItem(SECTION_CACHE_KEY, section);
+  }, [section]);
+
+  useEffect(() => {
+    if (["setor", "ghe", "cargos"].includes(section)) setCadOpen(true);
   }, [section]);
 
   function pErr(data) {
@@ -1533,13 +1608,14 @@ export default function App() {
 
   function openGhe(type, item = null) {
     setGModal({ type, item }); setGErr("");
+    setGSetorBusca("");
     setGEmpresa(type === "create" ? String(gheEmpresaFiltro || "") : (item?.empresa ? String(item.empresa) : ""));
     setGNome(item?.name || "");
     setGDesc(item?.description || "");
     setGAtivo(item?.is_active ?? true);
     setGSetores((item?.setores_data || []).map((s) => s.id));
   }
-  function closeGhe() { setGModal({ type: "", item: null }); setGErr(""); setGSaving(false); setGSetores([]); }
+  function closeGhe() { setGModal({ type: "", item: null }); setGErr(""); setGSaving(false); setGSetores([]); setGSetorBusca(""); }
 
   async function saveGhe(e) {
     e.preventDefault(); setGSaving(true); setGErr("");
@@ -1604,6 +1680,7 @@ export default function App() {
 
   function openCargo(type, item = null) {
     setCgModal({ type, item }); setCgErr("");
+    setCgSetorBusca(""); setCgGheBusca("");
     setCgEmpresa(type === "create" ? String(cargoEmpresaFiltro || "") : (item?.empresa ? String(item.empresa) : ""));
     setCgNome(item?.name || "");
     setCgDesc(item?.description || "");
@@ -1611,7 +1688,7 @@ export default function App() {
     setCgSetores((item?.setores_data || []).map((s) => s.id));
     setCgGhes((item?.ghes_data || []).map((g) => g.id));
   }
-  function closeCargo() { setCgModal({ type: "", item: null }); setCgErr(""); setCgSaving(false); setCgSetores([]); setCgGhes([]); }
+  function closeCargo() { setCgModal({ type: "", item: null }); setCgErr(""); setCgSaving(false); setCgSetores([]); setCgGhes([]); setCgSetorBusca(""); setCgGheBusca(""); }
 
   async function saveCargo(e) {
     e.preventDefault(); setCgSaving(true); setCgErr("");
@@ -2376,7 +2453,7 @@ export default function App() {
             </div>
             {canEmp(user) && (
               <div className="dashboard-hero-filter">
-                <label>Empresa</label>
+                {/* <label>Empresa</label> */}
                 <select value={dashEmpresa} onChange={(e) => onDashboardEmpresaChange(e.target.value)}>
                   <option value="">Todas as empresas</option>
                   {(dashData?.empresas || []).map((emp) => <option key={`dash-emp-${emp.id}`} value={String(emp.id)}>{emp.name}</option>)}
@@ -2822,7 +2899,7 @@ export default function App() {
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Setor</th>
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acoes</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
@@ -2973,7 +3050,7 @@ export default function App() {
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">GHE</th>
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acoes</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acões</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
@@ -3124,7 +3201,7 @@ export default function App() {
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cargo</th>
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
                       <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acoes</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acões</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
@@ -3401,7 +3478,7 @@ export default function App() {
 
               <div className="report-card conclusions-card">
                 <div className="admin-header report-card-header">
-                  <h2>CONCLUSOES E RECOMENDACOES PRELIMINARES</h2>
+                  <h2>CONCLUSÕES E RECOMENDAÇÕES PRELIMINARES</h2>
                   <span className="subtitle">Perguntas com score abaixo de 4.0</span>
                 </div>
                 <div className="conclusion-intro">
@@ -3684,11 +3761,11 @@ export default function App() {
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Campanhas</h2>
+                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Campanhas</h2> */}
                 <p className="text-sm font-medium text-slate-500">Crie e gerencie campanhas por empresa.</p>
               </div>
               <div className="w-full md:max-w-sm">
-                <label htmlFor="camp-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label>
+                {/* <label htmlFor="camp-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
                 <div className="relative">
                   <input
                     id="camp-empresa-search"
@@ -4293,8 +4370,8 @@ export default function App() {
           {denListData && (
             <section className="config-card denuncias-list-card">
               <div className="config-card-header">
-                <h2>Denúncias recebidas</h2>
-                <p>{denListData.empresa_name} • {Number(denListData.count || 0)} registro(s)</p>
+                {/* <h2>Denúncias recebidas</h2> */}
+                {/* <p>{denListData.empresa_name} • {Number(denListData.count || 0)} registro(s)</p> */}
               </div>
               <div className="empresas-toolbar">
                 <div className="empresas-page-size">
@@ -4332,7 +4409,7 @@ export default function App() {
                         <tr key={`den-admin-${d.id}`}>
                           <td>{d.id}</td>
                           <td>{fDate(d.created_at)}</td>
-                          <td>{d.origem_label || (d.origem === "TOTEM" ? "Totem" : "Link de denuncia")}</td>
+                          <td>{d.origem_label || (d.origem === "TOTEM" ? "Totem" : "Link de denúncia")}</td>
                           <td>
                             <span className={`denuncia-status-pill ${String(d.status || "").toLowerCase()}`}>
                               {d.status === "EM_ANALISE" ? "Em analise" : d.status === "RESOLVIDA" ? "Resolvida" : "Aberta"}
@@ -4340,86 +4417,109 @@ export default function App() {
                           </td>
                           <td>{d.possui_vinculo ? "Sim" : "Nao"}</td>
                           <td title={d.contato_identificacao || ""}>
-                            {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Nao"}
+                            {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Não"}
                           </td>
                           <td>{d.tipo_label || "-"}</td>
                           <td>{d.ghe_name || "-"}</td>
                           <td>{d.cargo_name || "-"}</td>
                           <td title={d.email_devolutiva || ""}>
-                            {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Nao"}
+                            {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Não"}
                           </td>
-                          <td className="actions">
-                              <button
-                              type="button"
-                              className="campanha-icon-btn"
-                              title="Ver relato"
-                              aria-label="Ver relato"
-                              onClick={() => setDenViewModal(d)}
-                            >
-                              {I.rpt}
-                            </button>
-                            <button
-                              type="button"
-                              className="campanha-icon-btn"
-                              title="Adicionar atualização"
-                              aria-label="Adicionar atualização"
-                              onClick={() => openDenunciaAtualizacaoModal(d)}
-                            >
-                              {I.edit}
-                            </button>
-                            <button
-                              type="button"
-                              className="campanha-icon-btn"
-                              title="Historico de atualizacoes"
-                              aria-label="Historico de atualizacoes"
-                              onClick={() => setDenHistModal(d)}
-                            >
-                              {I.cad}
-                            </button>
-                            {d.status !== "RESOLVIDA" && (
+                          <td className="actions denuncia-row-actions-cell">
+                            <div className="denuncia-row-menu">
                               <button
                                 type="button"
-                                className="campanha-icon-btn"
-                                title="Marcar como resolvida"
-                                aria-label="Marcar como resolvida"
-                                onClick={() => openResolveDenunciaModal(d)}
+                                className="campanha-icon-btn denuncia-row-menu-trigger"
+                                title="Opções"
+                                aria-label={`Opções da denúncia ${d.id}`}
+                                aria-haspopup="menu"
+                                aria-expanded={denRowMenuOpenId === d.id}
+                                onClick={(e) => toggleDenunciaRowMenu(e, d)}
                               >
-                                {I.power}
+                                {I.moreV}
                               </button>
-                            )}
-                            {d.status === "ABERTA" && (
-                              <button
-                                type="button"
-                                className="campanha-icon-btn"
-                                title="Marcar em analise"
-                                aria-label="Marcar em analise"
-                                onClick={() => openAnalyzeDenunciaModal(d)}
-                              >
-                                {I.cmp}
-                              </button>
-                            )}
-                            {d.evidencia_url ? (
-                              <>
-                                <a
-                                  href={d.evidencia_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="campanha-icon-btn"
-                                  title="Abrir evidencia"
-                                  aria-label="Abrir evidencia"
-                                >
-                                  {I.img}
-                                </a>
-                              </>
-                            ) : (
-                              <span className="denuncia-no-evidence">-</span>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+              {denRowMenuOpenId && denRowMenuItem && typeof document !== "undefined" && createPortal(
+                <div
+                  className="denuncia-row-menu-list"
+                  role="menu"
+                  aria-label={`Ações da denúncia ${denRowMenuItem.id}`}
+                  style={{
+                    position: "fixed",
+                    top: denRowMenuPos.top,
+                    left: denRowMenuPos.left,
+                    transform: denRowMenuPos.openUp ? "translateY(-100%)" : "none",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    onClick={() => { setDenViewModal(denRowMenuItem); closeDenunciaRowMenu(); }}
+                  >
+                    {I.rpt}<span>Ver relato</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    onClick={() => { openDenunciaAtualizacaoModal(denRowMenuItem); closeDenunciaRowMenu(); }}
+                  >
+                    {I.edit}<span>Adicionar atualização</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    onClick={() => { setDenHistModal(denRowMenuItem); closeDenunciaRowMenu(); }}
+                  >
+                    {I.cad}<span>Histórico de atualizações</span>
+                  </button>
+                  {denRowMenuItem.status !== "RESOLVIDA" && (
+                    <button
+                      type="button"
+                      className="denuncia-row-menu-item"
+                      role="menuitem"
+                      onClick={() => { openResolveDenunciaModal(denRowMenuItem); closeDenunciaRowMenu(); }}
+                    >
+                      {I.power}<span>Marcar como resolvida</span>
+                    </button>
+                  )}
+                  {denRowMenuItem.status === "ABERTA" && (
+                    <button
+                      type="button"
+                      className="denuncia-row-menu-item"
+                      role="menuitem"
+                      onClick={() => { openAnalyzeDenunciaModal(denRowMenuItem); closeDenunciaRowMenu(); }}
+                    >
+                      {I.cmp}<span>Marcar em análise</span>
+                    </button>
+                  )}
+                  {denRowMenuItem.evidencia_url ? (
+                    <a
+                      href={denRowMenuItem.evidencia_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="denuncia-row-menu-item"
+                      role="menuitem"
+                      onClick={() => closeDenunciaRowMenu()}
+                    >
+                      {I.img}<span>Abrir evidência</span>
+                    </a>
+                  ) : (
+                    <span className="denuncia-row-menu-item is-disabled" role="note">
+                      {I.img}<span>Sem evidência</span>
+                    </span>
+                  )}
+                </div>,
+                document.body
               )}
             </section>
           )}
@@ -5146,12 +5246,19 @@ export default function App() {
                 <button className="icon-button collapse-btn sidebar-top-toggle-only" aria-label="Expandir menu lateral" onClick={() => setSideExpand((p) => !p)}>{I.menu}</button>
               )}
             </div>
-            {sideExpand && <div className="sidebar-section-title">Navegacao</div>}
             <nav className="sidebar-nav">
-              {menu.map((m) => <button key={m.key} className={`nav-item ${section === m.key ? "active" : ""}`} onClick={() => goSection(m.key)}><span className="nav-icon">{m.icon}</span>{sideExpand && <span>{m.label}</span>}</button>)}
+              {sideExpand && <div className="sidebar-section-title">Principal</div>}
+              {menu.map((m, idx) => (
+                <button key={m.key} className={`nav-item ${section === m.key ? "active" : ""}`} onClick={() => goSection(m.key)}>
+                  <span className="nav-icon">{m.icon}</span>
+                  {sideExpand && <span className="nav-label">{m.label}</span>}
+                  {sideExpand && idx === 0 && <span className="nav-badge">Novo</span>}
+                </button>
+              ))}
+              {sideExpand && <div className="sidebar-section-title sidebar-section-title-spaced">Cadastros</div>}
               <button className={`nav-item nav-group-toggle ${cadOpen ? "open" : ""}`} onClick={() => setCadOpen((v) => !v)}>
                 <span className="nav-icon">{I.cad}</span>
-                {sideExpand && <span>Cadastro</span>}
+                {sideExpand && <span className="nav-label">Cadastro</span>}
                 {sideExpand && <span className="nav-caret">{I.down}</span>}
               </button>
               {cadOpen && sideExpand && (
@@ -5171,6 +5278,9 @@ export default function App() {
                   <strong>{(user.full_name || user.email || "Usuario").slice(0, 26)}</strong>
                   <span>{isAdm(user) ? "Administrador" : user?.user_type === "CONSULTOR" ? "Consultor" : "Empresa"}</span>
                 </div>
+                <button type="button" className="sidebar-user-status-btn" aria-label="Menu do usuário" onClick={() => setSideUserMenuOpen((v) => !v)}>
+                  <span className="sidebar-user-status-dot" aria-hidden="true" />
+                </button>
                 {sideUserMenuOpen && (
                   <div className="sidebar-user-menu">
                     <button type="button" className="sidebar-user-menu-item" onClick={() => goSection("configuracoes")}>Configurações</button>
@@ -5229,9 +5339,17 @@ export default function App() {
                 <label>Descricao (opcional)</label>
                 <input value={gDesc} onChange={(e) => setGDesc(e.target.value)} />
                 <label>Setores vinculados</label>
+                <input
+                  className="multi-pick-search"
+                  type="text"
+                  placeholder="Buscar setor..."
+                  value={gSetorBusca}
+                  onChange={(e) => setGSetorBusca(e.target.value)}
+                />
                 <div className="multi-pick">
                   {setores
                     .filter((s) => String(s.empresa) === String(gEmpresa || gheEmpresaFiltro))
+                    .filter((s) => String(s.name || "").toLowerCase().includes(gSetorBusca.trim().toLowerCase()))
                     .map((s) => (
                       <label key={`ghe-setor-${s.id}`} className="checkbox-line">
                         <input type="checkbox" checked={gSetores.includes(s.id)} onChange={() => toggleGheSetor(s.id)} />
@@ -5251,7 +5369,7 @@ export default function App() {
         </div>
       )}
 
-      {cgModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cgModal.type === "delete" ? "Excluir cargo" : cgModal.type === "edit" ? "Editar cargo" : "Novo cargo"}</h3>{cgModal.type === "delete" ? <><p>Deseja realmente excluir o cargo {cgModal.item?.name}?</p>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCargo}>Cancelar</button><button className="danger" onClick={delCargo} disabled={cgSaving}>{cgSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveCargo} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(cgEmpresa || cargoEmpresaFiltro))?.company_name || cgModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do cargo</label><input value={cgNome} onChange={(e) => setCgNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={cgDesc} onChange={(e) => setCgDesc(e.target.value)} /><label>Setores</label><div className="multi-pick">{setores.filter((s) => String(s.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).map((s) => <label key={`cargo-setor-${s.id}`} className="checkbox-line"><input type="checkbox" checked={cgSetores.includes(s.id)} onChange={() => toggleCargoSetor(s.id)} />{s.name}</label>)}</div><label>GHEs</label><div className="multi-pick">{ghes.filter((g) => String(g.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).map((g) => <label key={`cargo-ghe-${g.id}`} className="checkbox-line"><input type="checkbox" checked={cgGhes.includes(g.id)} onChange={() => toggleCargoGhe(g.id)} />{g.name}</label>)}</div><label className="checkbox-line"><input type="checkbox" checked={cgAtivo} onChange={(e) => setCgAtivo(e.target.checked)} />Ativo</label>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCargo}>Cancelar</button><button type="submit" disabled={cgSaving}>{cgSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+      {cgModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cgModal.type === "delete" ? "Excluir cargo" : cgModal.type === "edit" ? "Editar cargo" : "Novo cargo"}</h3>{cgModal.type === "delete" ? <><p>Deseja realmente excluir o cargo {cgModal.item?.name}?</p>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCargo}>Cancelar</button><button className="danger" onClick={delCargo} disabled={cgSaving}>{cgSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveCargo} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(cgEmpresa || cargoEmpresaFiltro))?.company_name || cgModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do cargo</label><input value={cgNome} onChange={(e) => setCgNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={cgDesc} onChange={(e) => setCgDesc(e.target.value)} /><label>Setores</label><input className="multi-pick-search" type="text" placeholder="Buscar setor..." value={cgSetorBusca} onChange={(e) => setCgSetorBusca(e.target.value)} /><div className="multi-pick">{setores.filter((s) => String(s.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).filter((s) => String(s.name || "").toLowerCase().includes(cgSetorBusca.trim().toLowerCase())).map((s) => <label key={`cargo-setor-${s.id}`} className="checkbox-line"><input type="checkbox" checked={cgSetores.includes(s.id)} onChange={() => toggleCargoSetor(s.id)} />{s.name}</label>)}</div><label>GHEs</label><input className="multi-pick-search" type="text" placeholder="Buscar GHE..." value={cgGheBusca} onChange={(e) => setCgGheBusca(e.target.value)} /><div className="multi-pick">{ghes.filter((g) => String(g.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).filter((g) => String(g.name || "").toLowerCase().includes(cgGheBusca.trim().toLowerCase())).map((g) => <label key={`cargo-ghe-${g.id}`} className="checkbox-line"><input type="checkbox" checked={cgGhes.includes(g.id)} onChange={() => toggleCargoGhe(g.id)} />{g.name}</label>)}</div><label className="checkbox-line"><input type="checkbox" checked={cgAtivo} onChange={(e) => setCgAtivo(e.target.checked)} />Ativo</label>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCargo}>Cancelar</button><button type="submit" disabled={cgSaving}>{cgSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
       {cpModal.type && (
         <div className="modal-backdrop">
@@ -5494,9 +5612,9 @@ export default function App() {
                 <p className="denuncia-detail-text">{denViewModal.testemunhas || "Nao informado."}</p>
               </div>
               <div className="info-block">
-                <h3>Atualizacoes</h3>
+                <h3>Atualizações</h3>
                 {(denViewModal.atualizacoes || []).length === 0 ? (
-                  <p>Nenhuma atualizacao registrada.</p>
+                  <p>Nenhuma atualização registrada.</p>
                 ) : (
                   <div className="denuncia-history-list">
                     {(denViewModal.atualizacoes || []).map((a) => (

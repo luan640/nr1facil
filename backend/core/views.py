@@ -323,9 +323,9 @@ def _build_dashboard_overview(user, empresa_id=None):
         'summary_cards': [
             {'key': 'empresas', 'label': 'Total de Empresas', 'value': total_empresas, 'color': 'blue'},
             {'key': 'questionarios_abertos', 'label': 'Questionários em aberto', 'value': questionarios_em_aberto, 'color': 'green'},
-            {'key': 'relatorios', 'label': 'Relatorios Salvos', 'value': relatorios_salvos, 'color': 'yellow'},
+            {'key': 'relatorios', 'label': 'Relatórios Salvos', 'value': relatorios_salvos, 'color': 'yellow'},
             {'key': 'avaliacoes', 'label': 'Avaliações Encontradas', 'value': completed_count, 'color': 'purple'},
-            {'key': 'denuncias', 'label': 'Denuncias', 'value': comentarios_count, 'color': 'red'},
+            {'key': 'denuncias', 'label': 'Denúncias', 'value': comentarios_count, 'color': 'red'},
         ],
         'domain_distribution': [
             {'key': r['key'], 'label': r['domain'], 'percent': r['percent'], 'score': r['avg_score'], 'zone': r['zone']}

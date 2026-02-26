@@ -147,7 +147,7 @@ class CanalDenuncia(models.Model):
         RESOLVIDA = 'RESOLVIDA', 'Resolvida'
 
     class Origem(models.TextChoices):
-        LINK = 'LINK', 'Link de denuncia'
+        LINK = 'LINK', 'Link de denúncia'
         TOTEM = 'TOTEM', 'Totem'
 
     class Tipo(models.TextChoices):

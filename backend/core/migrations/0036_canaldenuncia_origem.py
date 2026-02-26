@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
             model_name="canaldenuncia",
             name="origem",
             field=models.CharField(
-                choices=[("LINK", "Link de denuncia"), ("TOTEM", "Totem")],
+                choices=[("LINK", "Link de denúncia"), ("TOTEM", "Totem")],
                 default="LINK",
                 max_length=20,
             ),
