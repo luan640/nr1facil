@@ -216,7 +216,9 @@ if SUPABASE_STORAGE_ACCESS_KEY and SUPABASE_STORAGE_SECRET_KEY:
     AWS_STORAGE_BUCKET_NAME = SUPABASE_STORAGE_BUCKET
     AWS_ACCESS_KEY_ID = SUPABASE_STORAGE_ACCESS_KEY
     AWS_SECRET_ACCESS_KEY = SUPABASE_STORAGE_SECRET_KEY
-    AWS_S3_CUSTOM_DOMAIN = None
+    # Strip the scheme so S3Boto3Storage builds: https://<custom_domain>/<file_key>
+    # e.g. https://kwygqibakpstvanogpjc.supabase.co/storage/v1/object/public/cissconsult/consultoria_logos/file.png
+    AWS_S3_CUSTOM_DOMAIN = SUPABASE_STORAGE_PUBLIC_BASE_URL.split('://', 1)[-1]
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_FILE_OVERWRITE = False
     MEDIA_URL = SUPABASE_STORAGE_PUBLIC_BASE_URL + '/'
