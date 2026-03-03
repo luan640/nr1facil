@@ -200,3 +200,23 @@ SUPABASE_STORAGE_PUBLIC_BASE_URL = os.getenv(
     'SUPABASE_STORAGE_PUBLIC_BASE_URL',
     'https://kwygqibakpstvanogpjc.supabase.co/storage/v1/object/public/cissconsult',
 ).rstrip('/')
+
+# Use Supabase S3-compatible storage for media files when credentials are present
+if SUPABASE_STORAGE_ACCESS_KEY and SUPABASE_STORAGE_SECRET_KEY:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+    AWS_S3_ENDPOINT_URL = SUPABASE_STORAGE_S3_ENDPOINT
+    AWS_S3_REGION_NAME = SUPABASE_STORAGE_REGION
+    AWS_STORAGE_BUCKET_NAME = SUPABASE_STORAGE_BUCKET
+    AWS_ACCESS_KEY_ID = SUPABASE_STORAGE_ACCESS_KEY
+    AWS_SECRET_ACCESS_KEY = SUPABASE_STORAGE_SECRET_KEY
+    AWS_S3_CUSTOM_DOMAIN = None
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
+    MEDIA_URL = SUPABASE_STORAGE_PUBLIC_BASE_URL + '/'
