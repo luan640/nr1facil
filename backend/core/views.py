@@ -47,11 +47,15 @@ from .models import (
     FrequencyChoice,
     Ghe,
     MedidaScopeType,
+    CampanhaPlanoAcao,
+    PedidoAjuda,
+    PedidoAjudaAtualizacao,
+    RegistroHumor,
     Setor,
     User,
     UserType,
 )
-from .serializers import CanalDenunciaAtualizacaoCreateSerializer, CanalDenunciaListSerializer, CanalDenunciaPublicSerializer, CanalDenunciaStatusUpdateSerializer, CampanhaMedidaPreliminarSerializer, CampanhaQuandoPreliminarSerializer, CampanhaRelatorioAnexoSerializer, CampanhaSerializer, CampanhaStep1RespostaSerializer, CampanhaStep2RespostaSerializer, CampanhaStep3RespostaSerializer, CampanhaStep4RespostaSerializer, CampanhaStep5RespostaSerializer, CampanhaStep6RespostaSerializer, CampanhaStep7RespostaSerializer, CampanhaStep8RespostaSerializer, CampanhaStep9RespostaSerializer, CargoSerializer, ConsultoriaConfiguracaoSerializer, ConsultoriaResponsavelTecnicoSerializer, ConsultorSerializer, EmpresaSerializer, GheSerializer, LoginSerializer, SetorSerializer
+from .serializers import CanalDenunciaAtualizacaoCreateSerializer, CanalDenunciaListSerializer, CanalDenunciaPublicSerializer, CanalDenunciaStatusUpdateSerializer, CampanhaMedidaPreliminarSerializer, CampanhaPlanoAcaoSerializer, CampanhaQuandoPreliminarSerializer, CampanhaRelatorioAnexoSerializer, CampanhaSerializer, CampanhaStep1RespostaSerializer, CampanhaStep2RespostaSerializer, CampanhaStep3RespostaSerializer, CampanhaStep4RespostaSerializer, CampanhaStep5RespostaSerializer, CampanhaStep6RespostaSerializer, CampanhaStep7RespostaSerializer, CampanhaStep8RespostaSerializer, CampanhaStep9RespostaSerializer, CargoSerializer, ConsultoriaConfiguracaoSerializer, ConsultoriaResponsavelTecnicoSerializer, ConsultorSerializer, EmpresaSerializer, GheSerializer, LoginSerializer, PedidoAjudaAtualizacaoCreateSerializer, PedidoAjudaListSerializer, PedidoAjudaPublicSerializer, PedidoAjudaStatusUpdateSerializer, RegistroHumorPublicSerializer, SetorSerializer
 
 
 FREQUENCY_SCORE_POSITIVE = {
@@ -273,7 +277,13 @@ def _build_report_bundle(campanha, empresa, step1_qs):
     }
 
 
-def _build_dashboard_overview(user, empresa_id=None):
+def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=None):
+    from datetime import datetime, timezone as dt_timezone
+    def _dt_from(d):
+        return datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=dt_timezone.utc)
+    def _dt_to(d):
+        return datetime(d.year, d.month, d.day, 23, 59, 59, 999999, tzinfo=dt_timezone.utc)
+
     if user.is_superuser or user.user_type == UserType.ADM:
         empresas_qs = Empresa.objects.all()
         campanhas_qs = Campanha.objects.select_related('empresa').all()
@@ -291,6 +301,10 @@ def _build_dashboard_overview(user, empresa_id=None):
     total_empresas = empresas_qs.count()
     total_employee_capacity = sum(int(e.employee_count or 0) for e in empresas_qs.only('employee_count'))
     step1_qs = CampanhaRespostaStep1.objects.filter(campanha_id__in=campanha_ids, is_completed=True) if campanha_ids else CampanhaRespostaStep1.objects.none()
+    if date_from:
+        step1_qs = step1_qs.filter(created_at__gte=_dt_from(date_from))
+    if date_to:
+        step1_qs = step1_qs.filter(created_at__lte=_dt_to(date_to))
     completed_count = step1_qs.count()
     questionarios_em_aberto = sum(1 for c in campanhas if c.status == CampaignStatus.ATIVO)
     relatorios_salvos = sum(1 for c in campanhas if c.status == CampaignStatus.ENCERRADO)
@@ -317,6 +331,73 @@ def _build_dashboard_overview(user, empresa_id=None):
             trend_counts[key] += 1
     trend = [{'label': f'{m:02d}/{y}', 'value': trend_counts[f'{y:04d}-{m:02d}']} for y, m in months]
 
+    # ── Canal de Denúncias & Totem stats ──────────────────────────────
+    empresa_ids = list(empresas_qs.values_list('id', flat=True))
+
+    den_qs = CanalDenuncia.objects.filter(empresa_id__in=empresa_ids) if empresa_ids else CanalDenuncia.objects.none()
+    if date_from:
+        den_qs = den_qs.filter(created_at__gte=_dt_from(date_from))
+    if date_to:
+        den_qs = den_qs.filter(created_at__lte=_dt_to(date_to))
+    total_denuncias = den_qs.count()
+
+    STATUS_LABEL_MAP = {'ABERTA': 'Aberta', 'EM_ANALISE': 'Em análise', 'RESOLVIDA': 'Resolvida'}
+    den_status_raw = {row['status']: row['count'] for row in den_qs.values('status').annotate(count=Count('id'))}
+    den_por_status = [
+        {'key': s, 'label': STATUS_LABEL_MAP[s], 'value': den_status_raw.get(s, 0)}
+        for s in ['ABERTA', 'EM_ANALISE', 'RESOLVIDA']
+    ]
+
+    TIPO_LABEL_MAP = {
+        'ASSEDIO_MORAL': 'Assédio moral', 'ASSEDIO_SEXUAL': 'Assédio sexual',
+        'DISCRIMINACAO': 'Discriminação', 'VIOLENCIA_VERBAL': 'Viol. verbal',
+        'VIOLENCIA_FISICA': 'Viol. física', 'FRAUDE': 'Fraude',
+        'CORRUPCAO': 'Corrupção', 'DESVIO_CONDUTA': 'Desvio conduta',
+        'CONFLITO_INTERESSE': 'Conflito interesse', 'OUTROS': 'Outros',
+    }
+    den_por_tipo = [
+        {'label': TIPO_LABEL_MAP.get(row['tipo'], row['tipo']), 'value': row['count']}
+        for row in den_qs.values('tipo').annotate(count=Count('id')).order_by('-count')[:8]
+    ]
+
+    den_por_ghe = [
+        {'label': row['ghe__name'] or 'Sem GHE', 'value': row['count']}
+        for row in den_qs.filter(ghe__isnull=False).values('ghe__name').annotate(count=Count('id')).order_by('-count')[:8]
+    ]
+
+    # Humor
+    humor_qs = RegistroHumor.objects.filter(empresa_id__in=empresa_ids) if empresa_ids else RegistroHumor.objects.none()
+    if date_from:
+        humor_qs = humor_qs.filter(created_at__gte=_dt_from(date_from))
+    if date_to:
+        humor_qs = humor_qs.filter(created_at__lte=_dt_to(date_to))
+    total_humor = humor_qs.count()
+
+    HUMOR_LABEL_MAP = {
+        'feliz': 'Feliz', 'motivado': 'Motivado', 'tranquilo': 'Tranquilo',
+        'cansado': 'Cansado', 'estressado': 'Estressado', 'triste': 'Triste',
+        'ansioso': 'Ansioso', 'sobrecarregado': 'Sobrecarregado',
+    }
+    humor_por_tipo = [
+        {'key': row['humor'], 'label': HUMOR_LABEL_MAP.get(row['humor'], row['humor'].capitalize()), 'value': row['count']}
+        for row in humor_qs.values('humor').annotate(count=Count('id')).order_by('-count')
+    ]
+
+    humor_trend_counts = {f'{y:04d}-{m:02d}': 0 for y, m in months}
+    for row in humor_qs.values_list('created_at', flat=True):
+        key = row.strftime('%Y-%m')
+        if key in humor_trend_counts:
+            humor_trend_counts[key] += 1
+    humor_trend = [{'label': f'{m:02d}/{y}', 'value': humor_trend_counts[f'{y:04d}-{m:02d}']} for y, m in months]
+
+    # Pedidos de ajuda
+    pedido_qs = PedidoAjuda.objects.filter(empresa_id__in=empresa_ids) if empresa_ids else PedidoAjuda.objects.none()
+    if date_from:
+        pedido_qs = pedido_qs.filter(created_at__gte=_dt_from(date_from))
+    if date_to:
+        pedido_qs = pedido_qs.filter(created_at__lte=_dt_to(date_to))
+    total_pedidos_ajuda = pedido_qs.count()
+
     return {
         'selected_empresa_id': empresa_id,
         'empresas': [{'id': e['id'], 'name': e['company_name']} for e in available_empresas],
@@ -325,7 +406,7 @@ def _build_dashboard_overview(user, empresa_id=None):
             {'key': 'questionarios_abertos', 'label': 'Questionários em aberto', 'value': questionarios_em_aberto, 'color': 'green'},
             {'key': 'relatorios', 'label': 'Relatórios Salvos', 'value': relatorios_salvos, 'color': 'yellow'},
             {'key': 'avaliacoes', 'label': 'Avaliações Encontradas', 'value': completed_count, 'color': 'purple'},
-            {'key': 'denuncias', 'label': 'Denúncias', 'value': comentarios_count, 'color': 'red'},
+            {'key': 'denuncias', 'label': 'Denúncias (comentários)', 'value': comentarios_count, 'color': 'red'},
         ],
         'domain_distribution': [
             {'key': r['key'], 'label': r['domain'], 'percent': r['percent'], 'score': r['avg_score'], 'zone': r['zone']}
@@ -335,6 +416,19 @@ def _build_dashboard_overview(user, empresa_id=None):
             'labels': [t['label'] for t in trend],
             'values': [t['value'] for t in trend],
             'series_name': 'Avaliacoes Realizadas',
+        },
+        'canal_overview': {
+            'total_denuncias': total_denuncias,
+            'total_humor': total_humor,
+            'total_pedidos_ajuda': total_pedidos_ajuda,
+            'den_por_status': den_por_status,
+            'den_por_tipo': den_por_tipo,
+            'den_por_ghe': den_por_ghe,
+            'humor_por_tipo': humor_por_tipo,
+            'humor_trend': {
+                'labels': [h['label'] for h in humor_trend],
+                'values': [h['value'] for h in humor_trend],
+            },
         },
     }
 
@@ -369,6 +463,234 @@ def _upload_relatorio_anexo_to_storage(campanha, file_obj):
 def _delete_relatorio_anexo_from_storage(file_key):
     client = _supabase_s3_client()
     client.delete_object(Bucket=settings.SUPABASE_STORAGE_BUCKET, Key=file_key)
+
+
+_PLANOS_ACAO = {
+    'step2': {
+        'q1': [
+            "Mapear e documentar os conflitos de demandas entre áreas, definindo prioridades claras e critérios de resolução.",
+            "Implantar reuniões periódicas de alinhamento interdepartamental para coordenar exigências conflitantes.",
+            "Capacitar lideranças em gestão de conflitos de demanda e em técnicas de negociação de prioridades.",
+            "Criar comitê de gestão de demandas com representantes de cada área para arbitrar conflitos recorrentes.",
+        ],
+        'q2': [
+            "Revisar a metodologia de definição de prazos, adotando estimativas realistas baseadas em capacidade de trabalho.",
+            "Capacitar gestores em planejamento e em técnicas de estimativa de tempo para tarefas e projetos.",
+            "Criar espaço formal para negociação de prazos entre colaboradores e lideranças antes da definição final.",
+            "Monitorar indicadores de cumprimento de prazos e utilizar os dados para ajustar a distribuição de demandas.",
+        ],
+        'q3': [
+            "Realizar análise de carga de trabalho por colaborador e redistribuir tarefas para menor intensidade.",
+            "Implantar pausas regulares programadas na jornada e garantir que sejam respeitadas.",
+            "Avaliar necessidade de contratação ou redistribuição de pessoal para equilibrar a intensidade do trabalho.",
+            "Revisar processos de trabalho para identificar e eliminar etapas desnecessárias que elevam a intensidade.",
+        ],
+        'q4': [
+            "Realizar diagnóstico de carga de trabalho por colaborador e ajustar a distribuição de demandas.",
+            "Priorizar e eliminar tarefas de baixo valor agregado, reduzindo o volume total de demandas.",
+            "Avaliar contratação de apoio, terceirização ou automação de atividades para aliviar sobrecarga.",
+            "Implantar gestão visual (Kanban ou similar) para tornar visível a fila de trabalho e evitar acúmulo.",
+        ],
+        'q5': [
+            "Formalizar política de pausas programadas, incluindo horários definidos e respaldo da liderança.",
+            "Sensibilizar lideranças sobre a importância legal e ergonômica das pausas para saúde e produtividade.",
+            "Monitorar cumprimento das pausas obrigatórias conforme NR-17 e acionar correções quando necessário.",
+            "Adequar os espaços de descanso para torná-los confortáveis e acolhedores para as pausas durante o trabalho.",
+        ],
+        'q6': [
+            "Monitorar sistematicamente banco de horas e horas extras, com alertas para excessos recorrentes.",
+            "Sensibilizar gestores sobre o impacto negativo do excesso de horas extras na saúde e na produtividade.",
+            "Revisar o dimensionamento de equipe para garantir que o volume de trabalho seja compatível com o horário normal.",
+            "Estabelecer política clara de horas extras, com limites, critérios de autorização e contrapartidas adequadas.",
+        ],
+        'q7': [
+            "Realizar mapeamento e otimização de processos para eliminar gargalos que impõem ritmo acelerado.",
+            "Conduzir Análise Ergonômica do Trabalho (AET) para avaliar exigências de ritmo e propor melhorias.",
+            "Redistribuir tarefas e revisar metas, tornando-as compatíveis com o ritmo saudável de trabalho.",
+            "Capacitar lideranças em gestão humanizada, promovendo desempenho sustentável sem ritmo acelerado excessivo.",
+        ],
+        'q8': [
+            "Rever a organização do trabalho para viabilizar a realização efetiva das pausas previstas.",
+            "Capacitar supervisores sobre as exigências da NR-17 e as consequências do descumprimento das pausas.",
+            "Implantar controle de pausas nas escalas de trabalho, garantindo cumprimento operacional.",
+            "Adequar a demanda ao tempo disponível, eliminando excesso de tarefas que inviabilizam as pausas.",
+        ],
+    },
+    'step3': {
+        'q1': [
+            "Flexibilizar os horários de pausa, permitindo que o colaborador escolha o melhor momento dentro da jornada.",
+            "Capacitar lideranças em gestão com autonomia, reduzindo o controle excessivo sobre as pausas.",
+            "Revisar rotinas organizacionais que impeçam ou dificultem a realização de pausas autônomas.",
+            "Implantar modelo de trabalho por entregas, dando ao colaborador mais liberdade para gerir seu tempo.",
+        ],
+        'q2': [
+            "Revisar o nível de controle sobre o ritmo de trabalho, identificando microgestão desnecessária.",
+            "Implantar gestão por objetivos e resultados (OKR/MBO) em substituição ao controle de ritmo.",
+            "Mapear gargalos externos que impõem ritmo acelerado ao colaborador e eliminá-los.",
+            "Capacitar gestores em liderança delegativa e em confiança no desempenho da equipe.",
+        ],
+        'q3': [
+            "Ampliar a margem de decisão dos colaboradores nos processos de trabalho, reduzindo padronização excessiva.",
+            "Revisar práticas de microgestão e reduzir o controle sobre o como as atividades são realizadas.",
+            "Capacitar equipes em autogestão e em técnicas de organização pessoal do trabalho.",
+            "Implantar metodologias ágeis que aumentem a autonomia das equipes na execução de tarefas.",
+        ],
+        'q4': [
+            "Revisar processos de priorização de tarefas, transferindo mais autonomia para o colaborador.",
+            "Implantar gestão por resultados, focando no que deve ser entregue e não em como cada passo é feito.",
+            "Ampliar a delegação de responsabilidades, desenvolvendo a capacidade decisória das equipes.",
+            "Oferecer treinamento em gestão do próprio trabalho e em técnicas de priorização pessoal.",
+        ],
+        'q5': [
+            "Criar canais formais para sugestões e melhorias de processos, valorizando a voz do colaborador.",
+            "Envolver equipes na revisão e redesenho dos fluxos de trabalho que os afetam diretamente.",
+            "Capacitar gestores em liderança participativa que incorpora a contribuição dos colaboradores.",
+            "Implantar grupos de melhoria contínua com participação ativa dos colaboradores nas decisões.",
+        ],
+        'q6': [
+            "Avaliar a possibilidade de implementação de horário flexível ou banco de horas conforme perfil da função.",
+            "Mapear funções com potencial de flexibilidade de horário e criar projeto-piloto de flextime.",
+            "Sensibilizar gestores sobre os benefícios do trabalho flexível para engajamento e qualidade de vida.",
+            "Criar política formal de flexibilidade de horário, com regras claras e critérios por cargo e área.",
+        ],
+    },
+    'step4': {
+        'q1': [
+            "Melhorar o fluxo de comunicação interna, garantindo que informações essenciais cheguem a tempo a todos.",
+            "Criar base de conhecimento centralizada e acessível com procedimentos, orientações e materiais de apoio.",
+            "Capacitar líderes em comunicação clara e assertiva para suporte efetivo às equipes.",
+            "Estabelecer rotinas regulares de briefing de equipe para garantir alinhamento e suporte contínuo.",
+        ],
+        'q2': [
+            "Capacitar líderes em gestão de pessoas, desenvolvendo habilidades de suporte e apoio em situações difíceis.",
+            "Implantar reuniões regulares de acompanhamento individual (one-on-one) entre líder e colaborador.",
+            "Criar política formal de portas abertas, incentivando colaboradores a buscar a liderança quando necessário.",
+            "Treinar lideranças em escuta ativa e em técnicas de apoio emocional no contexto de trabalho.",
+        ],
+        'q3': [
+            "Promover cultura de segurança psicológica, onde colaboradores se sintam seguros para dialogar sobre problemas.",
+            "Capacitar líderes em escuta ativa, empatia e em técnicas de feedback construtivo.",
+            "Criar fóruns regulares de diálogo aberto entre equipes e lideranças para tratar situações incômodas.",
+            "Implantar pesquisa de clima periódica e compartilhar ações derivadas com toda a equipe.",
+        ],
+        'q4': [
+            "Implantar programa de apoio psicossocial, com acesso a profissionais capacitados para suporte emocional.",
+            "Capacitar líderes a identificar sinais de sobrecarga emocional e oferecer apoio preventivo às equipes.",
+            "Criar grupos de suporte entre pares para troca de experiências em atividades emocionalmente exigentes.",
+            "Oferecer acesso a acompanhamento psicológico como benefício corporativo para colaboradores.",
+        ],
+        'q5': [
+            "Capacitar líderes em técnicas de reconhecimento, feedback positivo e incentivo ao desenvolvimento.",
+            "Implantar programa formal de reconhecimento que valorize conquistas individuais e coletivas.",
+            "Criar cultura de valorização de conquistas com rituais regulares de celebração de resultados.",
+            "Desenvolver competências de liderança motivacional por meio de treinamentos e coaching.",
+        ],
+    },
+    'step5': {
+        'q1': [
+            "Promover cultura de colaboração com atividades e rituais de equipe que incentivem a ajuda mútua.",
+            "Implantar programas de mentoria entre pares, conectando colaboradores experientes a novos membros.",
+            "Criar dinâmicas regulares de integração de equipe para fortalecer vínculos e disposição de apoio.",
+            "Capacitar equipes em comunicação colaborativa e em práticas de trabalho conjunto eficaz.",
+        ],
+        'q2': [
+            "Promover gestão do conhecimento compartilhado, criando espaços para troca de saberes entre colegas.",
+            "Criar rituais de cooperação (reuniões de apoio, revisões em par) que estimulem o suporte mútuo.",
+            "Mapear gargalos de colaboração entre equipes e eliminar barreiras organizacionais à cooperação.",
+            "Estabelecer indicadores de trabalho colaborativo e reconhecer equipes pelo desempenho coletivo.",
+        ],
+        'q3': [
+            "Implantar código de conduta e convivência, com regras claras de respeito mútuo no ambiente de trabalho.",
+            "Promover treinamento em respeito, diversidade e inclusão para todos os colaboradores.",
+            "Criar canal seguro e sigiloso para relato de comportamentos inadequados entre colegas.",
+            "Desenvolver programa de cultura organizacional positiva com foco em relações respeitosas.",
+        ],
+        'q4': [
+            "Criar espaços formais de escuta entre pares, como rodas de conversa e grupos de apoio.",
+            "Promover treinamento em comunicação empática e não violenta para toda a equipe.",
+            "Implementar cultura psicologicamente segura onde é natural e esperado pedir ajuda aos colegas.",
+            "Desenvolver competências de inteligência emocional nas equipes por meio de treinamentos e vivências.",
+        ],
+    },
+    'step6': {
+        'q1': [
+            "Implementar canal de denúncias seguro, sigiloso e acessível para relatos de perseguição e assédio.",
+            "Capacitar lideranças em prevenção ao assédio moral e em condução de investigações internas.",
+            "Investigar e tratar com rigor todos os casos de perseguição relatados, com consequências claras.",
+            "Promover política formal de tolerância zero ao assédio, comunicada a todos os colaboradores.",
+        ],
+        'q2': [
+            "Implantar processo estruturado de mediação de conflitos com apoio de profissional qualificado.",
+            "Capacitar lideranças em gestão e resolução de conflitos interpessoais no ambiente de trabalho.",
+            "Promover dinâmicas de integração e de resolução coletiva para prevenir e tratar conflitos.",
+            "Mapear causas recorrentes dos conflitos e tratar as origens estruturais e organizacionais.",
+        ],
+        'q3': [
+            "Implantar código de conduta com regras claras e sanções proporcionais para comportamentos rudes.",
+            "Capacitar gestores e colaboradores em comunicação não violenta e em relações interpessoais saudáveis.",
+            "Criar mecanismo seguro de relato de condutas inadequadas com apuração transparente.",
+            "Promover campanha interna de cultura de respeito, reforçando valores e comportamentos esperados.",
+        ],
+        'q4': [
+            "Promover atividades de integração e fortalecimento de equipe para restaurar vínculos desgastados.",
+            "Implantar pesquisa de clima periódica e criar ciclos de feedback para acompanhar a evolução.",
+            "Contratar facilitação externa de dinâmicas de grupo para apoio em equipes com conflitos estabelecidos.",
+            "Revisar carga de trabalho e outros fatores geradores de estresse que contribuem para o desgaste relacional.",
+        ],
+    },
+    'step7': {
+        'q1': [
+            "Revisar, atualizar e comunicar formalmente as descrições de cargo a todos os colaboradores.",
+            "Realizar reuniões regulares de alinhamento de expectativas entre líderes e suas equipes.",
+            "Implantar sistema de gestão por objetivos (OKR ou MBO) para tornar expectativas mensuráveis e claras.",
+            "Capacitar líderes em comunicação clara de metas, papéis e expectativas de desempenho.",
+        ],
+        'q2': [
+            "Criar manuais e procedimentos operacionais claros e acessíveis para guiar a execução das atividades.",
+            "Implantar programa estruturado de integração e onboarding com foco em capacitação prática.",
+            "Oferecer treinamentos técnicos específicos para as atividades de cada função.",
+            "Criar sistema de mentoria que conecte colaboradores mais experientes a quem precisa de orientação.",
+        ],
+        'q3': [
+            "Revisar e distribuir formalmente descrições de cargo atualizadas para todos os colaboradores.",
+            "Criar mapa visual de responsabilidades por função e torná-lo acessível a toda a equipe.",
+            "Realizar conversas individuais de alinhamento entre líderes e cada membro da equipe.",
+            "Implantar avaliação de desempenho com ciclos regulares de feedback sobre papéis e responsabilidades.",
+        ],
+        'q4': [
+            "Realizar reuniões de desdobramento estratégico para comunicar objetivos departamentais à equipe.",
+            "Tornar metas e objetivos do departamento visíveis por meio de painéis ou comunicação recorrente.",
+            "Capacitar líderes em comunicação estratégica para conectar o trabalho da equipe aos objetivos maiores.",
+            "Implantar indicadores de desempenho departamental compartilhados e acompanhados em equipe.",
+        ],
+        'q5': [
+            "Promover comunicação regular sobre a estratégia organizacional e como cada área contribui para ela.",
+            "Criar narrativa de propósito que conecte as funções individuais aos objetivos gerais da organização.",
+            "Implantar reuniões amplas (town hall) com a liderança sênior para comunicação de estratégia e resultados.",
+            "Desenvolver programa de integração estratégica que mostre a cada colaborador o impacto do seu trabalho.",
+        ],
+    },
+    'step8': {
+        'q1': [
+            "Criar fóruns formais de perguntas e respostas durante processos de mudança, com lideranças disponíveis.",
+            "Capacitar líderes em comunicação bidirecional, incentivando e respondendo questões da equipe.",
+            "Implantar canal digital (FAQ, fórum online) para registro e resposta de perguntas sobre mudanças.",
+            "Treinar gestores em gestão transparente de mudanças, compartilhando o máximo de informações possível.",
+        ],
+        'q2': [
+            "Implantar processo participativo de gestão de mudanças, envolvendo colaboradores na concepção das soluções.",
+            "Criar comitês ou grupos representativos de colaboradores para consulta antes de decisões de mudança.",
+            "Realizar consultas formais com as equipes afetadas antes de implementar mudanças significativas.",
+            "Desenvolver cultura de co-construção onde mudanças são projetadas com as pessoas, não apenas para elas.",
+        ],
+        'q3': [
+            "Melhorar a comunicação de mudanças com planos detalhados, exemplos práticos e cronogramas claros.",
+            "Criar materiais explicativos (guias, tutoriais, FAQ) sobre como cada mudança será aplicada na prática.",
+            "Oferecer treinamentos e capacitações antes da implantação das mudanças para preparar a equipe.",
+            "Designar ponto focal por equipe para esclarecer dúvidas e apoiar a transição durante as mudanças.",
+        ],
+    },
+}
 
 
 def _draw_pdf_cover_page(c, campanha, empresa_name):
@@ -645,7 +967,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
     def draw_legend(y):
         items = [
             (colors.HexColor('#22c55e'), 'NUNCA - POSITIVO | BOM'),
-            (colors.HexColor('#facc15'), 'As vezes - ATENCAO'),
+            (colors.HexColor('#facc15'), 'As vezes - ATENÇÃO'),
             (colors.HexColor('#ef4444'), 'SEMPRE - NEGATIVO | RUIM'),
         ]
         x = margin_x + 16 * mm
@@ -661,7 +983,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
     def draw_legend(y):
         items = [
             (colors.HexColor('#22c55e'), 'NUNCA - POSITIVO | BOM'),
-            (colors.HexColor('#facc15'), 'As vezes - ATENCAO'),
+            (colors.HexColor('#facc15'), 'As vezes - ATENÇÃO'),
             (colors.HexColor('#ef4444'), 'SEMPRE - NEGATIVO | RUIM'),
         ]
         x = margin_x + 18 * mm
@@ -960,7 +1282,9 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
     c.drawString(margin_x, y, 'Plano de Ação Recomendado')
     y -= 8 * mm
 
-    if not measures:
+    planos_acao = report_data.get('planos_acao', []) or []
+
+    if not measures and not planos_acao:
         c.showPage()
         return
 
@@ -1030,16 +1354,16 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
 
         if when_range:
             # "Quando" no espelho da imagem 2 (tabela pequena)
-            c.setFillColor(colors.HexColor('#111827'))
-            c.setFont('Helvetica-Bold', 7)
-            c.drawString(box_x + 2 * mm, y, 'Quando')
-            y -= 4.5 * mm
+            # c.setFillColor(colors.HexColor('#111827'))
+            # c.setFont('Helvetica-Bold', 7)
+            # c.drawString(box_x + 2 * mm, y, 'Quando')
+            # y -= 4.5 * mm
 
-            c.setFont('Helvetica-Bold', 6.6)
-            c.drawString(box_x + 2 * mm, y, 'Aplicar em:')
-            c.setFont('Helvetica', 6.4)
-            c.drawString(box_x + 18 * mm, y, when_list_pt or '-')
-            y -= 5.5 * mm
+            # c.setFont('Helvetica-Bold', 6.6)
+            # c.drawString(box_x + 2 * mm, y, 'Aplicar em:')
+            # c.setFont('Helvetica', 6.4)
+            # c.drawString(box_x + 18 * mm, y, when_list_pt or '-')
+            # y -= 5.5 * mm
 
             table_x = box_x + 2 * mm
             table_w = box_w - 4 * mm
@@ -1099,6 +1423,137 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         c.setStrokeColor(colors.HexColor('#d1d5db'))
         c.roundRect(box_x, y + 2 * mm, box_w, (box_top - (y + 2 * mm)) + 1.5 * mm, 3, stroke=1, fill=0)
         y -= 2 * mm
+
+    # ---- Planos de Ação Selecionados (pre-defined toggles) ----
+    if planos_acao:
+        from collections import defaultdict
+        if y < 30 * mm:
+            c.showPage()
+            y = new_page()
+        y -= 2 * mm
+        c.setFillColor(colors.HexColor('#9a3412'))
+        c.setFont('Helvetica-Bold', 8)
+        # c.drawString(margin_x, y, 'Planos de Ação Selecionados')
+        y -= 8 * mm
+
+        planos_by_q = defaultdict(list)
+        for p in planos_acao:
+            k = (p.get('step_key', ''), p.get('question_field', ''))
+            planos_by_q[k].append(p)
+
+        for (step_key, question_field), plans in sorted(planos_by_q.items()):
+            try:
+                step_num = int(step_key.replace('step', '')) if step_key.startswith('step') else 0
+            except ValueError:
+                step_num = 0
+            domain_name = step_domain_lookup.get(step_num, step_key)
+            q_info = score_lookup.get((step_num, question_field, 'GERAL', '', ''), {})
+            question_text = q_info.get('question') or f'Pergunta {question_field}'
+            when_data = whens_lookup.get((step_num, question_field, 'GERAL', '', ''))
+            when_months = (when_data or {}).get('when_months', [])
+            when_list_pt = format_when_months_pt(when_months)
+            when_range = format_when_range(when_months)
+
+            needed = (20 + len(plans) * 12 + (40 if when_range else 0)) * mm
+            if y < needed:
+                c.showPage()
+                y = new_page()
+
+            box_x = margin_x
+            box_w = width - 2 * margin_x
+            box_top = y
+            y -= 2 * mm
+
+            c.setFillColor(colors.HexColor('#1d4ed8'))
+            c.setFont('Helvetica-Bold', 7)
+            c.drawString(box_x + 2 * mm, y, domain_name)
+            y -= 5 * mm
+
+            y = draw_wrapped_text(box_x + 2 * mm, y, question_text, font='Helvetica', size=7, max_width=box_w - 4 * mm, leading=8.5)
+            y -= 3 * mm
+
+            c.setFillColor(colors.HexColor('#92400e'))
+            c.setFont('Helvetica-Bold', 7)
+            c.drawString(box_x + 2 * mm, y, 'Planos selecionados:')
+            y -= 5.5 * mm
+
+            for p in sorted(plans, key=lambda x: x.get('plano_index', 0)):
+                texto = p.get('texto', '')
+                if texto:
+                    c.setFillColor(colors.HexColor('#111827'))
+                    c.setFont('Helvetica', 7)
+                    c.drawString(box_x + 4 * mm, y, u'\u2022')
+                    y = draw_wrapped_text(box_x + 7 * mm, y, texto, font='Helvetica', size=7, max_width=box_w - 9 * mm, leading=8.5)
+                    y -= 2 * mm
+
+            if when_range:
+                # y -= 1 * mm
+                # c.setFillColor(colors.HexColor('#111827'))
+                # c.setFont('Helvetica-Bold', 7)
+                # c.drawString(box_x + 2 * mm, y, 'Quando')
+                # y -= 4.5 * mm
+
+                # c.setFont('Helvetica-Bold', 6.6)
+                # c.drawString(box_x + 2 * mm, y, 'Aplicar em:')
+                # c.setFont('Helvetica', 6.4)
+                # c.drawString(box_x + 18 * mm, y, when_list_pt or '-')
+                # y -= 5.5 * mm
+
+                table_x = box_x + 2 * mm
+                table_w = box_w - 4 * mm
+                header_h = 5 * mm
+                body_h = 6 * mm
+                cols = [
+                    ('Responsavel', 0.24),
+                    ('Data de\nImplantacao', 0.19),
+                    ('A\nFazer', 0.08),
+                    ('Fazendo', 0.10),
+                    ('Adiado', 0.10),
+                    ('Concluido', 0.12),
+                    ('Concluido em', 0.17),
+                ]
+                widths = [table_w * p for _, p in cols]
+                c.setStrokeColor(colors.HexColor('#d1d5db'))
+                c.setFillColor(colors.HexColor('#f3f4f6'))
+                c.rect(table_x, y - header_h, table_w, header_h, stroke=1, fill=1)
+                x = table_x
+                c.setFillColor(colors.HexColor('#111827'))
+                for (label, _), w in zip(cols, widths):
+                    parts = label.split('\n')
+                    c.setFont('Helvetica-Bold', 6.1)
+                    if len(parts) == 1:
+                        c.drawCentredString(x + w / 2, y - 3.2 * mm, parts[0])
+                    else:
+                        c.drawCentredString(x + w / 2, y - 2.4 * mm, parts[0])
+                        c.drawCentredString(x + w / 2, y - 4.7 * mm, parts[1])
+                    x += w
+
+                row_y = y - header_h
+                c.setFillColor(colors.white)
+                c.rect(table_x, row_y - body_h, table_w, body_h, stroke=1, fill=1)
+                x = table_x
+                values = [empresa_name, when_range, '', '', '', '', '__/__/____']
+                for idx, w in enumerate(widths):
+                    c.setFillColor(colors.HexColor('#111827'))
+                    if 2 <= idx <= 5:
+                        cx = x + w / 2 - 1.4 * mm
+                        cy = row_y - 4.6 * mm
+                        c.setStrokeColor(colors.HexColor('#9ca3af'))
+                        c.rect(cx, cy, 2.8 * mm, 2.8 * mm, stroke=1, fill=0)
+                    else:
+                        c.setFont('Helvetica', 6.2)
+                        c.drawCentredString(x + w / 2, row_y - 3.8 * mm, values[idx])
+                    x += w
+                x = table_x
+                total_h = header_h + body_h
+                for w in widths[:-1]:
+                    x += w
+                    c.line(x, y, x, y - total_h)
+                y = row_y - body_h - 4 * mm
+
+            c.setStrokeColor(colors.HexColor('#d1d5db'))
+            c.roundRect(box_x, y + 2 * mm, box_w, (box_top - (y + 2 * mm)) + 1.5 * mm, 3, stroke=1, fill=0)
+            y -= 3 * mm
 
     c.showPage()
 
@@ -1399,7 +1854,7 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     for label, value in ident_lines:
         c.drawString(margin_x, y, f'{label}:')
         c.setFont('Helvetica', 7)
-        c.drawString(margin_x + 32 * mm, y, str(value))
+        c.drawString(margin_x + 65 * mm, y, str(value))
         y -= 5 * mm
         c.setFont('Helvetica-Bold', 7)
 
@@ -1644,7 +2099,24 @@ def _draw_pdf_metodologia_pages(c):
     foot = 'Referência: Northumberland, Tyne and Wear NHS Foundation Trust SeW-PGN-1 - Apêndice 7 - Manual do Usuário da FerramentaIndicadora HSE - V03. Edição 1 - Emitido em setembro de 2014. Parte da NTW(HR) 12 - Política de Estresse no Trabalho.'
     c.setFillColor(colors.HexColor('#6b7280'))
     c.setFont('Helvetica', 5.6)
-    c.drawString(margin_x, curr_y - 5 * mm, foot)
+    max_w = width - 2 * margin_x
+    foot_words = foot.split()
+    foot_lines = []
+    foot_cur = ''
+    for w in foot_words:
+        test = (foot_cur + ' ' + w).strip() if foot_cur else w
+        if c.stringWidth(test, 'Helvetica', 5.6) <= max_w:
+            foot_cur = test
+        else:
+            if foot_cur:
+                foot_lines.append(foot_cur)
+            foot_cur = w
+    if foot_cur:
+        foot_lines.append(foot_cur)
+    foot_y = curr_y - 5 * mm
+    for fl in foot_lines:
+        c.drawString(margin_x, foot_y, fl)
+        foot_y -= 3.5 * mm
     c.showPage()
 
 
@@ -1829,6 +2301,7 @@ class DashboardOverviewView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
     def get(self, request):
+        from datetime import date as date_cls
         empresa_id_raw = (request.query_params.get('empresa_id') or '').strip()
         empresa_id = None
         if empresa_id_raw:
@@ -1836,7 +2309,17 @@ class DashboardOverviewView(APIView):
                 empresa_id = int(empresa_id_raw)
             except ValueError:
                 return Response({'detail': 'Empresa invalida.'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(_build_dashboard_overview(request.user, empresa_id=empresa_id))
+        date_from = date_to = None
+        try:
+            raw_from = (request.query_params.get('date_from') or '').strip()
+            raw_to = (request.query_params.get('date_to') or '').strip()
+            if raw_from:
+                date_from = date_cls.fromisoformat(raw_from)
+            if raw_to:
+                date_to = date_cls.fromisoformat(raw_to)
+        except ValueError:
+            return Response({'detail': 'Formato de data inválido. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_build_dashboard_overview(request.user, empresa_id=empresa_id, date_from=date_from, date_to=date_to))
 
 
 def _consultoria_owner_for_user(user):
@@ -2171,18 +2654,33 @@ class TotemPublicView(APIView):
         empresa = Empresa.objects.filter(totem_token=token, is_active=True).first()
         if not empresa:
             return Response({'detail': 'Totem não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-        ghes = list(Ghe.objects.filter(empresa=empresa, is_active=True).order_by('name').values('id', 'name'))
+        ghes_qs = Ghe.objects.filter(empresa=empresa, is_active=True).prefetch_related('setores').order_by('name')
+        ghes = [
+            {'id': g.id, 'name': g.name, 'setor_ids': [s.id for s in g.setores.all()]}
+            for g in ghes_qs
+        ]
+        setores = list(Setor.objects.filter(empresa=empresa, is_active=True).order_by('name').values('id', 'name'))
         cargos_qs = Cargo.objects.filter(empresa=empresa, is_active=True).prefetch_related('ghes').order_by('name')
         cargos = [
             {'id': c.id, 'name': c.name, 'ghe_ids': [g.id for g in c.ghes.all()]}
             for c in cargos_qs
         ]
+        responsaveis_tecnicos = []
+        try:
+            cfg = empresa.consultor.consultoria_configuracao
+            responsaveis_tecnicos = list(
+                cfg.responsaveis_tecnicos.filter(responsavel_totem=True).order_by('id').values('nome', 'formacao', 'registro')
+            )
+        except Exception:
+            pass
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
             'token': str(token),
             'ghes': ghes,
+            'setores': setores,
             'cargos': cargos,
+            'responsaveis_tecnicos': responsaveis_tecnicos,
         })
 
     def post(self, request, token):
@@ -2213,6 +2711,373 @@ class TotemPublicView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class RegistroHumorPublicView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser, FormParser]
+
+    def post(self, request, token):
+        empresa = Empresa.objects.filter(totem_token=token, is_active=True).first()
+        if not empresa:
+            return Response({'detail': 'Totem não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = RegistroHumorPublicSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        registro = serializer.save(empresa=empresa)
+        return Response(
+            {
+                'message': 'Humor registrado com sucesso.',
+                'id': registro.id,
+                'created_at': registro.created_at.isoformat(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PedidoAjudaPublicView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser, FormParser]
+
+    def post(self, request, token):
+        empresa = Empresa.objects.filter(totem_token=token, is_active=True).first()
+        if not empresa:
+            return Response({'detail': 'Totem não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PedidoAjudaPublicSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pedido = serializer.save(empresa=empresa)
+        return Response(
+            {
+                'message': 'Pedido enviado com sucesso.',
+                'id': pedido.id,
+                'created_at': pedido.created_at.isoformat(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class EmpresaPedidosAjudaListView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request, empresa_id):
+        empresa = empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        qs = (
+            PedidoAjuda.objects
+            .filter(empresa=empresa)
+            .select_related('ghe', 'funcao')
+            .prefetch_related('atualizacoes__criado_por')
+            .order_by('-created_at')
+        )
+        serializer = PedidoAjudaListSerializer(qs, many=True)
+        return Response({
+            'empresa_id': empresa.id,
+            'empresa_name': empresa.company_name,
+            'count': qs.count(),
+            'results': serializer.data,
+        })
+
+
+class EmpresaPedidoAjudaDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get_object(self, request, empresa_id, pedido_id):
+        empresa = empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+        if not empresa:
+            return None, None
+        pedido = (
+            PedidoAjuda.objects
+            .filter(id=pedido_id, empresa=empresa)
+            .select_related('ghe', 'funcao')
+            .prefetch_related('atualizacoes__criado_por')
+            .first()
+        )
+        return empresa, pedido
+
+    def patch(self, request, empresa_id, pedido_id):
+        empresa, pedido = self.get_object(request, empresa_id, pedido_id)
+        if not empresa:
+            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if not pedido:
+            return Response({'detail': 'Pedido de ajuda nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PedidoAjudaStatusUpdateSerializer(pedido, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        pedido = serializer.save()
+        return Response(PedidoAjudaListSerializer(pedido).data)
+
+
+class EmpresaPedidoAjudaAtualizacaoCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get_pedido(self, request, empresa_id, pedido_id):
+        empresa = empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+        if not empresa:
+            return None, None
+        pedido = PedidoAjuda.objects.filter(id=pedido_id, empresa=empresa).first()
+        return empresa, pedido
+
+    def post(self, request, empresa_id, pedido_id):
+        empresa, pedido = self.get_pedido(request, empresa_id, pedido_id)
+        if not empresa:
+            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if not pedido:
+            return Response({'detail': 'Pedido de ajuda nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PedidoAjudaAtualizacaoCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(pedido=pedido, criado_por=request.user)
+        pedido = (
+            PedidoAjuda.objects
+            .filter(id=pedido.id)
+            .select_related('ghe', 'funcao')
+            .prefetch_related('atualizacoes__criado_por')
+            .first()
+        )
+        return Response(PedidoAjudaListSerializer(pedido).data, status=status.HTTP_201_CREATED)
+
+
+def _build_ajuda_pdf_response(pedido):
+    from datetime import datetime
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    w, h = A4
+    mx = 20 * mm
+
+    dark = colors.HexColor('#111827')
+    gray = colors.HexColor('#6b7280')
+    slate = colors.HexColor('#374151')
+    blue = colors.HexColor('#1e40af')
+    border_col = colors.HexColor('#e5e7eb')
+    bg_light = colors.HexColor('#f8fafc')
+
+    STATUS_COLORS = {
+        'ABERTO': colors.HexColor('#dc2626'),
+        'EM_ATENDIMENTO': colors.HexColor('#d97706'),
+        'ATENDIDO': colors.HexColor('#16a34a'),
+    }
+    STATUS_LABELS = {'ABERTO': 'ABERTO', 'EM_ATENDIMENTO': 'EM ATENDIMENTO', 'ATENDIDO': 'ATENDIDO'}
+
+    now_str = datetime.now().strftime('%d/%m/%Y %H:%M')
+    created_local = pedido.created_at.astimezone()
+    date_str = created_local.strftime('%d/%m/%Y às %H:%M')
+
+    page_num = [0]
+
+    def draw_page_frame():
+        page_num[0] += 1
+        c.setFillColor(colors.HexColor('#111827'))
+        c.rect(0, h - 18 * mm, w, 18 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(mx, h - 11 * mm, 'RELATÓRIO DE AUDITORIA — PEDIDOS DE AJUDA')
+        c.setFont('Helvetica', 8)
+        c.drawRightString(w - mx, h - 11 * mm, f'CONFIDENCIAL  •  Pág. {page_num[0]}')
+        c.setFillColor(colors.HexColor('#f1f5f9'))
+        c.rect(0, 0, w, 12 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor('#9ca3af'))
+        c.setFont('Helvetica', 7)
+        c.drawString(mx, 6.5 * mm, f'Gerado em: {now_str}  •  Documento confidencial para auditoria interna')
+        c.drawRightString(w - mx, 6.5 * mm, f'Pedido #{pedido.id}  •  {pedido.empresa.company_name}')
+
+    def new_page():
+        c.showPage()
+        draw_page_frame()
+        return h - 24 * mm
+
+    def wrap_text(text, font_name, font_size, max_width):
+        paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        all_lines = []
+        for para in paragraphs:
+            if not para.strip():
+                all_lines.append('')
+                continue
+            words = para.split()
+            current = ''
+            for word in words:
+                test = (current + ' ' + word).strip()
+                if c.stringWidth(test, font_name, font_size) <= max_width:
+                    current = test
+                else:
+                    if current:
+                        all_lines.append(current)
+                    current = word
+            if current:
+                all_lines.append(current)
+        return all_lines or ['']
+
+    def draw_section_title(y, title, ul_width_mm=40):
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(mx, y, title)
+        y -= 2 * mm
+        c.setStrokeColor(blue)
+        c.setLineWidth(1.5)
+        c.line(mx, y, mx + ul_width_mm * mm, y)
+        return y - 5 * mm
+
+    def draw_text_block(y, lines, font_size=9, lh=5.5):
+        for line in lines:
+            if y < 20 * mm:
+                y = new_page()
+            c.setFillColor(slate)
+            c.setFont('Helvetica', font_size)
+            if line:
+                c.drawString(mx, y, line)
+            y -= lh * mm
+        return y
+
+    draw_page_frame()
+    y = h - 24 * mm
+
+    c.setFillColor(blue)
+    c.setFont('Helvetica-Bold', 15)
+    c.drawString(mx, y, pedido.empresa.company_name)
+    y -= 6 * mm
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 9)
+    c.drawString(mx, y, 'Pedidos de Ajuda — Relatório de Auditoria')
+    y -= 10 * mm
+
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.8)
+    c.line(mx, y, w - mx, y)
+    y -= 8 * mm
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 20)
+    c.drawString(mx, y, f'Pedido de Ajuda #{pedido.id}')
+
+    pill_color = STATUS_COLORS.get(pedido.status, colors.HexColor('#6b7280'))
+    pill_label = STATUS_LABELS.get(pedido.status, pedido.status)
+    pill_w = c.stringWidth(pill_label, 'Helvetica-Bold', 9) + 10 * mm
+    pill_x = w - mx - pill_w
+    c.setFillColor(pill_color)
+    c.roundRect(pill_x, y - 1.5 * mm, pill_w, 7 * mm, 3 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 9)
+    c.drawCentredString(pill_x + pill_w / 2, y + 1.5 * mm, pill_label)
+    y -= 10 * mm
+
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 9)
+    c.drawString(mx, y, f'Registrado em: {date_str}')
+    y -= 10 * mm
+
+    details_items = [
+        ('Nome', pedido.nome or '—'),
+        ('Contato', pedido.contato or '—'),
+        ('GHE', pedido.ghe.name if pedido.ghe else '—'),
+        ('Função / Cargo', pedido.funcao.name if pedido.funcao else '—'),
+    ]
+
+    box_rows = (len(details_items) + 1) // 2
+    box_h = box_rows * 10 * mm + 4 * mm
+    c.setFillColor(bg_light)
+    c.rect(mx, y - box_h, w - 2 * mx, box_h, stroke=0, fill=1)
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.5)
+    c.rect(mx, y - box_h, w - 2 * mx, box_h, stroke=1, fill=0)
+
+    col_w = (w - 2 * mx) / 2
+    ry = y - 6 * mm
+    for i, (label, value) in enumerate(details_items):
+        col_x = mx + (col_w if i % 2 == 1 else 0) + 4 * mm
+        cell_y = ry - (i // 2) * 10 * mm
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7)
+        c.drawString(col_x, cell_y + 3.5 * mm, label.upper())
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 9)
+        max_val_w = col_w - 8 * mm
+        val_str = str(value)
+        while c.stringWidth(val_str, 'Helvetica-Bold', 9) > max_val_w and len(val_str) > 4:
+            val_str = val_str[:-1]
+        if val_str != str(value):
+            val_str = val_str[:-3] + '...'
+        c.drawString(col_x, cell_y, val_str)
+
+    y -= box_h + 8 * mm
+
+    atualizacoes = list(pedido.atualizacoes.order_by('created_at').all())
+    if atualizacoes:
+        if y < 60 * mm:
+            y = new_page()
+        y = draw_section_title(y, f'Histórico de Atualizações ({len(atualizacoes)})', ul_width_mm=74)
+
+        for atu in atualizacoes:
+            atu_local = atu.created_at.astimezone()
+            atu_date = atu_local.strftime('%d/%m/%Y %H:%M')
+            por = getattr(atu.criado_por, 'email', '') if atu.criado_por_id else 'Sistema'
+
+            text_max_w = w - 2 * mx - 10 * mm
+            atu_lines = wrap_text(atu.texto, 'Helvetica', 9, text_max_w)
+            header_h = 11 * mm
+            body_h = len(atu_lines) * 5.2 * mm + 3 * mm
+            card_h = header_h + body_h
+
+            if y - card_h < 20 * mm:
+                y = new_page()
+
+            card_y = y - card_h
+
+            c.setFillColor(colors.HexColor('#f8fafc'))
+            c.rect(mx, card_y, w - 2 * mx, card_h, stroke=0, fill=1)
+            c.setStrokeColor(colors.HexColor('#cbd5e1'))
+            c.setLineWidth(0.5)
+            c.rect(mx, card_y, w - 2 * mx, card_h, stroke=1, fill=0)
+
+            c.setFillColor(blue)
+            c.rect(mx, card_y, 2.5 * mm, card_h, stroke=0, fill=1)
+
+            sep_y = y - header_h
+            c.setStrokeColor(colors.HexColor('#e2e8f0'))
+            c.setLineWidth(0.4)
+            c.line(mx + 2.5 * mm, sep_y, w - mx, sep_y)
+
+            text_x = mx + 5 * mm
+            c.setFillColor(blue)
+            c.setFont('Helvetica-Bold', 8.5)
+            c.drawString(text_x, y - 4 * mm, atu_date)
+            c.setFillColor(gray)
+            c.setFont('Helvetica', 7.5)
+            c.drawString(text_x, y - 8.5 * mm, f'Por: {por}')
+
+            ty = sep_y - 4 * mm
+            for line in atu_lines:
+                c.setFillColor(slate)
+                c.setFont('Helvetica', 9)
+                if line:
+                    c.drawString(text_x, ty, line)
+                ty -= 5.2 * mm
+
+            y = card_y - 4 * mm
+
+    c.save()
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="pedido-ajuda-{pedido.id}-auditoria.pdf"'
+    return response
+
+
+class EmpresaPedidoAjudaPdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request, empresa_id, pedido_id):
+        empresa = empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+        if not empresa:
+            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        pedido = (
+            PedidoAjuda.objects
+            .filter(id=pedido_id, empresa=empresa)
+            .select_related('empresa', 'ghe', 'funcao')
+            .prefetch_related('atualizacoes__criado_por')
+            .first()
+        )
+        if not pedido:
+            return Response({'detail': 'Pedido de ajuda nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        return _build_ajuda_pdf_response(pedido)
 
 
 class CanalDenunciasPublicView(APIView):
@@ -2359,6 +3224,290 @@ class EmpresaCanalDenunciaAtualizacaoCreateView(APIView):
             .first()
         )
         return Response(CanalDenunciaListSerializer(denuncia, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+
+def _build_denuncia_pdf_response(denuncia):
+    from datetime import datetime
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    w, h = A4
+    mx = 20 * mm
+
+    dark = colors.HexColor('#111827')
+    gray = colors.HexColor('#6b7280')
+    slate = colors.HexColor('#374151')
+    blue = colors.HexColor('#1e40af')
+    border_col = colors.HexColor('#e5e7eb')
+    bg_light = colors.HexColor('#f8fafc')
+
+    STATUS_COLORS = {
+        'ABERTA': colors.HexColor('#dc2626'),
+        'EM_ANALISE': colors.HexColor('#d97706'),
+        'RESOLVIDA': colors.HexColor('#16a34a'),
+    }
+    STATUS_LABELS = {'ABERTA': 'ABERTA', 'EM_ANALISE': 'EM ANÁLISE', 'RESOLVIDA': 'RESOLVIDA'}
+
+    now_str = datetime.now().strftime('%d/%m/%Y %H:%M')
+    created_local = denuncia.created_at.astimezone()
+    date_str = created_local.strftime('%d/%m/%Y às %H:%M')
+    origem_label = {'LINK': 'Link de Denúncia', 'TOTEM': 'Totem'}.get(denuncia.origem, denuncia.origem)
+
+    page_num = [0]
+
+    def draw_page_frame():
+        page_num[0] += 1
+        c.setFillColor(colors.HexColor('#111827'))
+        c.rect(0, h - 18 * mm, w, 18 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(mx, h - 11 * mm, 'RELATÓRIO DE AUDITORIA — CANAL DE DENÚNCIAS')
+        c.setFont('Helvetica', 8)
+        c.drawRightString(w - mx, h - 11 * mm, f'CONFIDENCIAL  •  Pág. {page_num[0]}')
+        c.setFillColor(colors.HexColor('#f1f5f9'))
+        c.rect(0, 0, w, 12 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor('#9ca3af'))
+        c.setFont('Helvetica', 7)
+        c.drawString(mx, 6.5 * mm, f'Gerado em: {now_str}  •  Documento confidencial para auditoria interna')
+        c.drawRightString(w - mx, 6.5 * mm, f'Denúncia #{denuncia.id}  •  {denuncia.empresa.company_name}')
+
+    def new_page():
+        c.showPage()
+        draw_page_frame()
+        return h - 24 * mm
+
+    def wrap_text(text, font_name, font_size, max_width):
+        paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        all_lines = []
+        for para in paragraphs:
+            if not para.strip():
+                all_lines.append('')
+                continue
+            words = para.split()
+            current = ''
+            for word in words:
+                test = (current + ' ' + word).strip()
+                if c.stringWidth(test, font_name, font_size) <= max_width:
+                    current = test
+                else:
+                    if current:
+                        all_lines.append(current)
+                    current = word
+            if current:
+                all_lines.append(current)
+        return all_lines or ['']
+
+    def draw_section_title(y, title, ul_width_mm=40):
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(mx, y, title)
+        y -= 2 * mm
+        c.setStrokeColor(blue)
+        c.setLineWidth(1.5)
+        c.line(mx, y, mx + ul_width_mm * mm, y)
+        return y - 5 * mm
+
+    def draw_text_block(y, lines, font_size=9, lh=5.5):
+        for line in lines:
+            if y < 20 * mm:
+                y = new_page()
+            c.setFillColor(slate)
+            c.setFont('Helvetica', font_size)
+            if line:
+                c.drawString(mx, y, line)
+            y -= lh * mm
+        return y
+
+    # ── Page 1 ──
+    draw_page_frame()
+    y = h - 24 * mm
+
+    # Company name
+    c.setFillColor(blue)
+    c.setFont('Helvetica-Bold', 15)
+    c.drawString(mx, y, denuncia.empresa.company_name)
+    y -= 6 * mm
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 9)
+    c.drawString(mx, y, 'Canal de Denúncias Interno  —  Relatório de Auditoria')
+    y -= 10 * mm
+
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.8)
+    c.line(mx, y, w - mx, y)
+    y -= 8 * mm
+
+    # ID
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 20)
+    c.drawString(mx, y, f'Denúncia #{denuncia.id}')
+
+    # Status pill
+    pill_color = STATUS_COLORS.get(denuncia.status, colors.HexColor('#6b7280'))
+    pill_label = STATUS_LABELS.get(denuncia.status, denuncia.status)
+    pill_w = c.stringWidth(pill_label, 'Helvetica-Bold', 9) + 10 * mm
+    pill_x = w - mx - pill_w
+    c.setFillColor(pill_color)
+    c.roundRect(pill_x, y - 1.5 * mm, pill_w, 7 * mm, 3 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 9)
+    c.drawCentredString(pill_x + pill_w / 2, y + 1.5 * mm, pill_label)
+    y -= 10 * mm
+
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 9)
+    c.drawString(mx, y, f'Registrada em: {date_str}   •   Origem: {origem_label}')
+    y -= 10 * mm
+
+    # ── Details box ──
+    details_items = [
+        ('Tipo de denúncia', denuncia.get_tipo_display() or 'Outros'),
+        ('GHE', denuncia.ghe.name if denuncia.ghe else '—'),
+        ('Função / Cargo', denuncia.cargo_funcao.name if denuncia.cargo_funcao else '—'),
+        ('Vínculo empregatício', 'Sim' if denuncia.possui_vinculo else 'Não'),
+        (
+            'Denunciante identificado',
+            ('Sim — ' + denuncia.contato_identificacao)
+            if (denuncia.deseja_identificar and denuncia.contato_identificacao)
+            else ('Sim' if denuncia.deseja_identificar else 'Não'),
+        ),
+        (
+            'Devolutiva solicitada',
+            ('Sim — ' + denuncia.email_devolutiva)
+            if (denuncia.aceita_devolutiva and denuncia.email_devolutiva)
+            else ('Sim' if denuncia.aceita_devolutiva else 'Não'),
+        ),
+    ]
+
+    box_rows = (len(details_items) + 1) // 2
+    box_h = box_rows * 10 * mm + 4 * mm
+    c.setFillColor(bg_light)
+    c.rect(mx, y - box_h, w - 2 * mx, box_h, stroke=0, fill=1)
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.5)
+    c.rect(mx, y - box_h, w - 2 * mx, box_h, stroke=1, fill=0)
+
+    col_w = (w - 2 * mx) / 2
+    ry = y - 6 * mm
+    for i, (label, value) in enumerate(details_items):
+        col_x = mx + (col_w if i % 2 == 1 else 0) + 4 * mm
+        cell_y = ry - (i // 2) * 10 * mm
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7)
+        c.drawString(col_x, cell_y + 3.5 * mm, label.upper())
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 9)
+        max_val_w = col_w - 8 * mm
+        val_str = str(value)
+        while c.stringWidth(val_str, 'Helvetica-Bold', 9) > max_val_w and len(val_str) > 4:
+            val_str = val_str[:-1]
+        if val_str != str(value):
+            val_str = val_str[:-3] + '...'
+        c.drawString(col_x, cell_y, val_str)
+
+    y -= box_h + 8 * mm
+
+    # ── Relato ──
+    if y < 50 * mm:
+        y = new_page()
+    y = draw_section_title(y, 'Relato', ul_width_mm=13)
+    relato_lines = wrap_text(denuncia.relato, 'Helvetica', 9, w - 2 * mx)
+    y = draw_text_block(y, relato_lines)
+
+    # ── Testemunhas ──
+    if denuncia.testemunhas and denuncia.testemunhas.strip():
+        y -= 6 * mm
+        if y < 50 * mm:
+            y = new_page()
+        y = draw_section_title(y, 'Testemunhas', ul_width_mm=26)
+        y = draw_text_block(y, wrap_text(denuncia.testemunhas, 'Helvetica', 9, w - 2 * mx))
+
+    # ── Histórico de Atualizações ──
+    atualizacoes = list(denuncia.atualizacoes.order_by('created_at').all())
+    if atualizacoes:
+        y -= 8 * mm
+        if y < 60 * mm:
+            y = new_page()
+        y = draw_section_title(y, f'Histórico de Atualizações ({len(atualizacoes)})', ul_width_mm=74)
+
+        for atu in atualizacoes:
+            atu_local = atu.created_at.astimezone()
+            atu_date = atu_local.strftime('%d/%m/%Y %H:%M')
+            por = getattr(atu.criado_por, 'email', '') if atu.criado_por_id else 'Sistema'
+
+            # Pre-calculate body lines and total card height
+            text_max_w = w - 2 * mx - 10 * mm
+            atu_lines = wrap_text(atu.texto, 'Helvetica', 9, text_max_w)
+            header_h = 11 * mm
+            body_h = len(atu_lines) * 5.2 * mm + 3 * mm
+            card_h = header_h + body_h
+
+            if y - card_h < 20 * mm:
+                y = new_page()
+
+            card_y = y - card_h  # bottom edge of the full card
+
+            # Outer card background + border
+            c.setFillColor(colors.HexColor('#f8fafc'))
+            c.rect(mx, card_y, w - 2 * mx, card_h, stroke=0, fill=1)
+            c.setStrokeColor(colors.HexColor('#cbd5e1'))
+            c.setLineWidth(0.5)
+            c.rect(mx, card_y, w - 2 * mx, card_h, stroke=1, fill=0)
+
+            # Blue left accent bar
+            c.setFillColor(blue)
+            c.rect(mx, card_y, 2.5 * mm, card_h, stroke=0, fill=1)
+
+            # Separator line between header and body
+            sep_y = y - header_h
+            c.setStrokeColor(colors.HexColor('#e2e8f0'))
+            c.setLineWidth(0.4)
+            c.line(mx + 2.5 * mm, sep_y, w - mx, sep_y)
+
+            # Header: date (bold) + author
+            text_x = mx + 5 * mm
+            c.setFillColor(blue)
+            c.setFont('Helvetica-Bold', 8.5)
+            c.drawString(text_x, y - 4 * mm, atu_date)
+            c.setFillColor(gray)
+            c.setFont('Helvetica', 7.5)
+            c.drawString(text_x, y - 8.5 * mm, f'Por: {por}')
+
+            # Body text
+            ty = sep_y - 4 * mm
+            for line in atu_lines:
+                c.setFillColor(slate)
+                c.setFont('Helvetica', 9)
+                if line:
+                    c.drawString(text_x, ty, line)
+                ty -= 5.2 * mm
+
+            y = card_y - 4 * mm  # gap between cards
+
+    c.save()
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="denuncia-{denuncia.id}-auditoria.pdf"'
+    return response
+
+
+class EmpresaCanalDenunciaPdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request, empresa_id, denuncia_id):
+        empresa = empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+        if not empresa:
+            return Response({'detail': 'Empresa nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        denuncia = (
+            CanalDenuncia.objects
+            .filter(id=denuncia_id, empresa=empresa)
+            .select_related('empresa', 'ghe', 'cargo_funcao')
+            .prefetch_related('atualizacoes__criado_por')
+            .first()
+        )
+        if not denuncia:
+            return Response({'detail': 'Denuncia nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        return _build_denuncia_pdf_response(denuncia)
 
 
 class SetorListCreateView(APIView):
@@ -2658,6 +3807,8 @@ class CampanhaRelatorioView(APIView):
 
         per_ref = []
         for ref in available_refs:
+            if not ref.get('response_count'):
+                continue
             ref_qs = base_step1.filter(**{ref_field: ref['id']})
             bundle = _build_report_bundle(campanha, empresa, ref_qs)
             per_ref.append(
@@ -2721,6 +3872,354 @@ class CampanhaRelatorioView(APIView):
         )
 
 
+def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
+    from datetime import datetime as _dt
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    MARGIN = 18 * mm
+
+    DARK = colors.HexColor('#111827')
+    GREEN_H = colors.HexColor('#14532d')
+    BLUE = colors.HexColor('#1d4ed8')
+    BLUE_LIGHT = colors.HexColor('#eff6ff')
+    NAVY = colors.HexColor('#1e3a5f')
+    GRAY = colors.HexColor('#6b7280')
+    GRAY_LIGHT = colors.HexColor('#f8fafc')
+    BORDER = colors.HexColor('#e2e8f0')
+    RED_Z = colors.HexColor('#ef4444')
+    YELLOW_Z = colors.HexColor('#f59e0b')
+    GREEN_Z = colors.HexColor('#22c55e')
+
+    def zone_color(key):
+        if key == 'green':
+            return GREEN_Z
+        if key == 'yellow':
+            return YELLOW_Z
+        return RED_Z
+
+    def delta_color_fn(d):
+        if d > 0.05:
+            return GREEN_Z
+        if d < -0.05:
+            return RED_Z
+        return GRAY
+
+    def delta_str_fn(d):
+        if abs(d) < 0.05:
+            return '='
+        return f'+{d:.1f}%' if d > 0 else f'{d:.1f}%'
+
+    def draw_footer(c, page_num):
+        c.setFont('Helvetica', 6.5)
+        c.setFillColor(GRAY)
+        c.drawString(MARGIN, 9 * mm, 'DOCUMENTO CONFIDENCIAL – USO RESTRITO')
+        c.drawRightString(width - MARGIN, 9 * mm, f'Página {page_num}')
+        c.setStrokeColor(BORDER)
+        c.setLineWidth(0.5)
+        c.line(MARGIN, 13 * mm, width - MARGIN, 13 * mm)
+
+    q_col_w = 112 * mm
+    score_col_w = (width - 2 * MARGIN - q_col_w) / 3
+    col_xs = [
+        MARGIN,
+        MARGIN + q_col_w,
+        MARGIN + q_col_w + score_col_w,
+        MARGIN + q_col_w + 2 * score_col_w,
+    ]
+
+    def draw_cmp_row(c, y_row, label, v1_str, v2_str, delta_val, z1_key='', z2_key='', alt=False):
+        row_h = 8 * mm
+        if alt:
+            c.setFillColor(GRAY_LIGHT)
+            c.rect(MARGIN, y_row - row_h, width - 2 * MARGIN, row_h, stroke=0, fill=1)
+        c.setFont('Helvetica', 7.5)
+        c.setFillColor(DARK)
+        c.drawString(col_xs[0] + 2 * mm, y_row - 5.5 * mm, label)
+        c.setFont('Helvetica-Bold', 7.5)
+        c.setFillColor(zone_color(z1_key) if z1_key else DARK)
+        c.drawString(col_xs[1] + 2 * mm, y_row - 5.5 * mm, v1_str)
+        c.setFillColor(zone_color(z2_key) if z2_key else DARK)
+        c.drawString(col_xs[2] + 2 * mm, y_row - 5.5 * mm, v2_str)
+        c.setFillColor(delta_color_fn(delta_val))
+        c.drawString(col_xs[3] + 2 * mm, y_row - 5.5 * mm, delta_str_fn(delta_val))
+        c.setStrokeColor(BORDER)
+        c.setLineWidth(0.3)
+        c.line(MARGIN, y_row - row_h, width - MARGIN, y_row - row_h)
+        return y_row - row_h
+
+    # ── PAGE 1: COVER ────────────────────────────────────────────────────────
+    c.setFillColor(DARK)
+    c.rect(0, height - 48 * mm, width, 48 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 14)
+    c.drawCentredString(width / 2, height - 20 * mm, 'RELATÓRIO COMPARATIVO')
+    c.setFont('Helvetica', 9)
+    c.drawCentredString(width / 2, height - 29 * mm, 'AVALIAÇÃO DE FATORES DE RISCO PSICOSSOCIAIS NO TRABALHO')
+    c.setFont('Helvetica', 8)
+    c.setFillColor(colors.HexColor('#9ca3af'))
+    c.drawCentredString(width / 2, height - 38 * mm, camp1.empresa.company_name)
+
+    y = height - 70 * mm
+    box_w = (width - 2 * MARGIN - 8 * mm) / 2
+    box_h = 30 * mm
+    for i, camp in enumerate([camp1, camp2]):
+        bx = MARGIN + i * (box_w + 8 * mm)
+        c.setFillColor(BLUE_LIGHT)
+        c.setStrokeColor(BLUE)
+        c.setLineWidth(0.8)
+        c.roundRect(bx, y - box_h, box_w, box_h, 3 * mm, stroke=1, fill=1)
+        c.setFillColor(BLUE)
+        c.setFont('Helvetica-Bold', 7)
+        c.drawString(bx + 4 * mm, y - 7 * mm, f'CAMPANHA {i + 1}')
+        c.setFillColor(DARK)
+        c.setFont('Helvetica-Bold', 8.5)
+        label = str(camp.title or '')
+        if len(label) > 42:
+            label = label[:40] + '...'
+        c.drawString(bx + 4 * mm, y - 14 * mm, label)
+        c.setFillColor(GRAY)
+        c.setFont('Helvetica', 7.5)
+        camp_date = camp.start_date.strftime('%d/%m/%Y') if getattr(camp, 'start_date', None) else '–'
+        c.drawString(bx + 4 * mm, y - 22 * mm, f'Início: {camp_date}')
+
+    y -= (box_h + 14 * mm)
+    c.setFillColor(GRAY)
+    c.setFont('Helvetica', 8)
+    c.drawCentredString(width / 2, y, f'Relatório gerado em {_dt.now().strftime("%d/%m/%Y às %H:%M")}')
+    draw_footer(c, 1)
+    c.showPage()
+
+    # ── PAGE 2: EXECUTIVE SUMMARY + DOMAIN TABLE ─────────────────────────────
+    page_num = 2
+    y = height - MARGIN
+
+    def section_header(c, y, title):
+        c.setFillColor(DARK)
+        c.rect(MARGIN, y - 7 * mm, width - 2 * MARGIN, 7 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 8)
+        c.drawString(MARGIN + 4 * mm, y - 5 * mm, title)
+        return y - 12 * mm
+
+    def table_header(c, y, labels):
+        c.setFillColor(GREEN_H)
+        c.rect(MARGIN, y - 7 * mm, width - 2 * MARGIN, 7 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 7)
+        for i, lbl in enumerate(labels):
+            c.drawString(col_xs[i] + 2 * mm, y - 5 * mm, lbl)
+        return y - 9 * mm
+
+    y = section_header(c, y, 'RESUMO EXECUTIVO – VISÃO COMPARATIVA')
+    t1 = (camp1.title or 'Campanha 1')[:24]
+    t2 = (camp2.title or 'Campanha 2')[:24]
+    y = table_header(c, y, ['INDICADOR', 'Camp. 1', 'Camp. 2', 'VARIAÇÃO'])
+
+    s1 = bundle1.get('summary', {})
+    s2 = bundle2.get('summary', {})
+    p1 = float(s1.get('company_mean_percent', 0) or 0)
+    p2 = float(s2.get('company_mean_percent', 0) or 0)
+    sc1 = float(s1.get('company_mean_score', 0) or 0)
+    sc2 = float(s2.get('company_mean_score', 0) or 0)
+    r1 = int(s1.get('completed_responses', 0) or 0)
+    r2 = int(s2.get('completed_responses', 0) or 0)
+    sp1 = float(s1.get('sample_percent', 0) or 0)
+    sp2 = float(s2.get('sample_percent', 0) or 0)
+    z1 = (s1.get('company_zone') or {}).get('key', 'red')
+    z2 = (s2.get('company_zone') or {}).get('key', 'red')
+    sz1 = (s1.get('sample_zone') or {}).get('key', 'red')
+    sz2 = (s2.get('sample_zone') or {}).get('key', 'red')
+
+    exec_rows = [
+        ('Média Geral (%)', f'{p1:.1f}%', f'{p2:.1f}%', p2 - p1, z1, z2),
+        ('Score Médio (0–5)', f'{sc1:.2f}', f'{sc2:.2f}', sc2 - sc1, '', ''),
+        ('Respostas Concluídas', str(r1), str(r2), float(r2 - r1), '', ''),
+        ('Amostra da Empresa (%)', f'{sp1:.1f}%', f'{sp2:.1f}%', sp2 - sp1, sz1, sz2),
+    ]
+    for i, row in enumerate(exec_rows):
+        y = draw_cmp_row(c, y, row[0], row[1], row[2], row[3], row[4], row[5], alt=(i % 2 == 1))
+
+    y -= 8 * mm
+
+    # Domain comparison on same page
+    y = section_header(c, y, 'COMPARATIVO POR DOMÍNIO')
+    y = table_header(c, y, ['DOMÍNIO / BLOCO', 'Camp. 1', 'Camp. 2', 'VARIAÇÃO'])
+
+    domains1 = bundle1.get('domains', [])
+    domains2 = bundle2.get('domains', [])
+    d2_by_key = {d['key']: d for d in domains2}
+    for idx, d1 in enumerate(domains1):
+        d2 = d2_by_key.get(d1['key'], {})
+        dp1 = float(d1.get('percent', 0) or 0)
+        dp2 = float(d2.get('percent', 0) or 0) if d2 else 0.0
+        dz1 = (d1.get('zone') or {}).get('key', 'red')
+        dz2 = (d2.get('zone') or {}).get('key', 'red') if d2 else 'red'
+        y = draw_cmp_row(c, y, str(d1.get('domain', '') or ''), f'{dp1:.1f}%', f'{dp2:.1f}%', dp2 - dp1, dz1, dz2, alt=(idx % 2 == 1))
+
+    draw_footer(c, page_num)
+    c.showPage()
+
+    # ── PAGES 3+: PER-DOMAIN QUESTION COMPARISON ─────────────────────────────
+    steps1 = bundle1.get('steps', [])
+    steps2 = bundle2.get('steps', [])
+    s2_by_key = {s['key']: s for s in steps2}
+    STEP_NAMES = {
+        2: 'Demandas', 3: 'Controle', 4: 'Apoio da Gestão',
+        5: 'Suporte dos Colegas', 6: 'Relacionamentos',
+        7: 'Clareza de Papel | Função', 8: 'Gerenciamento de Mudanças',
+    }
+    page_num += 1
+
+    for step in steps1:
+        step2 = s2_by_key.get(step['key'], {})
+        domain_name = str(step.get('domain', '') or STEP_NAMES.get(step.get('step', 0), 'Bloco'))
+        qs1 = step.get('questions', [])
+        qs2 = step2.get('questions', []) if step2 else []
+        q2_by_field = {q['field']: q for q in qs2}
+
+        y = height - MARGIN
+
+        # Block header bar
+        c.setFillColor(DARK)
+        c.rect(MARGIN, y - 8 * mm, width - 2 * MARGIN, 8 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(MARGIN + 4 * mm, y - 5.5 * mm, domain_name.upper())
+        y -= 13 * mm
+
+        # Domain average row
+        dp1 = float(step.get('percent', 0) or 0)
+        dp2 = float(step2.get('percent', 0) or 0) if step2 else 0.0
+        dz1 = (step.get('zone') or {}).get('key', 'red')
+        dz2 = (step2.get('zone') or {}).get('key', 'red') if step2 else 'red'
+        c.setFillColor(NAVY)
+        c.rect(MARGIN, y - 8 * mm, width - 2 * MARGIN, 8 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 7.5)
+        c.drawString(MARGIN + 2 * mm, y - 5.5 * mm, 'MÉDIA DO DOMÍNIO')
+        c.setFillColor(zone_color(dz1))
+        c.drawString(col_xs[1] + 2 * mm, y - 5.5 * mm, f'{dp1:.1f}%')
+        c.setFillColor(zone_color(dz2))
+        c.drawString(col_xs[2] + 2 * mm, y - 5.5 * mm, f'{dp2:.1f}%')
+        c.setFillColor(delta_color_fn(dp2 - dp1))
+        c.drawString(col_xs[3] + 2 * mm, y - 5.5 * mm, delta_str_fn(dp2 - dp1))
+        y -= 12 * mm
+
+        # Question table header
+        y = table_header(c, y, ['QUESTÃO', f'Camp. 1 (%)', f'Camp. 2 (%)', 'VAR.'])
+
+        for qi, q1 in enumerate(qs1):
+            q2 = q2_by_field.get(q1.get('field', ''), {})
+            qp1 = float(q1.get('percent', 0) or 0)
+            qp2 = float(q2.get('percent', 0) or 0) if q2 else 0.0
+            qz1 = (q1.get('zone') or {}).get('key', 'red')
+            qz2 = (q2.get('zone') or {}).get('key', 'red') if q2 else 'red'
+            question_text = str(q1.get('question', '') or '')
+
+            # Word-wrap question
+            max_chars = 72
+            q_lines = []
+            words = question_text.split()
+            cur = ''
+            for w in words:
+                if len(cur) + len(w) + (1 if cur else 0) <= max_chars:
+                    cur = (cur + ' ' + w).strip() if cur else w
+                else:
+                    if cur:
+                        q_lines.append(cur)
+                    cur = w
+            if cur:
+                q_lines.append(cur)
+            if not q_lines:
+                q_lines = ['']
+
+            row_h = max(8 * mm, len(q_lines) * 4.2 * mm + 2 * mm)
+
+            # New page if needed
+            if y - row_h < 20 * mm:
+                draw_footer(c, page_num)
+                c.showPage()
+                page_num += 1
+                y = height - MARGIN
+                c.setFillColor(colors.HexColor('#334155'))
+                c.rect(MARGIN, y - 6 * mm, width - 2 * MARGIN, 6 * mm, stroke=0, fill=1)
+                c.setFillColor(colors.white)
+                c.setFont('Helvetica-Bold', 7)
+                c.drawString(MARGIN + 2 * mm, y - 4.5 * mm, f'(continuação) {domain_name.upper()}')
+                y -= 9 * mm
+                y = table_header(c, y, ['QUESTÃO', 'Camp. 1 (%)', 'Camp. 2 (%)', 'VAR.'])
+
+            if qi % 2 == 1:
+                c.setFillColor(GRAY_LIGHT)
+                c.rect(MARGIN, y - row_h, width - 2 * MARGIN, row_h, stroke=0, fill=1)
+
+            # Question text
+            c.setFont('Helvetica', 7)
+            c.setFillColor(DARK)
+            txt_y = y - 4.8 * mm
+            for line in q_lines:
+                c.drawString(MARGIN + 2 * mm, txt_y, line)
+                txt_y -= 4.2 * mm
+
+            # Scores
+            c.setFont('Helvetica-Bold', 7.5)
+            c.setFillColor(zone_color(qz1))
+            c.drawString(col_xs[1] + 2 * mm, y - 5 * mm, f'{qp1:.1f}%')
+            c.setFillColor(zone_color(qz2))
+            c.drawString(col_xs[2] + 2 * mm, y - 5 * mm, f'{qp2:.1f}%')
+            c.setFillColor(delta_color_fn(qp2 - qp1))
+            c.drawString(col_xs[3] + 2 * mm, y - 5 * mm, delta_str_fn(qp2 - qp1))
+
+            c.setStrokeColor(BORDER)
+            c.setLineWidth(0.3)
+            c.line(MARGIN, y - row_h, width - MARGIN, y - row_h)
+            y -= row_h
+
+        draw_footer(c, page_num)
+        c.showPage()
+        page_num += 1
+
+    c.save()
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    safe1 = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in (camp1.title or 'c1'))[:30]
+    safe2 = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in (camp2.title or 'c2'))[:30]
+    response['Content-Disposition'] = f'attachment; filename="comparativo_{safe1}_vs_{safe2}.pdf"'
+    return response
+
+
+class CampanhaComparativoPdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def _get_campanha(self, request, campanha_id):
+        qs = Campanha.objects.select_related('empresa').filter(id=campanha_id)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            return qs.first()
+        return qs.filter(empresa__consultor=request.user).first()
+
+    def get(self, request):
+        c1_id_raw = (request.query_params.get('camp1_id') or '').strip()
+        c2_id_raw = (request.query_params.get('camp2_id') or '').strip()
+        if not c1_id_raw or not c2_id_raw:
+            return Response({'detail': 'Informe camp1_id e camp2_id.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            c1_id = int(c1_id_raw)
+            c2_id = int(c2_id_raw)
+        except ValueError:
+            return Response({'detail': 'IDs de campanha inválidos.'}, status=status.HTTP_400_BAD_REQUEST)
+        camp1 = self._get_campanha(request, c1_id)
+        camp2 = self._get_campanha(request, c2_id)
+        if not camp1 or not camp2:
+            return Response({'detail': 'Uma ou mais campanhas não encontradas.'}, status=status.HTTP_404_NOT_FOUND)
+        base1 = CampanhaRespostaStep1.objects.filter(campanha=camp1, is_completed=True)
+        base2 = CampanhaRespostaStep1.objects.filter(campanha=camp2, is_completed=True)
+        bundle1 = _build_report_bundle(camp1, camp1.empresa, base1)
+        bundle2 = _build_report_bundle(camp2, camp2.empresa, base2)
+        return _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2)
+
+
 class CampanhaRelatorioPdfView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
@@ -2755,11 +4254,26 @@ class CampanhaRelatorioPdfView(APIView):
         available_refs = [{'id': x.id, 'name': x.name, 'response_count': x.response_count} for x in available_refs_qs]
         per_ref = []
         for ref in available_refs:
+            if not ref.get('response_count'):
+                continue
             ref_qs = base_step1.filter(**{ref_field: ref['id']})
             per_ref.append({'ref': ref, **_build_report_bundle(campanha, empresa, ref_qs)})
         medidas = campanha.medidas_preliminares.select_related('setor', 'ghe').all()
         quandos = campanha.quandos_preliminares.select_related('setor', 'ghe').all()
         anexos = campanha.relatorio_anexos.all()
+        planos_ativos = CampanhaPlanoAcao.objects.filter(campanha=campanha, ativo=True)
+        planos_acao_data = []
+        for p in planos_ativos:
+            step_plans = _PLANOS_ACAO.get(p.step_key, {})
+            q_plans = step_plans.get(p.question_field, [])
+            texto = q_plans[p.plano_index] if 0 <= p.plano_index < len(q_plans) else ''
+            if texto:
+                planos_acao_data.append({
+                    'step_key': p.step_key,
+                    'question_field': p.question_field,
+                    'plano_index': p.plano_index,
+                    'texto': texto,
+                })
         rel_payload = {
             'empresa': {'name': empresa.company_name},
             'overall': overall_bundle,
@@ -2769,6 +4283,7 @@ class CampanhaRelatorioPdfView(APIView):
             'preliminary_whens': CampanhaQuandoPreliminarSerializer(quandos, many=True).data,
             'review_recommendation_months': campanha.review_recommendation_months,
             'attachments': CampanhaRelatorioAnexoSerializer(anexos, many=True).data,
+            'planos_acao': planos_acao_data,
         }
         return _build_report_pdf_response(campanha, rel_payload)
 
@@ -3244,3 +4759,37 @@ class CampanhaPublicStep9SubmitView(APIView):
                 step1.is_completed = True
                 step1.save(update_fields=['is_completed'])
         return Response({'message': 'Step 9 registrado com sucesso.'}, status=status.HTTP_201_CREATED)
+
+
+class CampanhaPlanoAcaoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, campanha_id):
+        campanha = Campanha.objects.filter(id=campanha_id).first()
+        if not campanha:
+            return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        planos = CampanhaPlanoAcao.objects.filter(campanha=campanha)
+        return Response(CampanhaPlanoAcaoSerializer(planos, many=True).data)
+
+    def post(self, request, campanha_id):
+        campanha = Campanha.objects.filter(id=campanha_id).first()
+        if not campanha:
+            return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        items = request.data if isinstance(request.data, list) else []
+        with transaction.atomic():
+            for item in items:
+                step_key = str(item.get('step_key', '')).strip()
+                question_field = str(item.get('question_field', '')).strip()
+                plano_index = item.get('plano_index')
+                ativo = bool(item.get('ativo', False))
+                if not step_key or not question_field or plano_index is None:
+                    continue
+                CampanhaPlanoAcao.objects.update_or_create(
+                    campanha=campanha,
+                    step_key=step_key,
+                    question_field=question_field,
+                    plano_index=int(plano_index),
+                    defaults={'ativo': ativo},
+                )
+        planos = CampanhaPlanoAcao.objects.filter(campanha=campanha)
+        return Response(CampanhaPlanoAcaoSerializer(planos, many=True).data)

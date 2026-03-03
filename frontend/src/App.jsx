@@ -5,6 +5,17 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 const TOKEN_KEY = "nr01_token";
 const USER_CACHE_KEY = "nr01_user";
 const SECTION_CACHE_KEY = "nr01_section";
+const HUMOR_OPTIONS = [
+  { key: "feliz",          label: "Feliz",          emoji: "😊" },
+  { key: "motivado",       label: "Motivado",       emoji: "💪" },
+  { key: "tranquilo",      label: "Tranquilo",      emoji: "😌" },
+  { key: "cansado",        label: "Cansado",        emoji: "😴" },
+  { key: "estressado",     label: "Estressado",     emoji: "😤" },
+  { key: "triste",         label: "Triste",         emoji: "😢" },
+  { key: "ansioso",        label: "Ansioso",        emoji: "😰" },
+  { key: "sobrecarregado", label: "Sobrecarregado", emoji: "😵" },
+];
+
 const DENUNCIA_TIPOS = [
   ["ASSEDIO_MORAL", "Assédio moral"],
   ["ASSEDIO_SEXUAL", "Assédio sexual"],
@@ -96,6 +107,7 @@ const I = {
   cmp: <svg viewBox="0 0 24 24"><path d="M4 6h7v12H4zM13 10h7v8h-7zM13 4h7v4h-7z" /></svg>,
   img: <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 11l2.5 3 3.5-4 4 5M9 10h.01" /></svg>,
   tot: <svg viewBox="0 0 24 24"><path d="M9 3h6M8 6h8v15H8zM10 10h4M10 14h4M10 18h4" /></svg>,
+  hand: <svg viewBox="0 0 24 24"><path d="M18 11V8a2 2 0 00-4 0M14 8V6a2 2 0 00-4 0v2M10 7v1a2 2 0 00-4 0V12a8 8 0 008 8 8 8 0 008-8v-3a2 2 0 00-4 0" /></svg>,
   rpt: <svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7zM15 3v5h4M10 12h6M10 16h6M10 8h2" /></svg>,
   link: <svg viewBox="0 0 24 24"><path d="M10 14l4-4M7 17a4 4 0 010-6l2-2a4 4 0 016 0M17 7a4 4 0 010 6l-2 2a4 4 0 01-6 0" /></svg>,
   copy: <svg viewBox="0 0 24 24"><path d="M9 9h10v12H9zM5 3h10v12" /></svg>,
@@ -104,6 +116,234 @@ const I = {
   del: <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>,
   power: <svg viewBox="0 0 24 24"><path d="M12 3v8M7.8 5.8a9 9 0 101.4-1.1M16.2 4.7a9 9 0 011.4 1.1" /></svg>,
   moreV: <svg viewBox="0 0 24 24"><path d="M12 5h.01M12 12h.01M12 19h.01" /></svg>,
+  pdf: <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M10 13h4M10 17h4M10 9h1" /></svg>,
+};
+
+const PLANOS_ACAO = {
+  step2: {
+    q1: [
+      "Mapear e documentar os conflitos de demandas entre áreas, definindo prioridades claras e critérios de resolução.",
+      "Implantar reuniões periódicas de alinhamento interdepartamental para coordenar exigências conflitantes.",
+      "Capacitar lideranças em gestão de conflitos de demanda e em técnicas de negociação de prioridades.",
+      "Criar comitê de gestão de demandas com representantes de cada área para arbitrar conflitos recorrentes.",
+    ],
+    q2: [
+      "Revisar a metodologia de definição de prazos, adotando estimativas realistas baseadas em capacidade de trabalho.",
+      "Capacitar gestores em planejamento e em técnicas de estimativa de tempo para tarefas e projetos.",
+      "Criar espaço formal para negociação de prazos entre colaboradores e lideranças antes da definição final.",
+      "Monitorar indicadores de cumprimento de prazos e utilizar os dados para ajustar a distribuição de demandas.",
+    ],
+    q3: [
+      "Realizar análise de carga de trabalho por colaborador e redistribuir tarefas para menor intensidade.",
+      "Implantar pausas regulares programadas na jornada e garantir que sejam respeitadas.",
+      "Avaliar necessidade de contratação ou redistribuição de pessoal para equilibrar a intensidade do trabalho.",
+      "Revisar processos de trabalho para identificar e eliminar etapas desnecessárias que elevam a intensidade.",
+    ],
+    q4: [
+      "Realizar diagnóstico de carga de trabalho por colaborador e ajustar a distribuição de demandas.",
+      "Priorizar e eliminar tarefas de baixo valor agregado, reduzindo o volume total de demandas.",
+      "Avaliar contratação de apoio, terceirização ou automação de atividades para aliviar sobrecarga.",
+      "Implantar gestão visual (Kanban ou similar) para tornar visível a fila de trabalho e evitar acúmulo.",
+    ],
+    q5: [
+      "Formalizar política de pausas programadas, incluindo horários definidos e respaldo da liderança.",
+      "Sensibilizar lideranças sobre a importância legal e ergonômica das pausas para saúde e produtividade.",
+      "Monitorar cumprimento das pausas obrigatórias conforme NR-17 e acionar correções quando necessário.",
+      "Adequar os espaços de descanso para torná-los confortáveis e acolhedores para as pausas durante o trabalho.",
+    ],
+    q6: [
+      "Monitorar sistematicamente banco de horas e horas extras, com alertas para excessos recorrentes.",
+      "Sensibilizar gestores sobre o impacto negativo do excesso de horas extras na saúde e na produtividade.",
+      "Revisar o dimensionamento de equipe para garantir que o volume de trabalho seja compatível com o horário normal.",
+      "Estabelecer política clara de horas extras, com limites, critérios de autorização e contrapartidas adequadas.",
+    ],
+    q7: [
+      "Realizar mapeamento e otimização de processos para eliminar gargalos que impõem ritmo acelerado.",
+      "Conduzir Análise Ergonômica do Trabalho (AET) para avaliar exigências de ritmo e propor melhorias.",
+      "Redistribuir tarefas e revisar metas, tornando-as compatíveis com o ritmo saudável de trabalho.",
+      "Capacitar lideranças em gestão humanizada, promovendo desempenho sustentável sem ritmo acelerado excessivo.",
+    ],
+    q8: [
+      "Rever a organização do trabalho para viabilizar a realização efetiva das pausas previstas.",
+      "Capacitar supervisores sobre as exigências da NR-17 e as consequências do descumprimento das pausas.",
+      "Implantar controle de pausas nas escalas de trabalho, garantindo cumprimento operacional.",
+      "Adequar a demanda ao tempo disponível, eliminando excesso de tarefas que inviabilizam as pausas.",
+    ],
+  },
+  step3: {
+    q1: [
+      "Flexibilizar os horários de pausa, permitindo que o colaborador escolha o melhor momento dentro da jornada.",
+      "Capacitar lideranças em gestão com autonomia, reduzindo o controle excessivo sobre as pausas.",
+      "Revisar rotinas organizacionais que impeçam ou dificultem a realização de pausas autônomas.",
+      "Implantar modelo de trabalho por entregas, dando ao colaborador mais liberdade para gerir seu tempo.",
+    ],
+    q2: [
+      "Revisar o nível de controle sobre o ritmo de trabalho, identificando microgestão desnecessária.",
+      "Implantar gestão por objetivos e resultados (OKR/MBO) em substituição ao controle de ritmo.",
+      "Mapear gargalos externos que impõem ritmo acelerado ao colaborador e eliminá-los.",
+      "Capacitar gestores em liderança delegativa e em confiança no desempenho da equipe.",
+    ],
+    q3: [
+      "Ampliar a margem de decisão dos colaboradores nos processos de trabalho, reduzindo padronização excessiva.",
+      "Revisar práticas de microgestão e reduzir o controle sobre o como as atividades são realizadas.",
+      "Capacitar equipes em autogestão e em técnicas de organização pessoal do trabalho.",
+      "Implantar metodologias ágeis que aumentem a autonomia das equipes na execução de tarefas.",
+    ],
+    q4: [
+      "Revisar processos de priorização de tarefas, transferindo mais autonomia para o colaborador.",
+      "Implantar gestão por resultados, focando no que deve ser entregue e não em como cada passo é feito.",
+      "Ampliar a delegação de responsabilidades, desenvolvendo a capacidade decisória das equipes.",
+      "Oferecer treinamento em gestão do próprio trabalho e em técnicas de priorização pessoal.",
+    ],
+    q5: [
+      "Criar canais formais para sugestões e melhorias de processos, valorizando a voz do colaborador.",
+      "Envolver equipes na revisão e redesenho dos fluxos de trabalho que os afetam diretamente.",
+      "Capacitar gestores em liderança participativa que incorpora a contribuição dos colaboradores.",
+      "Implantar grupos de melhoria contínua com participação ativa dos colaboradores nas decisões.",
+    ],
+    q6: [
+      "Avaliar a possibilidade de implementação de horário flexível ou banco de horas conforme perfil da função.",
+      "Mapear funções com potencial de flexibilidade de horário e criar projeto-piloto de flextime.",
+      "Sensibilizar gestores sobre os benefícios do trabalho flexível para engajamento e qualidade de vida.",
+      "Criar política formal de flexibilidade de horário, com regras claras e critérios por cargo e área.",
+    ],
+  },
+  step4: {
+    q1: [
+      "Melhorar o fluxo de comunicação interna, garantindo que informações essenciais cheguem a tempo a todos.",
+      "Criar base de conhecimento centralizada e acessível com procedimentos, orientações e materiais de apoio.",
+      "Capacitar líderes em comunicação clara e assertiva para suporte efetivo às equipes.",
+      "Estabelecer rotinas regulares de briefing de equipe para garantir alinhamento e suporte contínuo.",
+    ],
+    q2: [
+      "Capacitar líderes em gestão de pessoas, desenvolvendo habilidades de suporte e apoio em situações difíceis.",
+      "Implantar reuniões regulares de acompanhamento individual (one-on-one) entre líder e colaborador.",
+      "Criar política formal de portas abertas, incentivando colaboradores a buscar a liderança quando necessário.",
+      "Treinar lideranças em escuta ativa e em técnicas de apoio emocional no contexto de trabalho.",
+    ],
+    q3: [
+      "Promover cultura de segurança psicológica, onde colaboradores se sintam seguros para dialogar sobre problemas.",
+      "Capacitar líderes em escuta ativa, empatia e em técnicas de feedback construtivo.",
+      "Criar fóruns regulares de diálogo aberto entre equipes e lideranças para tratar situações incômodas.",
+      "Implantar pesquisa de clima periódica e compartilhar ações derivadas com toda a equipe.",
+    ],
+    q4: [
+      "Implantar programa de apoio psicossocial, com acesso a profissionais capacitados para suporte emocional.",
+      "Capacitar líderes a identificar sinais de sobrecarga emocional e oferecer apoio preventivo às equipes.",
+      "Criar grupos de suporte entre pares para troca de experiências em atividades emocionalmente exigentes.",
+      "Oferecer acesso a acompanhamento psicológico como benefício corporativo para colaboradores.",
+    ],
+    q5: [
+      "Capacitar líderes em técnicas de reconhecimento, feedback positivo e incentivo ao desenvolvimento.",
+      "Implantar programa formal de reconhecimento que valorize conquistas individuais e coletivas.",
+      "Criar cultura de valorização de conquistas com rituais regulares de celebração de resultados.",
+      "Desenvolver competências de liderança motivacional por meio de treinamentos e coaching.",
+    ],
+  },
+  step5: {
+    q1: [
+      "Promover cultura de colaboração com atividades e rituais de equipe que incentivem a ajuda mútua.",
+      "Implantar programas de mentoria entre pares, conectando colaboradores experientes a novos membros.",
+      "Criar dinâmicas regulares de integração de equipe para fortalecer vínculos e disposição de apoio.",
+      "Capacitar equipes em comunicação colaborativa e em práticas de trabalho conjunto eficaz.",
+    ],
+    q2: [
+      "Promover gestão do conhecimento compartilhado, criando espaços para troca de saberes entre colegas.",
+      "Criar rituais de cooperação (reuniões de apoio, revisões em par) que estimulem o suporte mútuo.",
+      "Mapear gargalos de colaboração entre equipes e eliminar barreiras organizacionais à cooperação.",
+      "Estabelecer indicadores de trabalho colaborativo e reconhecer equipes pelo desempenho coletivo.",
+    ],
+    q3: [
+      "Implantar código de conduta e convivência, com regras claras de respeito mútuo no ambiente de trabalho.",
+      "Promover treinamento em respeito, diversidade e inclusão para todos os colaboradores.",
+      "Criar canal seguro e sigiloso para relato de comportamentos inadequados entre colegas.",
+      "Desenvolver programa de cultura organizacional positiva com foco em relações respeitosas.",
+    ],
+    q4: [
+      "Criar espaços formais de escuta entre pares, como rodas de conversa e grupos de apoio.",
+      "Promover treinamento em comunicação empática e não violenta para toda a equipe.",
+      "Implementar cultura psicologicamente segura onde é natural e esperado pedir ajuda aos colegas.",
+      "Desenvolver competências de inteligência emocional nas equipes por meio de treinamentos e vivências.",
+    ],
+  },
+  step6: {
+    q1: [
+      "Implementar canal de denúncias seguro, sigiloso e acessível para relatos de perseguição e assédio.",
+      "Capacitar lideranças em prevenção ao assédio moral e em condução de investigações internas.",
+      "Investigar e tratar com rigor todos os casos de perseguição relatados, com consequências claras.",
+      "Promover política formal de tolerância zero ao assédio, comunicada a todos os colaboradores.",
+    ],
+    q2: [
+      "Implantar processo estruturado de mediação de conflitos com apoio de profissional qualificado.",
+      "Capacitar lideranças em gestão e resolução de conflitos interpessoais no ambiente de trabalho.",
+      "Promover dinâmicas de integração e de resolução coletiva para prevenir e tratar conflitos.",
+      "Mapear causas recorrentes dos conflitos e tratar as origens estruturais e organizacionais.",
+    ],
+    q3: [
+      "Implantar código de conduta com regras claras e sanções proporcionais para comportamentos rudes.",
+      "Capacitar gestores e colaboradores em comunicação não violenta e em relações interpessoais saudáveis.",
+      "Criar mecanismo seguro de relato de condutas inadequadas com apuração transparente.",
+      "Promover campanha interna de cultura de respeito, reforçando valores e comportamentos esperados.",
+    ],
+    q4: [
+      "Promover atividades de integração e fortalecimento de equipe para restaurar vínculos desgastados.",
+      "Implantar pesquisa de clima periódica e criar ciclos de feedback para acompanhar a evolução.",
+      "Contratar facilitação externa de dinâmicas de grupo para apoio em equipes com conflitos estabelecidos.",
+      "Revisar carga de trabalho e outros fatores geradores de estresse que contribuem para o desgaste relacional.",
+    ],
+  },
+  step7: {
+    q1: [
+      "Revisar, atualizar e comunicar formalmente as descrições de cargo a todos os colaboradores.",
+      "Realizar reuniões regulares de alinhamento de expectativas entre líderes e suas equipes.",
+      "Implantar sistema de gestão por objetivos (OKR ou MBO) para tornar expectativas mensuráveis e claras.",
+      "Capacitar líderes em comunicação clara de metas, papéis e expectativas de desempenho.",
+    ],
+    q2: [
+      "Criar manuais e procedimentos operacionais claros e acessíveis para guiar a execução das atividades.",
+      "Implantar programa estruturado de integração e onboarding com foco em capacitação prática.",
+      "Oferecer treinamentos técnicos específicos para as atividades de cada função.",
+      "Criar sistema de mentoria que conecte colaboradores mais experientes a quem precisa de orientação.",
+    ],
+    q3: [
+      "Revisar e distribuir formalmente descrições de cargo atualizadas para todos os colaboradores.",
+      "Criar mapa visual de responsabilidades por função e torná-lo acessível a toda a equipe.",
+      "Realizar conversas individuais de alinhamento entre líderes e cada membro da equipe.",
+      "Implantar avaliação de desempenho com ciclos regulares de feedback sobre papéis e responsabilidades.",
+    ],
+    q4: [
+      "Realizar reuniões de desdobramento estratégico para comunicar objetivos departamentais à equipe.",
+      "Tornar metas e objetivos do departamento visíveis por meio de painéis ou comunicação recorrente.",
+      "Capacitar líderes em comunicação estratégica para conectar o trabalho da equipe aos objetivos maiores.",
+      "Implantar indicadores de desempenho departamental compartilhados e acompanhados em equipe.",
+    ],
+    q5: [
+      "Promover comunicação regular sobre a estratégia organizacional e como cada área contribui para ela.",
+      "Criar narrativa de propósito que conecte as funções individuais aos objetivos gerais da organização.",
+      "Implantar reuniões amplas (town hall) com a liderança sênior para comunicação de estratégia e resultados.",
+      "Desenvolver programa de integração estratégica que mostre a cada colaborador o impacto do seu trabalho.",
+    ],
+  },
+  step8: {
+    q1: [
+      "Criar fóruns formais de perguntas e respostas durante processos de mudança, com lideranças disponíveis.",
+      "Capacitar líderes em comunicação bidirecional, incentivando e respondendo questões da equipe.",
+      "Implantar canal digital (FAQ, fórum online) para registro e resposta de perguntas sobre mudanças.",
+      "Treinar gestores em gestão transparente de mudanças, compartilhando o máximo de informações possível.",
+    ],
+    q2: [
+      "Implantar processo participativo de gestão de mudanças, envolvendo colaboradores na concepção das soluções.",
+      "Criar comitês ou grupos representativos de colaboradores para consulta antes de decisões de mudança.",
+      "Realizar consultas formais com as equipes afetadas antes de implementar mudanças significativas.",
+      "Desenvolver cultura de co-construção onde mudanças são projetadas com as pessoas, não apenas para elas.",
+    ],
+    q3: [
+      "Melhorar a comunicação de mudanças com planos detalhados, exemplos práticos e cronogramas claros.",
+      "Criar materiais explicativos (guias, tutoriais, FAQ) sobre como cada mudança será aplicada na prática.",
+      "Oferecer treinamentos e capacitações antes da implantação das mudanças para preparar a equipe.",
+      "Designar ponto focal por equipe para esclarecer dúvidas e apoiar a transição durante as mudanças.",
+    ],
+  },
 };
 
 function LoadingSpinner({ label = "Carregando..." }) {
@@ -362,7 +602,7 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(false), [sideExpand, setSideExpand] = useState(true), [section, setSection] = useState(getCachedSection());
   const [sideUserMenuOpen, setSideUserMenuOpen] = useState(false);
   const [cadOpen, setCadOpen] = useState(() => ["setor", "ghe", "cargos"].includes(getCachedSection()));
-  const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState("");
+  const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState(""), [dashDateFrom, setDashDateFrom] = useState(""), [dashDateTo, setDashDateTo] = useState("");
   const [cfgData, setCfgData] = useState(null), [cfgLoad, setCfgLoad] = useState(false), [cfgErr, setCfgErr] = useState(""), [cfgSaving, setCfgSaving] = useState(false);
   const [cfgForm, setCfgForm] = useState({ cnpj: "", nome_consultoria: "", responsavel_legal: "", representante_legal_relatorio: "", cidade: "", uf: "" });
   const [cfgLogoFile, setCfgLogoFile] = useState(null);
@@ -395,7 +635,19 @@ export default function App() {
   const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false);
   const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false);
   const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false);
+  const [ajudaListEmpresaBusca, setAjudaListEmpresaBusca] = useState(""), [ajudaListEmpresaFiltro, setAjudaListEmpresaFiltro] = useState(""), [ajudaListLoad, setAjudaListLoad] = useState(false), [ajudaListErr, setAjudaListErr] = useState(""), [ajudaListData, setAjudaListData] = useState(null), [ajudaListEmpresaMenuOpen, setAjudaListEmpresaMenuOpen] = useState(false);
+  const [ajudaListStatusFiltro, setAjudaListStatusFiltro] = useState("TODOS");
+  const [ajudaRowMenuOpenId, setAjudaRowMenuOpenId] = useState(null);
+  const [ajudaPdfLoadingId, setAjudaPdfLoadingId] = useState(null);
+  const [ajudaRowMenuItem, setAjudaRowMenuItem] = useState(null);
+  const [ajudaRowMenuPos, setAjudaRowMenuPos] = useState({ top: 0, left: 0, openUp: false });
+  const [ajudaHistModal, setAjudaHistModal] = useState(null);
+  const [ajudaUpdModal, setAjudaUpdModal] = useState({ item: null, text: "", saving: false, err: "" });
+  const [ajudaAtendModal, setAjudaAtendModal] = useState({ item: null, saving: false, err: "" });
+  const [ajudaResolveModal, setAjudaResolveModal] = useState({ item: null, saving: false, err: "" });
+  const [ajudaViewModal, setAjudaViewModal] = useState(null);
   const [denRowMenuOpenId, setDenRowMenuOpenId] = useState(null);
+  const [denPdfLoadingId, setDenPdfLoadingId] = useState(null);
   const [denRowMenuItem, setDenRowMenuItem] = useState(null);
   const [denRowMenuPos, setDenRowMenuPos] = useState({ top: 0, left: 0, openUp: false });
   const [denHistModal, setDenHistModal] = useState(null);
@@ -403,8 +655,8 @@ export default function App() {
   const [denResolveModal, setDenResolveModal] = useState({ item: null, saving: false, err: "" });
   const [denAnalyzeModal, setDenAnalyzeModal] = useState({ item: null, saving: false, err: "" });
   const [denViewModal, setDenViewModal] = useState(null);
-  const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null), [cmpEmpresaMenuOpen, setCmpEmpresaMenuOpen] = useState(false);
-  const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState("");
+  const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null), [cmpEmpresaMenuOpen, setCmpEmpresaMenuOpen] = useState(false), [cmpPdfLoading, setCmpPdfLoading] = useState(false);
+  const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState(""), [totemEmpresaMenuOpen, setTotemEmpresaMenuOpen] = useState(false);
   const [totemLinkData, setTotemLinkData] = useState(null), [totemLoad, setTotemLoad] = useState(false), [totemErr, setTotemErr] = useState("");
   const [linkRegenModal, setLinkRegenModal] = useState({ target: "", open: false });
   const [campRelatorio, setCampRelatorio] = useState(null), [campRelErr, setCampRelErr] = useState(""), [campRelLoad, setCampRelLoad] = useState(false);
@@ -413,6 +665,7 @@ export default function App() {
   const [campAttachUploading, setCampAttachUploading] = useState(false), [campAttachErr, setCampAttachErr] = useState("");
   const [campPdfLoading, setCampPdfLoading] = useState(false), [campPdfErr, setCampPdfErr] = useState("");
   const [campReviewMonths, setCampReviewMonths] = useState("3"), [campReviewSaving, setCampReviewSaving] = useState(false);
+  const [planosAcaoAtivos, setPlanosAcaoAtivos] = useState({}), [planosAcaoSaving, setPlanosAcaoSaving] = useState(false);
   const [pubLoad, setPubLoad] = useState(false), [pubErr, setPubErr] = useState(""), [pubData, setPubData] = useState(null), [pubSaving, setPubSaving] = useState(false), [pubOk, setPubOk] = useState("");
   const [pubCpf, setPubCpf] = useState(""), [pubNome, setPubNome] = useState(""), [pubIdade, setPubIdade] = useState(""), [pubSexo, setPubSexo] = useState(""), [pubRef, setPubRef] = useState(""), [pubCargo, setPubCargo] = useState("");
   const [pubStep, setPubStep] = useState(1), [pubStep1Id, setPubStep1Id] = useState("");
@@ -426,6 +679,8 @@ export default function App() {
   const [pubS9Comment, setPubS9Comment] = useState("");
   const [denPubLoad, setDenPubLoad] = useState(false), [denPubErr, setDenPubErr] = useState(""), [denPubData, setDenPubData] = useState(null), [denPubSaving, setDenPubSaving] = useState(false), [denPubOk, setDenPubOk] = useState("");
   const [totemPubLoad, setTotemPubLoad] = useState(false), [totemPubErr, setTotemPubErr] = useState(""), [totemPubData, setTotemPubData] = useState(null), [totemConsentAccepted, setTotemConsentAccepted] = useState(false), [totemPubActionMsg, setTotemPubActionMsg] = useState(""), [totemPubScreen, setTotemPubScreen] = useState("menu"), [totemDenSaving, setTotemDenSaving] = useState(false), [totemDenOk, setTotemDenOk] = useState(""), [totemDenErr, setTotemDenErr] = useState("");
+  const [totemHumorSelected, setTotemHumorSelected] = useState(""), [totemHumorModal, setTotemHumorModal] = useState(false), [totemHumorGhe, setTotemHumorGhe] = useState(""), [totemHumorSetor, setTotemHumorSetor] = useState(""), [totemHumorSaving, setTotemHumorSaving] = useState(false), [totemHumorOk, setTotemHumorOk] = useState(""), [totemHumorErr, setTotemHumorErr] = useState("");
+  const [totemAjudaNome, setTotemAjudaNome] = useState(""), [totemAjudaContato, setTotemAjudaContato] = useState(""), [totemAjudaGhe, setTotemAjudaGhe] = useState(""), [totemAjudaFuncao, setTotemAjudaFuncao] = useState(""), [totemAjudaSaving, setTotemAjudaSaving] = useState(false), [totemAjudaOk, setTotemAjudaOk] = useState(""), [totemAjudaErr, setTotemAjudaErr] = useState("");
   const [denVinculo, setDenVinculo] = useState(""), [denIdentificar, setDenIdentificar] = useState("NAO"), [denContatoIdentificacao, setDenContatoIdentificacao] = useState(""), [denGhe, setDenGhe] = useState(""), [denCargo, setDenCargo] = useState(""), [denTipo, setDenTipo] = useState(""), [denRelato, setDenRelato] = useState(""), [denTestemunhas, setDenTestemunhas] = useState(""), [denAceitaDevolutiva, setDenAceitaDevolutiva] = useState("NAO"), [denEmailDevolutiva, setDenEmailDevolutiva] = useState(""), [denArquivo, setDenArquivo] = useState(null);
   const [toasts, setToasts] = useState([]);
   const toastSeqRef = useRef(1);
@@ -613,6 +868,7 @@ export default function App() {
   useEffect(() => { if (user && canEmp(user) && section === "comparar-campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "canal-denuncias") loadEmpresas(); }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "denuncias-empresa") loadEmpresas(); }, [user, section]);
+  useEffect(() => { if (user && canEmp(user) && section === "pedidos-ajuda") loadEmpresas(); }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "totem") loadEmpresas(); }, [user, section]);
   useEffect(() => {
     if (!isPublicQuestionario) return;
@@ -703,6 +959,8 @@ export default function App() {
     if (user && canEmp(user)) m.push({ key: "comparar-campanhas", label: "Comparar campanhas", icon: I.cmp });
     if (user && canEmp(user)) m.push({ key: "canal-denuncias", label: "Canal de denúncias", icon: I.link });
     if (user && canEmp(user)) m.push({ key: "denuncias-empresa", label: "Ver denúncias", icon: I.rpt });
+    if (user && canEmp(user)) m.push({ key: "pedidos-ajuda", label: "Pedidos de ajuda", icon: I.hand });
+    if (user && canEmp(user)) m.push({ key: "totem", label: "Totem", icon: I.tot });
     return m;
   }, [user]);
   const currentPageTitle = useMemo(() => {
@@ -710,6 +968,7 @@ export default function App() {
     if (section === "comparar-campanhas") return "Comparar campanhas";
     if (section === "canal-denuncias") return "Canal de denúncias";
     if (section === "denuncias-empresa") return "Denúncias por empresa";
+    if (section === "pedidos-ajuda") return "Pedidos de ajuda";
     if (section === "totem") return "Totem";
     if (section === "configuracoes") return "Configurações";
     if (section === "setor") return "Setor";
@@ -935,11 +1194,15 @@ export default function App() {
     }
   }
 
-  async function loadDashboardOverview(empresaId = dashEmpresa) {
+  async function loadDashboardOverview(empresaId = dashEmpresa, dateFrom = dashDateFrom, dateTo = dashDateTo) {
     if (!token) return;
     setDashLoad(true); setDashErr("");
     try {
-      const qs = empresaId ? `?empresa_id=${encodeURIComponent(empresaId)}` : "";
+      const params = new URLSearchParams();
+      if (empresaId) params.set("empresa_id", empresaId);
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo) params.set("date_to", dateTo);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const r = await fetch(`${API}/dashboard/overview/${qs}`, { headers: { Authorization: `Token ${token}` } });
       const d = await r.json();
       if (!r.ok) throw new Error(pErr(d));
@@ -1043,6 +1306,62 @@ export default function App() {
       setTotemDenErr(err.message);
     } finally {
       setTotemDenSaving(false);
+    }
+  }
+
+  async function submitTotemHumor() {
+    setTotemHumorSaving(true);
+    setTotemHumorErr("");
+    try {
+      const token = totemPubData?.token;
+      const body = {
+        humor: totemHumorSelected,
+        ghe: totemHumorGhe ? Number(totemHumorGhe) : null,
+        setor: totemHumorSetor ? Number(totemHumorSetor) : null,
+      };
+      const r = await fetch(`${API}/totem/public/${token}/humor/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.detail || data?.humor?.[0] || "Erro ao registrar humor.");
+      setTotemHumorOk("Humor registrado com sucesso! Obrigado.");
+      setTimeout(() => {
+        setTotemHumorModal(false);
+        setTotemHumorSelected("");
+        setTotemHumorGhe("");
+        setTotemHumorSetor("");
+        setTotemHumorOk("");
+        setTotemPubScreen("menu");
+        setTotemConsentAccepted(false);
+      }, 1600);
+    } catch (err) {
+      setTotemHumorErr(err.message);
+    } finally {
+      setTotemHumorSaving(false);
+    }
+  }
+
+  async function submitTotemAjuda(e) {
+    e.preventDefault();
+    const totemToken = totemPubData?.token;
+    setTotemAjudaSaving(true); setTotemAjudaErr(""); setTotemAjudaOk("");
+    try {
+      const res = await fetch(`${API}/totem/public/${totemToken}/ajuda/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: totemAjudaNome, contato: totemAjudaContato, ghe: totemAjudaGhe ? Number(totemAjudaGhe) : null, funcao: totemAjudaFuncao ? Number(totemAjudaFuncao) : null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.detail || "Erro ao enviar pedido.");
+      setTotemAjudaOk("Pedido enviado! Entraremos em contato em breve.");
+      setTotemAjudaNome(""); setTotemAjudaContato(""); setTotemAjudaGhe(""); setTotemAjudaFuncao("");
+      setTimeout(() => { setTotemAjudaOk(""); setTotemPubScreen("menu"); setTotemConsentAccepted(false); }, 2000);
+    } catch (err) {
+      setTotemAjudaErr(err.message);
+    } finally {
+      setTotemAjudaSaving(false);
     }
   }
 
@@ -1163,6 +1482,21 @@ export default function App() {
     }
   }
 
+  async function toggleCfgTecnicoTotem(item) {
+    try {
+      const r = await fetch(`${API}/consultoria-configuracao/responsaveis-tecnicos/${item.id}/`, {
+        method: "PATCH",
+        headers: { Authorization: `Token ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ responsavel_totem: !item.responsavel_totem }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setCfgTecs((prev) => prev.map((x) => (x.id === d.id ? d : x)));
+    } catch (err) {
+      pushToast("error", "Erro", err.message);
+    }
+  }
+
   async function deleteCfgTecnico(id) {
     setCfgTecErr("");
     try {
@@ -1204,7 +1538,13 @@ export default function App() {
 
   function onDashboardEmpresaChange(value) {
     setDashEmpresa(value);
-    loadDashboardOverview(value);
+    loadDashboardOverview(value, dashDateFrom, dashDateTo);
+  }
+
+  function onDashboardDateChange(from, to) {
+    setDashDateFrom(from);
+    setDashDateTo(to);
+    loadDashboardOverview(dashEmpresa, from, to);
   }
 
   function setPublicStep2Answer(key, value) {
@@ -1458,6 +1798,7 @@ export default function App() {
       const r = await fetch(`${API}/auth/login/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const d = await r.json(); if (!r.ok) throw new Error(d?.non_field_errors?.[0] || "Nao foi possivel entrar.");
       localStorage.setItem(TOKEN_KEY, d.token); localStorage.setItem(USER_CACHE_KEY, JSON.stringify(d.user)); setToken(d.token); setUser(d.user); setPassword("");
+      localStorage.setItem(SECTION_CACHE_KEY, "dashboard"); setSection("dashboard");
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   }
 
@@ -1783,8 +2124,10 @@ export default function App() {
     setCampMeasureErr("");
     setCampAttachErr("");
     setCampPdfErr("");
+    setPlanosAcaoAtivos({});
     setSection("campanhas-relatorio");
     await loadCampanhaRelatorio(item.id, "");
+    loadPlanosAcao(item.id);
   }
 
   async function onCampRelatorioRefChange(value) {
@@ -2030,6 +2373,54 @@ export default function App() {
     }
   }
 
+  async function loadPlanosAcao(campanhaId) {
+    if (!campanhaId) return;
+    try {
+      const r = await fetch(`${API}/campanhas/${campanhaId}/planos-acao/`, {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      const map = {};
+      (data || []).forEach((p) => {
+        if (p.ativo) map[`${p.step_key}_${p.question_field}_${p.plano_index}`] = true;
+      });
+      setPlanosAcaoAtivos(map);
+    } catch (_) {
+      // silently ignore
+    }
+  }
+
+  async function togglePlanoAcao(stepKey, questionField, planoIndex) {
+    const key = `${stepKey}_${questionField}_${planoIndex}`;
+    const newAtivo = !planosAcaoAtivos[key];
+    const newAtivos = { ...planosAcaoAtivos, [key]: newAtivo };
+    setPlanosAcaoAtivos(newAtivos);
+    if (!campRelCampanha?.id) return;
+    setPlanosAcaoSaving(true);
+    try {
+      const payload = Object.entries(PLANOS_ACAO).flatMap(([sk, questions]) =>
+        Object.entries(questions).flatMap(([qf, plans]) =>
+          plans.map((_, pi) => ({
+            step_key: sk,
+            question_field: qf,
+            plano_index: pi,
+            ativo: !!newAtivos[`${sk}_${qf}_${pi}`],
+          }))
+        )
+      );
+      await fetch(`${API}/campanhas/${campRelCampanha.id}/planos-acao/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify(payload),
+      });
+    } catch (_) {
+      // silently ignore
+    } finally {
+      setPlanosAcaoSaving(false);
+    }
+  }
+
   function openCampanha(type, item = null) {
     setCpModal({ type, item }); setCpErr("");
     setCpEmpresa(type === "create" ? String(campEmpresaFiltro || "") : (item?.empresa ? String(item.empresa) : ""));
@@ -2182,12 +2573,190 @@ export default function App() {
     setDenListEmpresaMenuOpen(false);
   }
 
+  function onAjudaListEmpresaBuscaChange(value) {
+    setAjudaListEmpresaBusca(value);
+    const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
+    setAjudaListEmpresaFiltro(found ? String(found.id) : "");
+    setAjudaListData(null);
+    setAjudaListErr("");
+  }
+  function selectAjudaListEmpresaBuscaOption(emp) {
+    setAjudaListEmpresaBusca(String(emp.company_name || ""));
+    setAjudaListEmpresaFiltro(String(emp.id));
+    setAjudaListData(null);
+    setAjudaListErr("");
+    setAjudaListEmpresaMenuOpen(false);
+  }
+  async function loadAjudaEmpresa() {
+    if (!ajudaListEmpresaFiltro) return setAjudaListErr("Selecione uma empresa.");
+    setAjudaListLoad(true); setAjudaListErr("");
+    try {
+      const r = await fetch(`${API}/empresas/${ajudaListEmpresaFiltro}/pedidos-ajuda/`, { headers: { Authorization: `Token ${token}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setAjudaListData(d);
+    } catch (err) {
+      setAjudaListErr(err.message);
+    } finally {
+      setAjudaListLoad(false);
+    }
+  }
+
+  function closeAjudaRowMenu() {
+    setAjudaRowMenuOpenId(null);
+    setAjudaRowMenuItem(null);
+  }
+
+  function toggleAjudaRowMenu(e, item) {
+    if (ajudaRowMenuOpenId === item.id) { closeAjudaRowMenu(); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 240;
+    const gap = 2;
+    const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+    const openUp = window.innerHeight - rect.bottom < 240;
+    const top = openUp ? rect.top - gap : rect.bottom + gap;
+    setAjudaRowMenuPos({ top: Math.max(8, top), left, openUp });
+    setAjudaRowMenuItem(item);
+    setAjudaRowMenuOpenId(item.id);
+  }
+
+  useEffect(() => {
+    if (!ajudaRowMenuOpenId) return;
+    function onPointerDown(ev) {
+      const target = ev.target;
+      if (target instanceof Element && (target.closest(".ajuda-row-menu-list") || target.closest(".ajuda-row-menu-trigger"))) return;
+      closeAjudaRowMenu();
+    }
+    function onKeyDown(ev) { if (ev.key === "Escape") closeAjudaRowMenu(); }
+    function onViewportChange() { closeAjudaRowMenu(); }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [ajudaRowMenuOpenId]);
+
+  async function updateAjudaStatus(pedidoId, statusValue) {
+    if (!ajudaListEmpresaFiltro) return;
+    setAjudaListErr("");
+    try {
+      const r = await fetch(`${API}/empresas/${ajudaListEmpresaFiltro}/pedidos-ajuda/${pedidoId}/`, {
+        method: "PATCH",
+        headers: { Authorization: `Token ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: statusValue }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setAjudaListData((prev) => prev ? ({ ...prev, results: (prev.results || []).map((x) => x.id === d.id ? d : x) }) : prev);
+    } catch (err) {
+      setAjudaListErr(err.message);
+      throw err;
+    }
+  }
+
+  function openAjudaAtendModal(item) { setAjudaAtendModal({ item, saving: false, err: "" }); }
+  function closeAjudaAtendModal() { setAjudaAtendModal({ item: null, saving: false, err: "" }); }
+  async function confirmAjudaAtend() {
+    if (!ajudaAtendModal.item?.id) return;
+    setAjudaAtendModal((p) => ({ ...p, saving: true, err: "" }));
+    try {
+      await updateAjudaStatus(ajudaAtendModal.item.id, "EM_ATENDIMENTO");
+      closeAjudaAtendModal();
+    } catch (err) {
+      setAjudaAtendModal((p) => ({ ...p, saving: false, err: err.message || "Erro ao atualizar status." }));
+    }
+  }
+
+  function openAjudaResolveModal(item) { setAjudaResolveModal({ item, saving: false, err: "" }); }
+  function closeAjudaResolveModal() { setAjudaResolveModal({ item: null, saving: false, err: "" }); }
+  async function confirmAjudaResolve() {
+    if (!ajudaResolveModal.item?.id) return;
+    setAjudaResolveModal((p) => ({ ...p, saving: true, err: "" }));
+    try {
+      await updateAjudaStatus(ajudaResolveModal.item.id, "ATENDIDO");
+      closeAjudaResolveModal();
+    } catch (err) {
+      setAjudaResolveModal((p) => ({ ...p, saving: false, err: err.message || "Erro ao atualizar status." }));
+    }
+  }
+
+  function openAjudaAtualizacaoModal(item) { setAjudaUpdModal({ item, text: "", saving: false, err: "" }); }
+  function closeAjudaAtualizacaoModal() { setAjudaUpdModal({ item: null, text: "", saving: false, err: "" }); }
+
+  async function addAjudaAtualizacao(pedidoId, texto) {
+    if (!ajudaListEmpresaFiltro || !String(texto || "").trim()) return;
+    setAjudaListErr("");
+    try {
+      const r = await fetch(`${API}/empresas/${ajudaListEmpresaFiltro}/pedidos-ajuda/${pedidoId}/atualizacoes/`, {
+        method: "POST",
+        headers: { Authorization: `Token ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ texto }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setAjudaListData((prev) => prev ? ({ ...prev, results: (prev.results || []).map((x) => x.id === d.id ? d : x) }) : prev);
+    } catch (err) {
+      setAjudaListErr(err.message);
+      throw err;
+    }
+  }
+
+  async function submitAjudaAtualizacaoModal(e) {
+    e.preventDefault();
+    if (!ajudaUpdModal.item?.id) return;
+    const text = String(ajudaUpdModal.text || "").trim();
+    if (!text) return setAjudaUpdModal((p) => ({ ...p, err: "Digite a atualizacao." }));
+    setAjudaUpdModal((p) => ({ ...p, saving: true, err: "" }));
+    try {
+      await addAjudaAtualizacao(ajudaUpdModal.item.id, text);
+      closeAjudaAtualizacaoModal();
+    } catch (err) {
+      setAjudaUpdModal((p) => ({ ...p, saving: false, err: err.message || "Erro ao salvar atualizacao." }));
+    }
+  }
+
+  async function exportAjudaPdf(p) {
+    if (!ajudaListEmpresaFiltro || !p?.id) return;
+    setAjudaPdfLoadingId(p.id);
+    try {
+      const r = await fetch(`${API}/empresas/${ajudaListEmpresaFiltro}/pedidos-ajuda/${p.id}/pdf/`, {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!r.ok) throw new Error("Não foi possível gerar o PDF.");
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pedido-ajuda-${p.id}-auditoria.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setAjudaPdfLoadingId(null);
+    }
+  }
+
   function onTotemEmpresaBuscaChange(value) {
     setTotemEmpresaBusca(value);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setTotemEmpresaFiltro(found ? String(found.id) : "");
     setTotemLinkData(null);
     setTotemErr("");
+  }
+  function selectTotemEmpresaBuscaOption(emp) {
+    setTotemEmpresaBusca(String(emp.company_name || ""));
+    setTotemEmpresaFiltro(String(emp.id));
+    setTotemLinkData(null);
+    setTotemErr("");
+    setTotemEmpresaMenuOpen(false);
   }
 
   async function loadOrGenerateTotemLink(regenerate = false) {
@@ -2236,6 +2805,30 @@ export default function App() {
       setDenListErr(err.message);
     } finally {
       setDenListLoad(false);
+    }
+  }
+
+  async function exportDenunciaPdf(d) {
+    if (!denListEmpresaFiltro || !d?.id) return;
+    setDenPdfLoadingId(d.id);
+    try {
+      const r = await fetch(`${API}/empresas/${denListEmpresaFiltro}/canal-denuncias/${d.id}/pdf/`, {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!r.ok) throw new Error("Não foi possível gerar o PDF.");
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `denuncia-${d.id}-auditoria.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDenPdfLoadingId(null);
     }
   }
 
@@ -2362,6 +2955,30 @@ export default function App() {
     }
   }
 
+  async function exportComparativoPdf() {
+    if (!cmpCamp1 || !cmpCamp2) return;
+    setCmpPdfLoading(true);
+    try {
+      const r = await fetch(`${API}/campanhas/comparativo/pdf/?camp1_id=${cmpCamp1}&camp2_id=${cmpCamp2}`, {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!r.ok) throw new Error("Não foi possível gerar o PDF comparativo.");
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `comparativo-campanhas.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCmpPdfLoading(false);
+    }
+  }
+
   function openEmpresaCreate() { setEMode("create"); setEEdit(null); setEForm(INIT_EMPRESA); setEStep(1); setEErr(""); setEModalOpen(true); }
   function openEmpresaEdit(x) {
     setEMode("edit"); setEEdit(x); setEStep(1); setEErr(""); setEModalOpen(true);
@@ -2453,11 +3070,35 @@ export default function App() {
             </div>
             {canEmp(user) && (
               <div className="dashboard-hero-filter">
-                {/* <label>Empresa</label> */}
                 <select value={dashEmpresa} onChange={(e) => onDashboardEmpresaChange(e.target.value)}>
                   <option value="">Todas as empresas</option>
                   {(dashData?.empresas || []).map((emp) => <option key={`dash-emp-${emp.id}`} value={String(emp.id)}>{emp.name}</option>)}
                 </select>
+                <div className="dash-date-range">
+                  <input
+                    type="date"
+                    value={dashDateFrom}
+                    max={dashDateTo || undefined}
+                    onChange={(e) => onDashboardDateChange(e.target.value, dashDateTo)}
+                    title="Data inicial"
+                  />
+                  <span className="dash-date-range-sep">—</span>
+                  <input
+                    type="date"
+                    value={dashDateTo}
+                    min={dashDateFrom || undefined}
+                    onChange={(e) => onDashboardDateChange(dashDateFrom, e.target.value)}
+                    title="Data final"
+                  />
+                  {(dashDateFrom || dashDateTo) && (
+                    <button
+                      type="button"
+                      className="dash-date-range-clear"
+                      title="Limpar período"
+                      onClick={() => onDashboardDateChange("", "")}
+                    >✕</button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -2465,64 +3106,248 @@ export default function App() {
           {dashLoad && <LoadingSpinner label="Carregando dashboard..." />}
           {dashErr && <p className="error">{dashErr}</p>}
 
-          {!dashLoad && (
-            <>
-              <div className="dash-cards">
-                {cards.map((card) => (
-                  <article key={`dash-card-${card.key}`} className={`dash-card ${card.color || "blue"}`}>
-                    <p>{card.label}</p>
-                    <strong>{card.value}</strong>
+          {!dashLoad && (() => {
+            const canal = dashData?.canal_overview || {};
+            const denPorStatus = canal.den_por_status || [];
+            const denPorTipo = canal.den_por_tipo || [];
+            const denPorGhe = canal.den_por_ghe || [];
+            const humorPorTipo = canal.humor_por_tipo || [];
+            const humorTrendLabels = canal.humor_trend?.labels || [];
+            const humorTrendValues = canal.humor_trend?.values || [];
+            const maxHumorTrend = Math.max(1, ...humorTrendValues.map((v) => Number(v || 0)));
+            const HUMOR_COLORS = {
+              feliz: '#22c55e', motivado: '#3b82f6', tranquilo: '#06b6d4',
+              cansado: '#f59e0b', estressado: '#ef4444', triste: '#6366f1',
+              ansioso: '#8b5cf6', sobrecarregado: '#f97316',
+            };
+            const HUMOR_EMOJI = {
+              feliz: '😊', motivado: '💪', tranquilo: '😌',
+              cansado: '😔', estressado: '😤', triste: '😢',
+              ansioso: '😰', sobrecarregado: '😩',
+            };
+            const DEN_STATUS_COLORS = { ABERTA: '#ef4444', EM_ANALISE: '#f59e0b', RESOLVIDA: '#22c55e' };
+            const maxDenStatus = Math.max(1, ...denPorStatus.map((d) => d.value));
+            const maxDenTipo = Math.max(1, ...denPorTipo.map((d) => d.value));
+            const maxDenGhe = Math.max(1, ...denPorGhe.map((d) => d.value));
+            const maxHumorTipo = Math.max(1, ...humorPorTipo.map((d) => d.value));
+            return (
+              <>
+                {/* ── Campaign summary cards ── */}
+                <div className="dash-cards">
+                  {cards.map((card) => (
+                    <article key={`dash-card-${card.key}`} className={`dash-card ${card.color || "blue"}`}>
+                      <p>{card.label}</p>
+                      <strong>{card.value}</strong>
+                      <div className="dash-card-line" />
+                    </article>
+                  ))}
+                </div>
+
+                {/* ── Campaign charts ── */}
+                <div className="dash-grid-panels">
+                  <div className="dash-panel">
+                    <div className="dash-panel-header">
+                      <h3 className="dash-panel-title-strong">Distribuição por Segmento</h3>
+                    </div>
+                    {domains.length === 0 ? (
+                      <p className="empty-state">Sem dados suficientes.</p>
+                    ) : (
+                      <div className="dash-domain-bars">
+                        {domains.map((d) => (
+                          <div key={`dash-domain-${d.key}`} className="dash-domain-row">
+                            <span>{d.label}</span>
+                            <div className="dash-bar-track">
+                              <i className={`dash-bar-fill ${reportZoneClass(d.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(d.percent || 0)))}%` }} />
+                            </div>
+                            <b>{fmtPct(d.percent)}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="dash-panel">
+                    <div className="dash-panel-header">
+                      <h3 className="dash-panel-title-strong">Histórico de Avaliações</h3>
+                      <span className="subtitle">Últimos 6 meses</span>
+                    </div>
+                    {histValues.length === 0 ? (
+                      <p className="empty-state">Sem historico.</p>
+                    ) : (
+                      <div className="dash-chart">
+                        <div className="dash-chart-bars">
+                          <div className="dash-chart-grid" aria-hidden="true">
+                            <div className="dash-chart-gridline" />
+                            <div className="dash-chart-gridline" />
+                            <div className="dash-chart-gridline" />
+                            <div className="dash-chart-gridline" />
+                          </div>
+                          {histValues.map((v, idx) => {
+                            const heightPct = Math.max(3, (Number(v || 0) / maxHist) * 100);
+                            return (
+                              <div key={`dash-hist-${idx}`} className="dash-chart-col">
+                                <span className="dash-chart-val">{v > 0 ? v : '\u200b'}</span>
+                                <div className="dash-chart-bar-area">
+                                  <div className="dash-chart-bar" style={{ height: `${heightPct}%` }} title={`${histLabels[idx]}: ${v}`} />
+                                </div>
+                                <span className="dash-chart-label">{histLabels[idx]}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Canal de Denúncias & Totem section ── */}
+                <div className="dash-section-divider">
+                  <span>Canal de Denúncias &amp; Totem</span>
+                </div>
+
+                {/* Canal summary cards */}
+                <div className="dash-cards dash-cards-canal">
+                  <article className="dash-card red">
+                    <p>Denúncias recebidas</p>
+                    <strong>{canal.total_denuncias ?? 0}</strong>
                     <div className="dash-card-line" />
                   </article>
-                ))}
-              </div>
-
-              <div className="dash-grid-panels">
-                <div className="dash-panel">
-                  <div className="dash-panel-header">
-                    <h3 className="dash-panel-title-strong">Distribuição por Segmento</h3>
-                  </div>
-                  {domains.length === 0 ? (
-                    <p className="empty-state">Sem dados suficientes.</p>
-                  ) : (
-                    <div className="dash-domain-bars">
-                      {domains.map((d) => (
-                        <div key={`dash-domain-${d.key}`} className="dash-domain-row">
-                          <span>{d.label}</span>
-                          <div className="dash-bar-track">
-                            <i className={`dash-bar-fill ${reportZoneClass(d.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(d.percent || 0)))}%` }} />
-                          </div>
-                          <b>{fmtPct(d.percent)}</b>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <article className="dash-card green">
+                    <p>Registros de humor</p>
+                    <strong>{canal.total_humor ?? 0}</strong>
+                    <div className="dash-card-line" />
+                  </article>
+                  <article className="dash-card yellow">
+                    <p>Pedidos de ajuda</p>
+                    <strong>{canal.total_pedidos_ajuda ?? 0}</strong>
+                    <div className="dash-card-line" />
+                  </article>
                 </div>
 
-                <div className="dash-panel">
+                {/* Denúncias por status + por tipo */}
+                <div className="dash-grid-panels">
+                  <div className="dash-panel">
+                    <div className="dash-panel-header">
+                      <h3 className="dash-panel-title-strong">Denúncias por Status</h3>
+                    </div>
+                    {denPorStatus.every((d) => d.value === 0) ? (
+                      <p className="empty-state">Nenhuma denúncia registrada.</p>
+                    ) : (
+                      <div className="dash-domain-bars">
+                        {denPorStatus.map((d) => (
+                          <div key={`den-status-${d.key}`} className="dash-domain-row">
+                            <span>{d.label}</span>
+                            <div className="dash-bar-track">
+                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: DEN_STATUS_COLORS[d.key] || '#94a3b8', width: `${(d.value / maxDenStatus) * 100}%` }} />
+                            </div>
+                            <b>{d.value}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="dash-panel">
+                    <div className="dash-panel-header">
+                      <h3 className="dash-panel-title-strong">Denúncias por Tipo</h3>
+                    </div>
+                    {denPorTipo.length === 0 ? (
+                      <p className="empty-state">Nenhuma denúncia registrada.</p>
+                    ) : (
+                      <div className="dash-domain-bars">
+                        {denPorTipo.map((d, i) => (
+                          <div key={`den-tipo-${i}`} className="dash-domain-row dash-domain-row-wide">
+                            <span>{d.label}</span>
+                            <div className="dash-bar-track">
+                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: '#3b82f6', width: `${(d.value / maxDenTipo) * 100}%` }} />
+                            </div>
+                            <b>{d.value}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Denúncias por GHE + Humor por tipo */}
+                <div className="dash-grid-panels">
+                  <div className="dash-panel">
+                    <div className="dash-panel-header">
+                      <h3 className="dash-panel-title-strong">Denúncias por GHE</h3>
+                    </div>
+                    {denPorGhe.length === 0 ? (
+                      <p className="empty-state">Nenhuma denúncia com GHE informado.</p>
+                    ) : (
+                      <div className="dash-domain-bars">
+                        {denPorGhe.map((d, i) => (
+                          <div key={`den-ghe-${i}`} className="dash-domain-row dash-domain-row-wide">
+                            <span>{d.label}</span>
+                            <div className="dash-bar-track">
+                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: '#8b5cf6', width: `${(d.value / maxDenGhe) * 100}%` }} />
+                            </div>
+                            <b>{d.value}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="dash-panel">
+                    <div className="dash-panel-header">
+                      <h3 className="dash-panel-title-strong">Humor por Tipo</h3>
+                    </div>
+                    {humorPorTipo.length === 0 ? (
+                      <p className="empty-state">Nenhum registro de humor.</p>
+                    ) : (
+                      <div className="dash-domain-bars">
+                        {humorPorTipo.map((d) => (
+                          <div key={`humor-tipo-${d.key}`} className="dash-domain-row dash-domain-row-wide">
+                            <span>{HUMOR_EMOJI[d.key] || ''} {d.label}</span>
+                            <div className="dash-bar-track">
+                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: HUMOR_COLORS[d.key] || '#94a3b8', width: `${(d.value / maxHumorTipo) * 100}%` }} />
+                            </div>
+                            <b>{d.value}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Humor trend – últimos 6 meses */}
+                <div className="dash-panel dash-panel-full">
                   <div className="dash-panel-header">
-                    <h3 className="dash-panel-title-strong">Histórico de Avaliações</h3>
+                    <h3 className="dash-panel-title-strong">Histórico de Humor</h3>
                     <span className="subtitle">Últimos 6 meses</span>
                   </div>
-                  {histValues.length === 0 ? (
-                    <p className="empty-state">Sem historico.</p>
+                  {humorTrendValues.every((v) => v === 0) ? (
+                    <p className="empty-state">Nenhum registro de humor no período.</p>
                   ) : (
                     <div className="dash-chart">
-                      {histValues.map((v, idx) => (
-                        <div key={`dash-hist-${idx}`} className="dash-chart-col">
-                          <div className="dash-chart-bar-wrap">
-                            <div className="dash-chart-bar" style={{ height: `${Math.max(8, (Number(v || 0) / maxHist) * 100)}%` }} title={`${histLabels[idx]}: ${v}`} />
-                          </div>
-                          <small>{histLabels[idx]}</small>
-                          <span>{v}</span>
+                      <div className="dash-chart-bars">
+                        <div className="dash-chart-grid" aria-hidden="true">
+                          <div className="dash-chart-gridline" /><div className="dash-chart-gridline" />
+                          <div className="dash-chart-gridline" /><div className="dash-chart-gridline" />
                         </div>
-                      ))}
+                        {humorTrendValues.map((v, idx) => {
+                          const heightPct = Math.max(3, (Number(v || 0) / maxHumorTrend) * 100);
+                          return (
+                            <div key={`humor-trend-${idx}`} className="dash-chart-col">
+                              <span className="dash-chart-val">{v > 0 ? v : '\u200b'}</span>
+                              <div className="dash-chart-bar-area">
+                                <div className="dash-chart-bar" style={{ height: `${heightPct}%`, background: 'linear-gradient(180deg,#34d399,#059669)' }} title={`${humorTrendLabels[idx]}: ${v}`} />
+                              </div>
+                              <span className="dash-chart-label">{humorTrendLabels[idx]}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            );
+          })()}
         </section>
       );
     }
@@ -2610,21 +3435,32 @@ export default function App() {
                     <th>Nome</th>
                     <th>Formação</th>
                     <th>Registro</th>
+                    <th>Totem</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cfgTecs.length === 0 ? (
-                    <tr><td colSpan={4}>Nenhum responsavel tecnico cadastrado.</td></tr>
+                    <tr><td colSpan={5}>Nenhum responsavel tecnico cadastrado.</td></tr>
                   ) : (
                     cfgTecs.map((t) => (
                       <tr key={`cfg-tec-${t.id}`}>
                         <td>{t.nome}</td>
                         <td>{t.formacao}</td>
                         <td>{t.registro}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`toggle-btn${t.responsavel_totem ? " toggle-btn-on" : ""}`}
+                            onClick={() => toggleCfgTecnicoTotem(t)}
+                            title={t.responsavel_totem ? "Visível no totem" : "Oculto no totem"}
+                          >
+                            {t.responsavel_totem ? "Ativo" : "Inativo"}
+                          </button>
+                        </td>
                         <td className="actions">
-                          <button type="button" onClick={() => editCfgTecnico(t)}>Editar</button>
-                          <button type="button" className="danger" onClick={() => openDeleteCfgTecnicoConfirm(t)}>Excluir</button>
+                          <button type="button" className="campanha-icon-btn" title="Editar" onClick={() => editCfgTecnico(t)}>{I.edit}</button>
+                          <button type="button" className="campanha-icon-btn danger" title="Excluir" onClick={() => openDeleteCfgTecnicoConfirm(t)}>{I.del}</button>
                         </td>
                       </tr>
                     ))
@@ -3568,6 +4404,29 @@ export default function App() {
                                   </div>
                                 )}
 
+                                {PLANOS_ACAO[step.key]?.[item.question_field] && (
+                                  <div className="action-plans-block">
+                                    <p className="action-plans-title">Planos de ação sugeridos</p>
+                                    <p className="action-plans-subtitle">Selecione um ou mais planos relevantes para esta questão.</p>
+                                    {PLANOS_ACAO[step.key][item.question_field].map((plano, pi) => {
+                                      const pKey = `${step.key}_${item.question_field}_${pi}`;
+                                      const isAtivo = !!planosAcaoAtivos[pKey];
+                                      return (
+                                        <div key={pi} className="action-plan-item">
+                                          <button
+                                            type="button"
+                                            className={`action-plan-toggle${isAtivo ? " active" : ""}`}
+                                            onClick={() => togglePlanoAcao(step.key, item.question_field, pi)}
+                                            title={isAtivo ? "Desativar plano" : "Ativar plano"}
+                                          >
+                                            <span className="action-plan-toggle-thumb" />
+                                          </button>
+                                          <span className="action-plan-text">{plano}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                                 <div className="conclusion-inline-actions">
                                   <button type="button" className="link-like-button" onClick={() => openMeasureDraft(item)}>+ Adicionar medida temporaria</button>
                                   <button type="button" className="secondary" onClick={() => toggleMeasureWhen(item, effectiveWhenMonths)}>quando</button>
@@ -3853,6 +4712,9 @@ export default function App() {
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0 flex-1">
                           <div className="mb-2">
+                            {empresaCampanha && (
+                              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-slate-400">{empresaCampanha.company_name}</p>
+                            )}
                             <h3 className="truncate pr-2 text-base font-semibold text-slate-900">{cp.title}</h3>
                           </div>
                           <div className="flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
@@ -4020,9 +4882,20 @@ export default function App() {
 
           {cmpSubmitted && campanhaA && campanhaB && cmpResult && (
             <section className="config-card">
-              <div className="config-card-header">
-                <h2>Comparação selecionada</h2>
-                <p>Setas mostram o que melhorou (↑) ou piorou (↓) da Campanha 1 para a Campanha 2.</p>
+              <div className="config-card-header config-card-header-split">
+                <div>
+                  <h2>Comparação selecionada</h2>
+                  <p>Setas mostram o que melhorou (↑) ou piorou (↓) da Campanha 1 para a Campanha 2.</p>
+                </div>
+                <button
+                  type="button"
+                  className="config-card-header-action-btn"
+                  onClick={exportComparativoPdf}
+                  disabled={cmpPdfLoading}
+                  title="Exportar relatório comparativo em PDF"
+                >
+                  {cmpPdfLoading ? "Gerando PDF…" : "Exportar PDF"}
+                </button>
               </div>
               <div className="compare-summary-grid">
                 <article className="compare-summary-card">
@@ -4518,6 +5391,218 @@ export default function App() {
                       {I.img}<span>Sem evidência</span>
                     </span>
                   )}
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    disabled={denPdfLoadingId === denRowMenuItem.id}
+                    onClick={() => { exportDenunciaPdf(denRowMenuItem); closeDenunciaRowMenu(); }}
+                  >
+                    {I.pdf}<span>{denPdfLoadingId === denRowMenuItem.id ? "Gerando PDF..." : "Exportar PDF"}</span>
+                  </button>
+                </div>,
+                document.body
+              )}
+            </section>
+          )}
+        </section>
+      );
+    }
+    if (section === "pedidos-ajuda" && canEmp(user)) {
+      const termoAjudaEmpresa = ajudaListEmpresaBusca.trim().toLowerCase();
+      const ajudaEmpresaSugestoes = (ajudaListEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoAjudaEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoAjudaEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
+      const pedidos = ajudaListData?.results || [];
+      const pedidosFiltrados = ajudaListStatusFiltro === "TODOS"
+        ? pedidos
+        : pedidos.filter((p) => String(p.status || "") === ajudaListStatusFiltro);
+      return (
+        <section className="admin-panel">
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Visualize os pedidos de ajuda recebidos pelo totem por empresa.</p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <div className="relative w-full">
+                  <input
+                    id="ajuda-list-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    value={ajudaListEmpresaBusca}
+                    onFocus={() => setAjudaListEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setAjudaListEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { onAjudaListEmpresaBuscaChange(e.target.value); setAjudaListEmpresaMenuOpen(true); }}
+                  />
+                  {ajudaListEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {ajudaEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        ajudaEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`ajuda-list-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectAjudaListEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="admin-header">
+            <h2>Lista de pedidos de ajuda</h2>
+            <button type="button" className="denuncias-load-btn" onClick={loadAjudaEmpresa} disabled={!ajudaListEmpresaFiltro || ajudaListLoad}>
+              {ajudaListLoad ? "Carregando..." : "Carregar pedidos"}
+            </button>
+          </div>
+          {ajudaListErr && <p className="error">{ajudaListErr}</p>}
+
+          {ajudaListData && (
+            <section className="config-card denuncias-list-card">
+              <div className="empresas-toolbar">
+                <div className="empresas-page-size">
+                  <label>Status:</label>
+                  <select value={ajudaListStatusFiltro} onChange={(e) => setAjudaListStatusFiltro(e.target.value)}>
+                    <option value="TODOS">Todos</option>
+                    <option value="ABERTO">Abertos</option>
+                    <option value="EM_ATENDIMENTO">Em atendimento</option>
+                    <option value="ATENDIDO">Atendidos</option>
+                  </select>
+                </div>
+              </div>
+              {pedidosFiltrados.length === 0 ? (
+                <p className="empty-state">Nenhum pedido de ajuda para este filtro.</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Nome</th>
+                        <th>Contato</th>
+                        <th>GHE</th>
+                        <th>Função</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pedidosFiltrados.map((p) => (
+                        <tr key={`ajuda-admin-${p.id}`}>
+                          <td>{p.id}</td>
+                          <td>{fDate(p.created_at)}</td>
+                          <td>{p.nome}</td>
+                          <td>{p.contato || <span className="muted">—</span>}</td>
+                          <td>{p.ghe_name || <span className="muted">—</span>}</td>
+                          <td>{p.funcao_name || <span className="muted">—</span>}</td>
+                          <td>
+                            <span className={`denuncia-status-pill ${p.status === "ATENDIDO" ? "resolvida" : p.status === "EM_ATENDIMENTO" ? "em_analise" : "aberta"}`}>
+                              {p.status === "ATENDIDO" ? "Atendido" : p.status === "EM_ATENDIMENTO" ? "Em atendimento" : "Aberto"}
+                            </span>
+                          </td>
+                          <td className="actions denuncia-row-actions-cell">
+                            <div className="denuncia-row-menu">
+                              <button
+                                type="button"
+                                className="campanha-icon-btn ajuda-row-menu-trigger"
+                                title="Opções"
+                                aria-label={`Opções do pedido ${p.id}`}
+                                aria-haspopup="menu"
+                                aria-expanded={ajudaRowMenuOpenId === p.id}
+                                onClick={(e) => toggleAjudaRowMenu(e, p)}
+                              >
+                                {I.moreV}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {ajudaRowMenuOpenId && ajudaRowMenuItem && typeof document !== "undefined" && createPortal(
+                <div
+                  className="denuncia-row-menu-list ajuda-row-menu-list"
+                  role="menu"
+                  aria-label={`Ações do pedido ${ajudaRowMenuItem.id}`}
+                  style={{
+                    position: "fixed",
+                    top: ajudaRowMenuPos.top,
+                    left: ajudaRowMenuPos.left,
+                    transform: ajudaRowMenuPos.openUp ? "translateY(-100%)" : "none",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    onClick={() => { setAjudaViewModal(ajudaRowMenuItem); closeAjudaRowMenu(); }}
+                  >
+                    {I.rpt}<span>Ver detalhes</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    onClick={() => { openAjudaAtualizacaoModal(ajudaRowMenuItem); closeAjudaRowMenu(); }}
+                  >
+                    {I.edit}<span>Adicionar atualização</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    onClick={() => { setAjudaHistModal(ajudaRowMenuItem); closeAjudaRowMenu(); }}
+                  >
+                    {I.cad}<span>Histórico de atualizações</span>
+                  </button>
+                  {ajudaRowMenuItem.status !== "ATENDIDO" && (
+                    <button
+                      type="button"
+                      className="denuncia-row-menu-item"
+                      role="menuitem"
+                      onClick={() => { openAjudaResolveModal(ajudaRowMenuItem); closeAjudaRowMenu(); }}
+                    >
+                      {I.power}<span>Marcar como atendido</span>
+                    </button>
+                  )}
+                  {ajudaRowMenuItem.status === "ABERTO" && (
+                    <button
+                      type="button"
+                      className="denuncia-row-menu-item"
+                      role="menuitem"
+                      onClick={() => { openAjudaAtendModal(ajudaRowMenuItem); closeAjudaRowMenu(); }}
+                    >
+                      {I.cmp}<span>Marcar em atendimento</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="denuncia-row-menu-item"
+                    role="menuitem"
+                    disabled={ajudaPdfLoadingId === ajudaRowMenuItem.id}
+                    onClick={() => { exportAjudaPdf(ajudaRowMenuItem); closeAjudaRowMenu(); }}
+                  >
+                    {I.pdf}<span>{ajudaPdfLoadingId === ajudaRowMenuItem.id ? "Gerando PDF..." : "Exportar PDF"}</span>
+                  </button>
                 </div>,
                 document.body
               )}
@@ -4527,27 +5612,56 @@ export default function App() {
       );
     }
     if (section === "totem" && canEmp(user)) {
+      const termoTotemEmpresa = totemEmpresaBusca.trim().toLowerCase();
+      const totemEmpresaSugestoes = (totemEmpresaBusca.trim()
+        ? empresas.filter((emp) => (
+          String(emp.company_name || "").toLowerCase().includes(termoTotemEmpresa)
+          || String(emp.document_number || "").toLowerCase().includes(termoTotemEmpresa)
+        ))
+        : empresas
+      ).slice(0, 8);
       return (
         <section className="admin-panel">
-          <div className="setor-hero">
-            <div>
-              <h2>Totem</h2>
-              <p>Configure e gerencie o modo totem.</p>
-            </div>
-            <div className="setor-hero-right">
-              <label htmlFor="totem-empresa-search">Empresa</label>
-              <input
-                id="totem-empresa-search"
-                list="totem-empresas-list"
-                placeholder="Digite para buscar"
-                value={totemEmpresaBusca}
-                onChange={(e) => onTotemEmpresaBuscaChange(e.target.value)}
-              />
-              <datalist id="totem-empresas-list">
-                {empresas.map((emp) => (
-                  <option key={`totem-emp-${emp.id}`} value={`${emp.id} - ${emp.company_name}`} />
-                ))}
-              </datalist>
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Totem</h2>
+                <p className="text-sm font-medium text-slate-500">Configure e gerencie o modo totem.</p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <div className="relative w-full">
+                  <input
+                    id="totem-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    value={totemEmpresaBusca}
+                    onFocus={() => setTotemEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setTotemEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { onTotemEmpresaBuscaChange(e.target.value); setTotemEmpresaMenuOpen(true); }}
+                  />
+                  {totemEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {totemEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        totemEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`totem-empresa-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectTotemEmpresaBuscaOption(emp)}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -4599,8 +5713,16 @@ export default function App() {
 
   if (isPublicTotem) {
     const totemGhes = totemPubData?.ghes || [];
+    const totemSetores = totemPubData?.setores || [];
     const totemCargos = totemPubData?.cargos || [];
     const totemCargosFiltrados = denGhe ? totemCargos.filter((c) => (c.ghe_ids || []).includes(Number(denGhe))) : [];
+    const selectedHumorGheData = totemGhes.find((g) => String(g.id) === String(totemHumorGhe));
+    const totemSetoresFiltrados = selectedHumorGheData
+      ? totemSetores.filter((s) => (selectedHumorGheData.setor_ids || []).includes(s.id))
+      : [];
+    const totemAjudaCargosFiltrados = totemAjudaGhe
+      ? totemCargos.filter((c) => (c.ghe_ids || []).includes(Number(totemAjudaGhe)))
+      : [];
     return (
       <main className="app-shell public-shell">
         {toastViewport}
@@ -4617,13 +5739,25 @@ export default function App() {
             <div className="totem-consent-card">
               <h2>Termo de consentimento</h2>
               <p>
-                Ao prosseguir, voce concorda em utilizar este totem para registrar informacoes de forma responsavel. Seus dados
-                serao tratados com confidencialidade, conforme a finalidade do atendimento.
+                Ao prosseguir, você concorda em utilizar este totem para registrar informações de forma responsável. Seus dados
+                serão tratados com confidencialidade, conforme a finalidade do atendimento.
               </p>
               <p>
-                Caso escolha seguir com uma denuncia ou pedido de ajuda, as informacoes enviadas poderao ser analisadas pela equipe
+                Caso escolha seguir com uma denúncia ou pedido de ajuda, as informações enviadas poderão ser analisadas pela equipe
                 responsavel da empresa.
               </p>
+              {totemPubData.responsaveis_tecnicos?.length > 0 && (
+                <div className="totem-resp-tecnico-block">
+                  {totemPubData.responsaveis_tecnicos.map((rt, i) => (
+                    <div key={i} className="totem-resp-tecnico-item">
+                      <span className="totem-resp-tecnico-label">Responsável técnico</span>
+                      <span className="totem-resp-tecnico-nome">{rt.nome}</span>
+                      <span className="totem-resp-tecnico-formacao">{rt.formacao}</span>
+                      <span className="totem-resp-tecnico-registro">{rt.registro}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="totem-actions-row">
                 <button type="button" onClick={() => { setTotemConsentAccepted(true); setTotemPubActionMsg(""); }}>
                   Aceito
@@ -4635,14 +5769,14 @@ export default function App() {
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "menu" && (
             <div className="totem-menu-grid">
               <button type="button" className="totem-menu-btn" onClick={() => { setTotemPubScreen("denuncia"); setTotemPubActionMsg(""); setTotemDenErr(""); setTotemDenOk(""); }}>
-                <span className="totem-menu-title">Fazer denuncia</span>
-                <span className="totem-menu-desc">Registrar uma denuncia com sigilo.</span>
+                <span className="totem-menu-title">Fazer denúncia</span>
+                <span className="totem-menu-desc">Registrar uma denúncia com sigilo.</span>
               </button>
-              <button type="button" className="totem-menu-btn" onClick={() => setTotemPubActionMsg("Fluxo de registro de humor sera conectado aqui.")}>
+              <button type="button" className="totem-menu-btn" onClick={() => { setTotemPubScreen("humor"); setTotemHumorSelected(""); setTotemHumorGhe(""); setTotemHumorSetor(""); setTotemHumorOk(""); setTotemHumorErr(""); }}>
                 <span className="totem-menu-title">Registrar humor</span>
-                <span className="totem-menu-desc">Informar como voce esta se sentindo hoje.</span>
+                <span className="totem-menu-desc">Informar como você está se sentindo hoje.</span>
               </button>
-              <button type="button" className="totem-menu-btn" onClick={() => setTotemPubActionMsg("Fluxo de pedido de ajuda sera conectado aqui.")}>
+              <button type="button" className="totem-menu-btn" onClick={() => { setTotemPubScreen("ajuda"); setTotemAjudaNome(""); setTotemAjudaContato(""); setTotemAjudaGhe(""); setTotemAjudaFuncao(""); setTotemAjudaOk(""); setTotemAjudaErr(""); }}>
                 <span className="totem-menu-title">Pedido de ajuda</span>
                 <span className="totem-menu-desc">Solicitar apoio ou acolhimento.</span>
               </button>
@@ -4652,14 +5786,14 @@ export default function App() {
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "denuncia" && (
             <form onSubmit={submitDenunciaTotemPublica} className="denuncia-form totem-denuncia-form">
               <div className="denuncia-intro-box">
-                <div className="denuncia-intro-title">Denuncia pelo Totem</div>
+                <div className="denuncia-intro-title">Denúncia pelo Totem</div>
                 <p>
-                  Preencha as informacoes abaixo para registrar sua denuncia para <strong>{totemPubData.empresa_name}</strong>.
+                  Preencha as informações abaixo para registrar sua denúncia para <strong>{totemPubData.empresa_name}</strong>.
                 </p>
               </div>
 
               <div className="denuncia-question">
-                <label>1. Voce possui vinculo com a empresa {totemPubData.empresa_name}?</label>
+                <label>1. Você possui vínculo com a empresa {totemPubData.empresa_name}?</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="totem-den-vinculo" checked={denVinculo === "SIM"} onChange={() => setDenVinculo("SIM")} />Sim</label>
                   <label className="checkbox-line"><input type="radio" name="totem-den-vinculo" checked={denVinculo === "NAO"} onChange={() => setDenVinculo("NAO")} />Nao</label>
@@ -4691,9 +5825,9 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>Funcao</label>
+                <label>Função</label>
                 <select value={denCargo} onChange={(e) => setDenCargo(e.target.value)} disabled={!denGhe}>
-                  <option value="">{denGhe ? "Selecione uma funcao" : "Selecione um GHE primeiro"}</option>
+                  <option value="">{denGhe ? "Selecione uma função" : "Selecione um GHE primeiro"}</option>
                   {totemCargosFiltrados.map((c) => <option key={`totem-den-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
@@ -4707,7 +5841,7 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>3. Relate aqui a sua denuncia com todas as informacoes disponiveis.</label>
+                <label>3. Relate aqui a sua denúncia com todas as informações disponíveis.</label>
                 <textarea
                   className="text-area denuncia-textarea"
                   placeholder="Descreva em detalhes o que aconteceu..."
@@ -4721,14 +5855,14 @@ export default function App() {
                 <label>5. Existem testemunhas?</label>
                 <textarea
                   className="text-area"
-                  placeholder="Informe nomes, cargos ou formas de contato, se estiverem disponiveis."
+                  placeholder="Informe nomes, cargos ou formas de contato, se estiverem disponíveis."
                   value={denTestemunhas}
                   onChange={(e) => setDenTestemunhas(e.target.value)}
                 />
               </div>
 
               <div className="denuncia-question">
-                <label>6. Voce aceita receber uma devolutiva para a denuncia realizada? Se sim, insira o seu e-mail:</label>
+                <label>6. Você aceita receber uma devolutiva para a denúncia realizada? Se sim, insira o seu e-mail:</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "SIM"} onChange={() => setDenAceitaDevolutiva("SIM")} />Sim</label>
                   <label className="checkbox-line"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} />Nao</label>
@@ -4745,12 +5879,12 @@ export default function App() {
               {totemDenOk && <p className="ok-message">{totemDenOk}</p>}
               {totemDenErr && <p className="error">{totemDenErr}</p>}
 
-              <div className="totem-actions-row totem-denuncia-actions">
+              <div className="totem-actions-row totem-actions-row-split totem-denuncia-actions">
                 <button type="button" className="secondary" onClick={() => { setTotemPubScreen("menu"); setTotemPubActionMsg(""); setTotemDenErr(""); }}>
-                  Voltar ao menu
+                  Voltar
                 </button>
                 <button type="submit" disabled={totemDenSaving}>
-                  {totemDenSaving ? "Enviando..." : "Enviar denúncia"}
+                  {totemDenSaving ? "Enviando..." : "Enviar"}
                 </button>
               </div>
             </form>
@@ -4758,8 +5892,115 @@ export default function App() {
 
           {!!totemPubActionMsg && <p className="muted">{totemPubActionMsg}</p>}
 
+          {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "humor" && (
+            <div className="totem-humor-screen">
+              <h2 className="totem-humor-title">Como você está se sentindo?</h2>
+              <p className="totem-humor-subtitle">Selecione a opção que melhor descreve seu humor hoje.</p>
+              <div className="totem-humor-grid">
+                {HUMOR_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    className={`totem-humor-card${totemHumorSelected === opt.key ? " selected" : ""}`}
+                    onClick={() => setTotemHumorSelected(opt.key)}
+                  >
+                    <span className="totem-humor-emoji">{opt.emoji}</span>
+                    <span className="totem-humor-label">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="totem-actions-row totem-actions-row-split">
+                <button type="button" className="secondary" onClick={() => { setTotemPubScreen("menu"); setTotemHumorSelected(""); }}>
+                  Voltar
+                </button>
+                <button type="button" onClick={() => setTotemHumorModal(true)} disabled={!totemHumorSelected}>
+                  Seguir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "ajuda" && (
+            <form onSubmit={submitTotemAjuda} className="denuncia-form totem-denuncia-form">
+              <div className="totem-ajuda-atencao">
+                <span className="totem-ajuda-atencao-icon">🤝</span>
+                <p>Não se preocupe, entraremos em contato com você.</p>
+              </div>
+              <div className="denuncia-question">
+                <label>Nome <span style={{color:"#e53e3e"}}>*</span></label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Seu nome completo"
+                  value={totemAjudaNome}
+                  onChange={(e) => setTotemAjudaNome(e.target.value)}
+                />
+              </div>
+              <div className="denuncia-question">
+                <label>E-mail ou telefone <span className="muted" style={{fontWeight:400,fontSize:"0.85em"}}>(opcional)</span></label>
+                <input
+                  type="text"
+                  placeholder="exemplo@email.com ou (11) 99999-9999"
+                  value={totemAjudaContato}
+                  onChange={(e) => setTotemAjudaContato(e.target.value)}
+                />
+              </div>
+              <div className="denuncia-question">
+                <label>GHE <span className="muted" style={{fontWeight:400,fontSize:"0.85em"}}>(opcional)</span></label>
+                <select value={totemAjudaGhe} onChange={(e) => { setTotemAjudaGhe(e.target.value); setTotemAjudaFuncao(""); }}>
+                  <option value="">Selecione um GHE</option>
+                  {totemGhes.map((g) => <option key={`ajuda-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div className="denuncia-question">
+                <label>Função <span className="muted" style={{fontWeight:400,fontSize:"0.85em"}}>(opcional)</span></label>
+                <select value={totemAjudaFuncao} onChange={(e) => setTotemAjudaFuncao(e.target.value)} disabled={!totemAjudaGhe}>
+                  <option value="">{totemAjudaGhe ? (totemAjudaCargosFiltrados.length > 0 ? "Selecione uma funcao" : "Nenhuma funcao vinculada") : "Selecione um GHE primeiro"}</option>
+                  {totemAjudaCargosFiltrados.map((c) => <option key={`ajuda-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              {totemAjudaErr && <p className="error">{totemAjudaErr}</p>}
+              {totemAjudaOk && <p className="ok-message">{totemAjudaOk}</p>}
+              <div className="totem-actions-row totem-actions-row-split">
+                <button type="button" className="secondary" onClick={() => setTotemPubScreen("menu")} disabled={totemAjudaSaving}>Voltar</button>
+                <button type="submit" disabled={totemAjudaSaving}>{totemAjudaSaving ? "Enviando..." : "Enviar"}</button>
+              </div>
+            </form>
+          )}
+
+          {totemHumorModal && (
+            <div className="totem-humor-overlay" onClick={() => { if (!totemHumorSaving) setTotemHumorModal(false); }}>
+              <div className="totem-humor-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="totem-humor-modal-header">
+                  <h3>Identificação</h3>
+                  <p>Informe seu GHE e Setor para registrar o humor.</p>
+                </div>
+                <div className="totem-humor-modal-form">
+                  <label>GHE</label>
+                  <select value={totemHumorGhe} onChange={(e) => { setTotemHumorGhe(e.target.value); setTotemHumorSetor(""); }}>
+                    <option value="">Selecione um GHE (opcional)</option>
+                    {totemGhes.map((g) => <option key={`humor-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
+                  </select>
+                  <label>Setor</label>
+                  <select value={totemHumorSetor} onChange={(e) => setTotemHumorSetor(e.target.value)} disabled={!totemHumorGhe}>
+                    <option value="">{totemHumorGhe ? (totemSetoresFiltrados.length > 0 ? "Selecione um setor (opcional)" : "Nenhum setor vinculado") : "Selecione um GHE primeiro"}</option>
+                    {totemSetoresFiltrados.map((s) => <option key={`humor-setor-${s.id}`} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                {totemHumorErr && <p className="error">{totemHumorErr}</p>}
+                {totemHumorOk && <p className="ok-message">{totemHumorOk}</p>}
+                <div className="totem-humor-modal-actions">
+                  <button type="button" className="secondary" onClick={() => setTotemHumorModal(false)} disabled={totemHumorSaving}>Cancelar</button>
+                  <button type="button" onClick={submitTotemHumor} disabled={totemHumorSaving}>
+                    {totemHumorSaving ? "Registrando..." : "Confirmar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "menu" && (
-            <div className="totem-actions-row">
+            <div className="totem-actions-row totem-actions-row-left">
               <button type="button" className="secondary" onClick={() => { setTotemConsentAccepted(false); setTotemPubActionMsg(""); setTotemPubScreen("menu"); }}>
                 Voltar
               </button>
@@ -5202,7 +6443,7 @@ export default function App() {
               {pubStep === 10 && (
                 <div className="public-finish">
                   <p className="ok-message">{pubOk || "Questionário enviado com sucesso."}</p>
-                  <button type="button" className="secondary" onClick={restartPublicQuestionario}>Recomecar questionario</button>
+                  <button type="button" className="secondary" onClick={restartPublicQuestionario}>Recomeçãr questionário</button>
                 </div>
               )}
             </>
@@ -5215,14 +6456,36 @@ export default function App() {
   return (
     <main className={`app-shell ${user ? "app-shell-auth" : ""}`}>
       {!user ? (
-        <section className="card login-card">
-          <h1>Plataforma NR01</h1><p className="subtitle">Levantamento e avaliacao de riscos ocupacionais</p>
-          <form onSubmit={login} className="login-form">
-            <label>E-mail</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <label>Senha</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {error && <p className="error">{error}</p>}<button disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
-          </form>
-        </section>
+        <div className="login-page">
+          <div className="login-panel-left">
+            <div className="login-brand">
+              <img src="/logo.png" alt="Logo" className="login-logo" />
+              <h1 className="login-brand-title">Plataforma NR01</h1>
+              <p className="login-brand-sub">Gestão de Riscos Psicossociais no Trabalho</p>
+            </div>
+            <p className="login-panel-footer">© {new Date().getFullYear()} Ciss Consultoria. Todos os direitos reservados.</p>
+          </div>
+          <div className="login-panel-right">
+            <div className="login-form-wrap">
+              <h2 className="login-form-title">Bem-vindo</h2>
+              <p className="login-form-sub">Faça login para acessar o sistema</p>
+              <form onSubmit={login} className="login-form-main">
+                <div className="login-field">
+                  <label htmlFor="login-email">E-mail</label>
+                  <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required />
+                </div>
+                <div className="login-field">
+                  <label htmlFor="login-password">Senha</label>
+                  <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+                </div>
+                {error && <p className="error">{error}</p>}
+                <button type="submit" className="login-submit-btn" disabled={loading}>
+                  {loading ? "Entrando..." : "Entrar"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
       ) : (
         <section className="dashboard-layout">
           <button className="mobile-menu-button" onClick={() => setSideOpen((p) => !p)}>{I.menu}</button>
@@ -5559,6 +6822,127 @@ export default function App() {
 
       {toastViewport}
       {eInactivate && <div className="modal-backdrop"><div className="modal-card"><h3>Inativar empresa</h3><p>Deseja inativar {eInactivate.company_name}?</p>{eErr && <p className="error">{eErr}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setEInactivate(null)}>Cancelar</button><button className="danger" onClick={inativarEmpresa} disabled={eActing}>{eActing ? "Inativando..." : "Inativar"}</button></div></div></div>}
+
+      {/* ── Pedidos de Ajuda modals ── */}
+      {ajudaHistModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Histórico do pedido #{ajudaHistModal.id}</h3>
+            <p className="subtitle">Atualizações registradas para este pedido.</p>
+            <div className="denuncia-history-list">
+              {(ajudaHistModal.atualizacoes || []).length === 0 ? (
+                <p className="empty-state">Nenhuma atualização registrada.</p>
+              ) : (
+                (ajudaHistModal.atualizacoes || []).map((a) => (
+                  <div key={`ajuda-hist-${a.id}`} className="denuncia-history-item">
+                    <div className="denuncia-history-meta">
+                      <strong>{fDate(a.created_at)}</strong>
+                      {a.criado_por && <span>{a.criado_por}</span>}
+                    </div>
+                    <p>{a.texto}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={() => setAjudaHistModal(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {ajudaViewModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card modal-card-large">
+            <h3>Detalhes do pedido #{ajudaViewModal.id}</h3>
+            <p className="subtitle">{fDate(ajudaViewModal.created_at)}</p>
+            <div className="denuncia-detail-grid">
+              <div className="info-block">
+                <h3>Dados gerais</h3>
+                <p><strong>Status:</strong> {ajudaViewModal.status === "ATENDIDO" ? "Atendido" : ajudaViewModal.status === "EM_ATENDIMENTO" ? "Em atendimento" : "Aberto"}</p>
+                <p><strong>Nome:</strong> {ajudaViewModal.nome || "—"}</p>
+                <p><strong>Contato:</strong> {ajudaViewModal.contato || "—"}</p>
+                <p><strong>GHE:</strong> {ajudaViewModal.ghe_name || "—"}</p>
+                <p><strong>Função:</strong> {ajudaViewModal.funcao_name || "—"}</p>
+              </div>
+              <div className="info-block">
+                <h3>Atualizações</h3>
+                {(ajudaViewModal.atualizacoes || []).length === 0 ? (
+                  <p>Nenhuma atualização registrada.</p>
+                ) : (
+                  <div className="denuncia-history-list">
+                    {(ajudaViewModal.atualizacoes || []).map((a) => (
+                      <div key={`ajuda-view-hist-${a.id}`} className="denuncia-history-item">
+                        <div className="denuncia-history-meta">
+                          <strong>{fDate(a.created_at)}</strong>
+                          {a.criado_por && <span>{a.criado_por}</span>}
+                        </div>
+                        <p>{a.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={() => setAjudaViewModal(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {ajudaUpdModal.item && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Adicionar atualização</h3>
+            <p className="subtitle">Pedido #{ajudaUpdModal.item.id} — {ajudaUpdModal.item.nome}</p>
+            <form onSubmit={submitAjudaAtualizacaoModal} className="login-form">
+              <label>Atualização</label>
+              <textarea
+                className="text-area"
+                value={ajudaUpdModal.text}
+                onChange={(e) => setAjudaUpdModal((p) => ({ ...p, text: e.target.value, err: "" }))}
+                placeholder="Descreva a atualização deste pedido de ajuda..."
+                required
+              />
+              {ajudaUpdModal.err && <p className="error">{ajudaUpdModal.err}</p>}
+              <div className="modal-actions">
+                <button type="button" className="secondary" onClick={closeAjudaAtualizacaoModal} disabled={ajudaUpdModal.saving}>Cancelar</button>
+                <button type="submit" disabled={ajudaUpdModal.saving}>{ajudaUpdModal.saving ? "Salvando..." : "Salvar atualização"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {ajudaAtendModal.item && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Marcar pedido em atendimento</h3>
+            <p>Deseja marcar o pedido #{ajudaAtendModal.item.id} como em atendimento?</p>
+            {ajudaAtendModal.err && <p className="error">{ajudaAtendModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={closeAjudaAtendModal} disabled={ajudaAtendModal.saving}>Cancelar</button>
+              <button type="button" onClick={confirmAjudaAtend} disabled={ajudaAtendModal.saving}>
+                {ajudaAtendModal.saving ? "Salvando..." : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {ajudaResolveModal.item && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Marcar pedido como atendido</h3>
+            <p>Deseja marcar o pedido #{ajudaResolveModal.item.id} como atendido?</p>
+            {ajudaResolveModal.err && <p className="error">{ajudaResolveModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={closeAjudaResolveModal} disabled={ajudaResolveModal.saving}>Cancelar</button>
+              <button type="button" onClick={confirmAjudaResolve} disabled={ajudaResolveModal.saving}>
+                {ajudaResolveModal.saving ? "Salvando..." : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {denHistModal && (
         <div className="modal-backdrop">
           <div className="modal-card">
@@ -5594,12 +6978,12 @@ export default function App() {
               <div className="info-block">
                 <h3>Dados gerais</h3>
                 <p><strong>Status:</strong> {denViewModal.status === "EM_ANALISE" ? "Em analise" : denViewModal.status === "RESOLVIDA" ? "Resolvida" : "Aberta"}</p>
-                <p><strong>Vinculo com a empresa:</strong> {denViewModal.possui_vinculo ? "Sim" : "Nao"}</p>
+                <p><strong>Vínculo com a empresa:</strong> {denViewModal.possui_vinculo ? "Sim" : "Nao"}</p>
                 <p><strong>Deseja se identificar:</strong> {denViewModal.deseja_identificar ? "Sim" : "Nao"}</p>
                 {denViewModal.contato_identificacao && <p><strong>Contato:</strong> {denViewModal.contato_identificacao}</p>}
-                <p><strong>Tipo da denuncia:</strong> {denViewModal.tipo_label || "-"}</p>
+                <p><strong>Tipo da denúncia:</strong> {denViewModal.tipo_label || "-"}</p>
                 <p><strong>GHE:</strong> {denViewModal.ghe_name || "-"}</p>
-                <p><strong>Funcao:</strong> {denViewModal.cargo_name || "-"}</p>
+                <p><strong>Função:</strong> {denViewModal.cargo_name || "-"}</p>
                 <p><strong>Aceita devolutiva:</strong> {denViewModal.aceita_devolutiva ? "Sim" : "Nao"}</p>
                 {denViewModal.email_devolutiva && <p><strong>E-mail devolutiva:</strong> {denViewModal.email_devolutiva}</p>}
               </div>

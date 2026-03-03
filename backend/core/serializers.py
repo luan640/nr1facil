@@ -8,7 +8,7 @@ import hashlib
 from rest_framework import serializers
 
 from .company_defaults import seed_empresa_default_structure
-from .models import CanalDenuncia, CanalDenunciaAtualizacao, Campanha, CampanhaMedidaPreliminar, CampanhaQuandoPreliminar, CampanhaRelatorioAnexo, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, ConsultoriaConfiguracao, ConsultoriaResponsavelTecnico, DocumentType, Empresa, EstablishmentType, EvaluationType, FrequencyChoice, Ghe, MedidaScopeType, Setor, User, UserType
+from .models import CanalDenuncia, CanalDenunciaAtualizacao, Campanha, CampanhaMedidaPreliminar, CampanhaPlanoAcao, CampanhaQuandoPreliminar, CampanhaRelatorioAnexo, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, ConsultoriaConfiguracao, ConsultoriaResponsavelTecnico, DocumentType, Empresa, EstablishmentType, EvaluationType, FrequencyChoice, Ghe, MedidaScopeType, PedidoAjuda, PedidoAjudaAtualizacao, RegistroHumor, Setor, User, UserType
 
 
 class LoginSerializer(serializers.Serializer):
@@ -181,7 +181,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
 class ConsultoriaResponsavelTecnicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConsultoriaResponsavelTecnico
-        fields = ['id', 'nome', 'formacao', 'registro', 'created_at', 'updated_at']
+        fields = ['id', 'nome', 'formacao', 'registro', 'responsavel_totem', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
@@ -1175,3 +1175,77 @@ class CanalDenunciaAtualizacaoCreateSerializer(serializers.ModelSerializer):
         if len(text) < 3:
             raise serializers.ValidationError('Informe uma atualizacao valida.')
         return text
+
+
+class RegistroHumorPublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegistroHumor
+        fields = ['humor', 'ghe', 'setor']
+
+    def validate_humor(self, value):
+        valid = [c[0] for c in RegistroHumor.Humor.choices]
+        if value not in valid:
+            raise serializers.ValidationError('Humor inválido.')
+        return value
+
+
+class PedidoAjudaPublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PedidoAjuda
+        fields = ['nome', 'contato', 'ghe', 'funcao']
+
+    def validate_nome(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError('Nome é obrigatório.')
+        return value.strip()
+
+
+class PedidoAjudaListSerializer(serializers.ModelSerializer):
+    ghe_name = serializers.SerializerMethodField()
+    funcao_name = serializers.SerializerMethodField()
+    atualizacoes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PedidoAjuda
+        fields = ['id', 'nome', 'contato', 'ghe', 'ghe_name', 'funcao', 'funcao_name', 'status', 'atualizacoes', 'created_at']
+
+    def get_ghe_name(self, obj):
+        return obj.ghe.name if obj.ghe else None
+
+    def get_funcao_name(self, obj):
+        return obj.funcao.name if obj.funcao else None
+
+    def get_atualizacoes(self, obj):
+        return [
+            {
+                'id': x.id,
+                'texto': x.texto,
+                'created_at': x.created_at.isoformat(),
+                'criado_por': getattr(x.criado_por, 'email', '') if x.criado_por_id else '',
+            }
+            for x in obj.atualizacoes.all()[:20]
+        ]
+
+
+class PedidoAjudaStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PedidoAjuda
+        fields = ['status']
+
+
+class PedidoAjudaAtualizacaoCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PedidoAjudaAtualizacao
+        fields = ['texto']
+
+    def validate_texto(self, value):
+        text = str(value or '').strip()
+        if len(text) < 3:
+            raise serializers.ValidationError('Informe uma atualizacao valida.')
+        return text
+
+
+class CampanhaPlanoAcaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CampanhaPlanoAcao
+        fields = ['id', 'step_key', 'question_field', 'plano_index', 'ativo']

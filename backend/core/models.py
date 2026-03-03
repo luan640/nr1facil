@@ -352,6 +352,7 @@ class ConsultoriaResponsavelTecnico(models.Model):
     nome = models.CharField(max_length=255)
     formacao = models.CharField(max_length=255)
     registro = models.CharField(max_length=120)
+    responsavel_totem = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -671,3 +672,130 @@ class CampanhaRelatorioAnexo(models.Model):
 
     def __str__(self):
         return f'Anexo {self.file_name} ({self.campanha.title})'
+
+
+class RegistroHumor(models.Model):
+    class Humor(models.TextChoices):
+        FELIZ          = 'feliz',          'Feliz'
+        MOTIVADO       = 'motivado',       'Motivado'
+        TRANQUILO      = 'tranquilo',      'Tranquilo'
+        CANSADO        = 'cansado',        'Cansado'
+        ESTRESSADO     = 'estressado',     'Estressado'
+        TRISTE         = 'triste',         'Triste'
+        ANSIOSO        = 'ansioso',        'Ansioso'
+        SOBRECARREGADO = 'sobrecarregado', 'Sobrecarregado'
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='registros_humor',
+    )
+    ghe = models.ForeignKey(
+        Ghe,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='registros_humor',
+    )
+    setor = models.ForeignKey(
+        Setor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='registros_humor',
+    )
+    humor = models.CharField(max_length=20, choices=Humor.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Registro de Humor'
+        verbose_name_plural = 'Registros de Humor'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.humor} - {self.empresa.company_name} ({self.created_at:%d/%m/%Y})'
+
+
+class PedidoAjuda(models.Model):
+    class Status(models.TextChoices):
+        ABERTO = 'ABERTO', 'Aberto'
+        EM_ATENDIMENTO = 'EM_ATENDIMENTO', 'Em atendimento'
+        ATENDIDO = 'ATENDIDO', 'Atendido'
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='pedidos_ajuda',
+    )
+    nome = models.CharField(max_length=255)
+    contato = models.CharField(max_length=255, blank=True)
+    ghe = models.ForeignKey(
+        Ghe,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_ajuda',
+    )
+    funcao = models.ForeignKey(
+        Cargo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_ajuda',
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ABERTO)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pedido de Ajuda'
+        verbose_name_plural = 'Pedidos de Ajuda'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Pedido #{self.id} - {self.nome} ({self.empresa.company_name})'
+
+
+class PedidoAjudaAtualizacao(models.Model):
+    pedido = models.ForeignKey(
+        PedidoAjuda,
+        on_delete=models.CASCADE,
+        related_name='atualizacoes',
+    )
+    texto = models.TextField()
+    criado_por = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='atualizacoes_pedidos_ajuda',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Atualizacao de Pedido de Ajuda'
+        verbose_name_plural = 'Atualizacoes de Pedidos de Ajuda'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Atualizacao #{self.id} do pedido #{self.pedido_id}'
+
+
+class CampanhaPlanoAcao(models.Model):
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='planos_acao',
+    )
+    step_key = models.CharField(max_length=20)
+    question_field = models.CharField(max_length=10)
+    plano_index = models.PositiveSmallIntegerField()
+    ativo = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Plano de Ação da Campanha'
+        verbose_name_plural = 'Planos de Ação da Campanha'
+        unique_together = ('campanha', 'step_key', 'question_field', 'plano_index')
+
+    def __str__(self):
+        return f'Plano {self.plano_index} | {self.step_key}/{self.question_field} | Campanha #{self.campanha_id}'
