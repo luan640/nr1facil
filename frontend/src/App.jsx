@@ -5521,7 +5521,7 @@ export default function App() {
                             <div className="denuncia-row-menu">
                               <button
                                 type="button"
-                                className="campanha-icon-btn ajuda-row-menu-trigger"
+                                className="campanha-icon-btn denuncia-row-menu-trigger ajuda-row-menu-trigger"
                                 title="Opções"
                                 aria-label={`Opções do pedido ${p.id}`}
                                 aria-haspopup="menu"
