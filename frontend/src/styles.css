@@ -2418,9 +2418,20 @@ h3 {
 }
 
 .dashboard-hero-filter select {
-  background: rgba(255, 255, 255, 0.92);
-  color: #1e293b;
-  border: 1px solid #cbdcfb;
+  width: 100%;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.dashboard-hero-filter select:focus {
+  border-color: #94a3b8;
 }
 
 .dash-date-range {
@@ -2860,6 +2871,59 @@ h3 {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
 }
 
+.floating-pdf-wrap {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  margin-left: auto;
+  display: grid;
+  gap: 6px;
+  width: min(300px, 100%);
+}
+
+.floating-pdf-wrap .floating-pdf-button {
+  position: static;
+  margin-left: 0;
+}
+
+.pdf-progress-card {
+  border: 1px solid #dbe7f3;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 6px 8px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+}
+
+.pdf-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.pdf-progress-top strong {
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.pdf-progress-track {
+  height: 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.pdf-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e 0%, #10b981 100%);
+  transition: width 0.2s ease;
+}
+
 .floating-back-button {
   position: sticky;
   top: 10px;
@@ -2885,11 +2949,21 @@ h3 {
 
 @media (max-width: 640px) {
   .report-floating-actions {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: nowrap;
   }
 
   .floating-back-button,
+  .floating-pdf-wrap {
+    width: calc(50% - 5px);
+  }
+
+  .floating-pdf-wrap {
+    margin-left: 0;
+  }
+
   .floating-pdf-button {
     width: 100%;
   }
@@ -4060,6 +4134,60 @@ h3 {
   overflow-y: visible;
 }
 
+.denuncias-mobile-list {
+  display: none;
+}
+
+.denuncia-mobile-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.denuncia-mobile-card + .denuncia-mobile-card {
+  margin-top: 10px;
+}
+
+.denuncia-mobile-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.denuncia-mobile-card-top strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.denuncia-mobile-card-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.denuncia-mobile-card-grid p {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.denuncia-mobile-card-grid p > span:first-child {
+  color: #475569;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.denuncia-mobile-card-grid .denuncia-status-pill {
+  vertical-align: middle;
+}
+
+.denuncias-desktop-table {
+  display: block;
+}
+
 .denuncia-row-actions-cell {
   position: relative;
   justify-content: center;
@@ -4173,6 +4301,16 @@ h3 {
   color: #9a3412;
   background: #fff7ed;
   border-color: #fed7aa;
+}
+
+@media (max-width: 768px) {
+  .denuncias-mobile-list {
+    display: block;
+  }
+
+  .denuncias-desktop-table {
+    display: none;
+  }
 }
 
 .denuncia-status-pill.em_analise {
@@ -4457,6 +4595,17 @@ h3 {
     width: 100%;
     max-height: calc(100vh - 16px);
     border-radius: 12px 12px 0 0;
+  }
+
+  .campanha-modal-backdrop {
+    place-items: center;
+    padding: 12px;
+  }
+
+  .campanha-modal-card {
+    width: min(100%, 420px);
+    border-radius: 12px;
+    max-height: calc(100vh - 24px);
   }
 
   .wizard-grid {

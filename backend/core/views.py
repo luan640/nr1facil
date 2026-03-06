@@ -713,7 +713,7 @@ def _draw_pdf_summary_page(c):
 
     c.setFont('Helvetica-Bold', 11)
     c.setFillColor(colors.HexColor('#111827'))
-    c.drawString(margin_x, y, 'SUMARIO')
+    c.drawString(margin_x, y, 'SUMÁRIO')
     y -= 10 * mm
 
     items = [
@@ -1237,7 +1237,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
         return y - 11 * mm
 
-    def draw_wrapped_text(x, y, text, font='Helvetica', size=7, max_width=None, leading=9):
+    def draw_wrapped_text(x, y, text, font='Helvetica', size=8.8, max_width=None, leading=11.5):
         if max_width is None:
             max_width = width - x - margin_x
         c.setFont(font, size)
@@ -1270,7 +1270,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         'Implementar ações de capacitação sobre saúde mental e fatores psicossociais.',
         'Quando aplicável, conduzir Análise Ergonômica do Trabalho (AET) detalhada, conforme a NR-17.',
     ]
-    c.setFont('Helvetica', 7)
+    c.setFont('Helvetica', 8.8)
     c.setFillColor(colors.HexColor('#111827'))
     for line in intro:
         c.drawString(margin_x + 2 * mm, y, f'-  {line}')
@@ -1319,7 +1319,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         when_range = format_when_range(when_months)
         when_list_pt = format_when_months_pt(when_months)
 
-        needed = 40 * mm if when_range else 26 * mm
+        needed = 40 * mm
         if y < needed:
             c.showPage()
             y = new_page()
@@ -1335,89 +1335,78 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
 
         # Header text lines
         c.setFillColor(colors.HexColor('#1d4ed8'))
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 8.4)
         c.drawString(box_x + 2 * mm, y, f'{domain_name} | {scope_label}')
         c.setFillColor(colors.HexColor('#111827'))
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 8.4)
         c.drawRightString(box_x + box_w - 2 * mm, y, f'Pontuacao: {score:.1f}')
         y -= 5 * mm
 
-        y = draw_wrapped_text(box_x + 2 * mm, y, question, font='Helvetica', size=7, max_width=box_w - 4 * mm, leading=8.5)
+        y = draw_wrapped_text(box_x + 2 * mm, y, question, font='Helvetica', size=8.8, max_width=box_w - 4 * mm, leading=11.5)
         y -= 1.5 * mm
 
         c.setFillColor(colors.HexColor('#92400e'))
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 8.4)
         c.drawString(box_x + 2 * mm, y, 'Plano de acao:')
         c.setFillColor(colors.HexColor('#111827'))
-        y = draw_wrapped_text(box_x + 28 * mm, y, m.get('action_text', '-'), font='Helvetica', size=7, max_width=box_w - 30 * mm, leading=8.5)
+        y = draw_wrapped_text(box_x + 28 * mm, y, m.get('action_text', '-'), font='Helvetica', size=8.8, max_width=box_w - 30 * mm, leading=11.5)
         y -= 2 * mm
 
-        if when_range:
-            # "Quando" no espelho da imagem 2 (tabela pequena)
-            # c.setFillColor(colors.HexColor('#111827'))
-            # c.setFont('Helvetica-Bold', 7)
-            # c.drawString(box_x + 2 * mm, y, 'Quando')
-            # y -= 4.5 * mm
+        # Sempre renderiza a tabela do plano de acao.
+        # Se nao houver "quando", a coluna "Data de Implantacao" permanece vazia.
+        table_x = box_x + 2 * mm
+        table_w = box_w - 4 * mm
+        header_h = 5 * mm
+        body_h = 6 * mm
+        cols = [
+            ('Responsavel', 0.24),
+            ('Data de\nImplantacao', 0.19),
+            ('A\nFazer', 0.08),
+            ('Fazendo', 0.10),
+            ('Adiado', 0.10),
+            ('Concluido', 0.12),
+            ('Concluido em', 0.17),
+        ]
+        widths = [table_w * p for _, p in cols]
+        c.setStrokeColor(colors.HexColor('#d1d5db'))
+        c.setFillColor(colors.HexColor('#f3f4f6'))
+        c.rect(table_x, y - header_h, table_w, header_h, stroke=1, fill=1)
+        x = table_x
+        c.setFillColor(colors.HexColor('#111827'))
+        for (label, _), w in zip(cols, widths):
+            parts = label.split('\n')
+            c.setFont('Helvetica-Bold', 6.7)
+            if len(parts) == 1:
+                c.drawCentredString(x + w / 2, y - 3.2 * mm, parts[0])
+            else:
+                c.drawCentredString(x + w / 2, y - 2.4 * mm, parts[0])
+                c.drawCentredString(x + w / 2, y - 4.7 * mm, parts[1])
+            x += w
 
-            # c.setFont('Helvetica-Bold', 6.6)
-            # c.drawString(box_x + 2 * mm, y, 'Aplicar em:')
-            # c.setFont('Helvetica', 6.4)
-            # c.drawString(box_x + 18 * mm, y, when_list_pt or '-')
-            # y -= 5.5 * mm
-
-            table_x = box_x + 2 * mm
-            table_w = box_w - 4 * mm
-            header_h = 5 * mm
-            body_h = 6 * mm
-            cols = [
-                ('Responsavel', 0.24),
-                ('Data de\nImplantacao', 0.19),
-                ('A\nFazer', 0.08),
-                ('Fazendo', 0.10),
-                ('Adiado', 0.10),
-                ('Concluido', 0.12),
-                ('Concluido em', 0.17),
-            ]
-            widths = [table_w * p for _, p in cols]
-            c.setStrokeColor(colors.HexColor('#d1d5db'))
-            c.setFillColor(colors.HexColor('#f3f4f6'))
-            c.rect(table_x, y - header_h, table_w, header_h, stroke=1, fill=1)
-            x = table_x
+        row_y = y - header_h
+        c.setFillColor(colors.white)
+        c.rect(table_x, row_y - body_h, table_w, body_h, stroke=1, fill=1)
+        x = table_x
+        values = [empresa_name, when_range or '', '', '', '', '', '__/__/____']
+        for idx, w in enumerate(widths):
             c.setFillColor(colors.HexColor('#111827'))
-            for (label, _), w in zip(cols, widths):
-                parts = label.split('\n')
-                c.setFont('Helvetica-Bold', 6.1)
-                if len(parts) == 1:
-                    c.drawCentredString(x + w / 2, y - 3.2 * mm, parts[0])
-                else:
-                    c.drawCentredString(x + w / 2, y - 2.4 * mm, parts[0])
-                    c.drawCentredString(x + w / 2, y - 4.7 * mm, parts[1])
-                x += w
-
-            row_y = y - header_h
-            c.setFillColor(colors.white)
-            c.rect(table_x, row_y - body_h, table_w, body_h, stroke=1, fill=1)
-            x = table_x
-            values = [empresa_name, when_range, '', '', '', '', '__/__/____']
-            for idx, w in enumerate(widths):
-                c.setFillColor(colors.HexColor('#111827'))
-                if 2 <= idx <= 5:
-                    # checkbox
-                    cx = x + w / 2 - 1.4 * mm
-                    cy = row_y - 4.6 * mm
-                    c.setStrokeColor(colors.HexColor('#9ca3af'))
-                    c.rect(cx, cy, 2.8 * mm, 2.8 * mm, stroke=1, fill=0)
-                else:
-                    c.setFont('Helvetica', 6.2)
-                    c.drawCentredString(x + w / 2, row_y - 3.8 * mm, values[idx])
-                x += w
-            # verticals
-            x = table_x
-            total_h = header_h + body_h
-            for w in widths[:-1]:
-                x += w
-                c.line(x, y, x, y - total_h)
-            y = row_y - body_h - 4 * mm
+            if 2 <= idx <= 5:
+                # checkbox
+                cx = x + w / 2 - 1.4 * mm
+                cy = row_y - 4.6 * mm
+                c.setStrokeColor(colors.HexColor('#9ca3af'))
+                c.rect(cx, cy, 2.8 * mm, 2.8 * mm, stroke=1, fill=0)
+            else:
+                c.setFont('Helvetica', 6.8)
+                c.drawCentredString(x + w / 2, row_y - 3.8 * mm, values[idx])
+            x += w
+        # verticals
+        x = table_x
+        total_h = header_h + body_h
+        for w in widths[:-1]:
+            x += w
+            c.line(x, y, x, y - total_h)
+        y = row_y - body_h - 4 * mm
 
         # Outline around card content (approximate)
         c.setStrokeColor(colors.HexColor('#d1d5db'))
@@ -1465,15 +1454,15 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
             y -= 2 * mm
 
             c.setFillColor(colors.HexColor('#1d4ed8'))
-            c.setFont('Helvetica-Bold', 7)
+            c.setFont('Helvetica-Bold', 7.8)
             c.drawString(box_x + 2 * mm, y, domain_name)
             y -= 5 * mm
 
-            y = draw_wrapped_text(box_x + 2 * mm, y, question_text, font='Helvetica', size=7, max_width=box_w - 4 * mm, leading=8.5)
+            y = draw_wrapped_text(box_x + 2 * mm, y, question_text, font='Helvetica', size=8.8, max_width=box_w - 4 * mm, leading=11.5)
             y -= 3 * mm
 
             c.setFillColor(colors.HexColor('#92400e'))
-            c.setFont('Helvetica-Bold', 7)
+            c.setFont('Helvetica-Bold', 8.4)
             c.drawString(box_x + 2 * mm, y, 'Planos selecionados:')
             y -= 5.5 * mm
 
@@ -1481,9 +1470,9 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
                 texto = p.get('texto', '')
                 if texto:
                     c.setFillColor(colors.HexColor('#111827'))
-                    c.setFont('Helvetica', 7)
+                    c.setFont('Helvetica', 8.8)
                     c.drawString(box_x + 4 * mm, y, u'\u2022')
-                    y = draw_wrapped_text(box_x + 7 * mm, y, texto, font='Helvetica', size=7, max_width=box_w - 9 * mm, leading=8.5)
+                    y = draw_wrapped_text(box_x + 7 * mm, y, texto, font='Helvetica', size=8.8, max_width=box_w - 9 * mm, leading=11.5)
                     y -= 2 * mm
 
             if when_range:
@@ -1520,7 +1509,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
                 c.setFillColor(colors.HexColor('#111827'))
                 for (label, _), w in zip(cols, widths):
                     parts = label.split('\n')
-                    c.setFont('Helvetica-Bold', 6.1)
+                    c.setFont('Helvetica-Bold', 6.7)
                     if len(parts) == 1:
                         c.drawCentredString(x + w / 2, y - 3.2 * mm, parts[0])
                     else:
@@ -1541,7 +1530,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
                         c.setStrokeColor(colors.HexColor('#9ca3af'))
                         c.rect(cx, cy, 2.8 * mm, 2.8 * mm, stroke=1, fill=0)
                     else:
-                        c.setFont('Helvetica', 6.2)
+                        c.setFont('Helvetica', 6.8)
                         c.drawCentredString(x + w / 2, row_y - 3.8 * mm, values[idx])
                     x += w
                 x = table_x
@@ -1591,8 +1580,8 @@ def _draw_pdf_limitacoes_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 7.4
-    body_leading = 10.4
+    body_font = 9.0
+    body_leading = 12.6
     text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
@@ -1650,7 +1639,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     y -= 11 * mm
 
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica', 7.6)
+    c.setFont('Helvetica', 9.2)
     cidade = (getattr(consultoria_cfg, 'cidade', '') or 'Fortaleza').strip()
     uf = (getattr(consultoria_cfg, 'uf', '') or 'CE').strip().upper()
     data_encerramento = getattr(campanha, 'end_date', None)
@@ -1675,11 +1664,11 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     left_consultoria = getattr(consultoria_cfg, 'nome_consultoria', '') or 'CONSULTORIA'
     c.drawCentredString(left_x + col_w / 2, line_y - 4 * mm, left_nome[:44])
     c.setFillColor(gray)
-    c.setFont('Helvetica', 6.5)
+    c.setFont('Helvetica', 8.0)
     c.drawCentredString(left_x + col_w / 2, line_y - 8 * mm, 'Representante Legal')
     c.drawCentredString(left_x + col_w / 2, line_y - 12 * mm, left_consultoria[:58])
     c.setFillColor(blue)
-    c.setFont('Helvetica-Bold', 6.5)
+    c.setFont('Helvetica-Bold', 8.0)
     c.drawCentredString(left_x + col_w / 2, line_y - 16 * mm, 'Responsável pela avaliação')
 
     # Right signer
@@ -1690,11 +1679,11 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     right_empresa = getattr(empresa_obj, 'company_name', '') or 'EMPRESA'
     c.drawCentredString(right_x + col_w / 2, line_y - 4 * mm, right_nome[:44])
     c.setFillColor(gray)
-    c.setFont('Helvetica', 6.5)
+    c.setFont('Helvetica', 8.0)
     c.drawCentredString(right_x + col_w / 2, line_y - 8 * mm, 'Representante Legal')
     c.drawCentredString(right_x + col_w / 2, line_y - 12 * mm, right_empresa[:58])
     c.setFillColor(blue)
-    c.setFont('Helvetica-Bold', 6.5)
+    c.setFont('Helvetica-Bold', 8.0)
     c.drawCentredString(right_x + col_w / 2, line_y - 16 * mm, 'Responsável pela aprovação')
 
     y = line_y - 28 * mm
@@ -1706,8 +1695,8 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 7.8
-    body_leading = 11.0
+    body_font = 9.2
+    body_leading = 12.8
     text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
@@ -1759,41 +1748,69 @@ def _draw_pdf_anexos_pages(c, report_data):
         c.showPage()
         return
 
+    page_bottom = 15 * mm
+    slot_gap = 4 * mm
+    slot_h = (y - page_bottom - (2 * slot_gap)) / 3.0
+    slot_h = max(72 * mm, slot_h)
+    slot_index = 0
+
     for idx, anexo in enumerate(anexos, start=1):
-        if y < 45 * mm:
+        if slot_index >= 3 or (y - slot_h) < page_bottom:
             c.showPage()
             y = new_page()
+            slot_h = (y - page_bottom - (2 * slot_gap)) / 3.0
+            slot_h = max(72 * mm, slot_h)
+            slot_index = 0
 
         file_name = str(anexo.get('file_name', f'Anexo {idx}'))
         file_url = str(anexo.get('file_url', ''))
         content_type = str(anexo.get('content_type', ''))
         size_kb = int((anexo.get('size_bytes') or 0) / 1024) if anexo.get('size_bytes') else 0
 
-        c.setStrokeColor(colors.HexColor('#d1d5db'))
-        c.roundRect(margin_x, y - 34 * mm, width - 2 * margin_x, 34 * mm, 3, stroke=1, fill=0)
-        c.setFillColor(colors.HexColor('#111827'))
-        c.setFont('Helvetica-Bold', 8)
-        c.drawString(margin_x + 2 * mm, y - 4 * mm, f'Anexo {idx}: {file_name}')
-        c.setFont('Helvetica', 6.5)
-        c.setFillColor(colors.HexColor('#6b7280'))
-        c.drawString(margin_x + 2 * mm, y - 8.5 * mm, f'Tipo: {content_type or "-"} | Tamanho: {size_kb} KB')
-        c.drawString(margin_x + 2 * mm, y - 13 * mm, f'URL: {file_url[:110]}')
+        box_x = margin_x
+        box_y = y - slot_h
+        box_w = width - 2 * margin_x
 
-        # Tenta desenhar miniatura se for imagem
+        c.setStrokeColor(colors.HexColor('#d1d5db'))
+        c.roundRect(box_x, box_y, box_w, slot_h, 3, stroke=1, fill=0)
+
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawString(box_x + 2 * mm, y - 4.5 * mm, f'Anexo {idx}: {file_name[:90]}')
+        c.setFont('Helvetica', 7.2)
+        c.setFillColor(colors.HexColor('#6b7280'))
+        c.drawString(box_x + 2 * mm, y - 9 * mm, f'Tipo: {content_type or "-"} | Tamanho: {size_kb} KB')
+
+        img_x = box_x + 2 * mm
+        img_y = box_y + 2 * mm
+        img_w = box_w - 4 * mm
+        img_h = slot_h - 13 * mm
+
         if content_type.startswith('image/') and file_url:
             try:
-                with urlopen(file_url, timeout=5) as fp:
+                with urlopen(file_url, timeout=8) as fp:
                     img = ImageReader(fp)
-                    img_x = margin_x + 2 * mm
-                    img_y = y - 31 * mm
-                    img_w = 42 * mm
-                    img_h = 16 * mm
-                    c.drawImage(img, img_x, img_y, width=img_w, height=img_h, preserveAspectRatio=True, mask='auto', anchor='sw')
+                    c.drawImage(
+                        img,
+                        img_x,
+                        img_y,
+                        width=img_w,
+                        height=img_h,
+                        preserveAspectRatio=True,
+                        mask='auto',
+                        anchor='c',
+                    )
             except Exception:
                 c.setFillColor(colors.HexColor('#9ca3af'))
-                c.setFont('Helvetica-Oblique', 6.5)
-                c.drawString(margin_x + 2 * mm, y - 20 * mm, 'Preview indisponivel no momento da geracao do PDF.')
-        y -= 38 * mm
+                c.setFont('Helvetica-Oblique', 7.2)
+                c.drawCentredString(box_x + (box_w / 2), box_y + (slot_h / 2), 'Preview indisponivel no momento da geracao do PDF.')
+        else:
+            c.setFillColor(colors.HexColor('#9ca3af'))
+            c.setFont('Helvetica-Oblique', 7.2)
+            c.drawCentredString(box_x + (box_w / 2), box_y + (slot_h / 2), 'Anexo sem preview de imagem.')
+
+        y -= (slot_h + slot_gap)
+        slot_index += 1
 
     c.showPage()
 
@@ -1843,13 +1860,13 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     ident_lines = [
         ('Empresa', empresa.company_name or '-'),
         ('CNPJ', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
-        ('Endereco', f"{empresa.street or '-'}, {empresa.number or '-'} - {empresa.city or '-'} / {empresa.state or '-'}"),
+        ('Endereço', f"{empresa.street or '-'}, {empresa.number or '-'} - {empresa.city or '-'} / {empresa.state or '-'}"),
         ('CNAE', '-'),
         ('Classe de risco', empresa.risk_level or '-'),
         ('Setores avaliados', '-'),
-        ('Numero de trabalhadores avaliados', str(completed or 0)),
-        ('Data da avaliacao', campanha.end_date.strftime('%d/%m/%Y') if campanha.end_date else '-'),
-        ('Reavaliacao recomendada', f"{int(report_data.get('review_recommendation_months') or 3)} meses"),
+        ('Número de trabalhadores avaliados', str(completed or 0)),
+        ('Data da avaliação', campanha.end_date.strftime('%d/%m/%Y') if campanha.end_date else '-'),
+        ('Reavaliação recomendada', f"{int(report_data.get('review_recommendation_months') or 3)} meses"),
     ]
     for label, value in ident_lines:
         c.drawString(margin_x, y, f'{label}:')
@@ -1939,8 +1956,8 @@ def _draw_pdf_objetivo_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 8.2
-    body_leading = 11.5
+    body_font = 9.3
+    body_leading = 12.9
     text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
@@ -1984,7 +2001,7 @@ def _draw_pdf_metodologia_pages(c):
         c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
         return y - 10 * mm
 
-    def draw_paragraph(y, text, font='Helvetica', size=7.8, leading=11.2, bold=False):
+    def draw_paragraph(y, text, font='Helvetica', size=9.1, leading=12.8, bold=False):
         c.setFont('Helvetica-Bold' if bold else font, size)
         text_obj = c.beginText()
         text_obj.setTextOrigin(margin_x, y)
@@ -2026,7 +2043,7 @@ def _draw_pdf_metodologia_pages(c):
         'A eficácia da metodologia adotada está diretamente vinculada ao comprometimento institucional e à participação ativa dos trabalhadores ao longo de todo o processo, considerando que são os próprios colaboradores que vivenciam as rotinas laborais e detêm a experiência prática necessária para fornecer informações confiáveis e relevantes sobre os fatores que influenciam sua saúde, bem-estar e desempenho;',
         'Adicionalmente, a metodologia empregada favorece a promoção de ambientes laborais mais seguros, equilibrados e produtivos, permitindo que a organização atue de forma preventiva, estruturada e sistematizada na gestão dos fatores psicossociais relacionados ao trabalho, em conformidade com a legislação brasileira vigente e com as referências internacionais de gestão em saúde e segurança ocupacional.',
     ]
-    c.setFont('Helvetica', 7.8)
+    c.setFont('Helvetica', 9.1)
     for b in bullets:
         y = draw_paragraph(y, f'- {b}')
         y -= 1.2 * mm
@@ -2034,7 +2051,7 @@ def _draw_pdf_metodologia_pages(c):
             break
 
     y -= 2 * mm
-    c.setFont('Helvetica-Bold', 8)
+    c.setFont('Helvetica-Bold', 9.8)
     c.setFillColor(colors.HexColor('#111827'))
     c.drawString(margin_x, y, 'Selecionando uma amostra')
     y -= 5 * mm
@@ -2043,7 +2060,7 @@ def _draw_pdf_metodologia_pages(c):
         y = draw_paragraph(y, f'- {line}')
         y -= 1 * mm
     y -= 1 * mm
-    c.setFont('Helvetica-Bold', 8)
+    c.setFont('Helvetica-Bold', 9.8)
     c.drawString(margin_x, y, 'Lista de trabalhadores')
     y -= 5 * mm
     y = draw_paragraph(y, 'Ao selecionar uma amostra de trabalhadores, ou mesmo a totalidade dos colaboradores da organizacao, e fundamental assegurar a disponibilidade de uma lista atualizada dos participantes incluidos na pesquisa. Essa relacao pode ser obtida por meio da folha de pagamento, cadastro de empregados, registros de seguranca ou outras fontes equivalentes. E imprescindivel que a lista utilizada esteja correta e atualizada, a fim de garantir que todos os integrantes da amostra recebam o questionario. Tal cuidado contribui para o aumento da taxa de resposta e para a confiabilidade dos resultados obtidos.')
@@ -2053,7 +2070,7 @@ def _draw_pdf_metodologia_pages(c):
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 8)
+    c.setFont('Helvetica-Bold', 9.8)
     c.drawString(margin_x, y, 'Tamanho mínimo de amostra recomendado')
     y -= 5 * mm
     y = draw_paragraph(y, 'A realização de uma pesquisa envolvendo todos os colaboradores tende a proporcionar um retrato mais fiel da realidade organizacional do que a utilização de uma amostra. Por outro lado, optar pelo tamanho mínimo de amostra recomendado apresenta como benefícios a redução de custos e a diminuição do tempo demandado pela equipe. Os quantitativos mínimos foram definidos de modo a assegurar que os resultados obtidos sejam estatisticamente representativos das percepções do conjunto de trabalhadores da organização.')
@@ -2078,12 +2095,12 @@ def _draw_pdf_metodologia_pages(c):
     c.rect(table_x, y - row_h, table_w, row_h, stroke=1, fill=1)
     x = table_x
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 7)
+    c.setFont('Helvetica-Bold', 7.5)
     for i, h in enumerate(headers):
         c.drawString(x + 2 * mm, y - 4.2 * mm, h)
         x += col_w[i]
     curr_y = y - row_h
-    c.setFont('Helvetica', 6.8)
+    c.setFont('Helvetica', 7.2)
     for row in rows:
         curr_y -= row_h
         c.setFillColor(colors.white)
@@ -2173,8 +2190,8 @@ def _draw_pdf_importancia_participacao_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 7.4
-    body_leading = 10.4
+    body_font = 9.0
+    body_leading = 12.6
     text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
@@ -4262,28 +4279,44 @@ class CampanhaRelatorioPdfView(APIView):
         quandos = campanha.quandos_preliminares.select_related('setor', 'ghe').all()
         anexos = campanha.relatorio_anexos.all()
         planos_ativos = CampanhaPlanoAcao.objects.filter(campanha=campanha, ativo=True)
-        planos_acao_data = []
+        medidas_data = CampanhaMedidaPreliminarSerializer(medidas, many=True).data
         for p in planos_ativos:
             step_plans = _PLANOS_ACAO.get(p.step_key, {})
             q_plans = step_plans.get(p.question_field, [])
             texto = q_plans[p.plano_index] if 0 <= p.plano_index < len(q_plans) else ''
             if texto:
-                planos_acao_data.append({
-                    'step_key': p.step_key,
-                    'question_field': p.question_field,
-                    'plano_index': p.plano_index,
-                    'texto': texto,
-                })
+                try:
+                    step_number = int(str(p.step_key).replace('step', ''))
+                except Exception:
+                    step_number = 0
+                if step_number not in [2, 3, 4, 5, 6, 7, 8]:
+                    continue
+                # Toggles selecionados entram no PDF no mesmo formato das medidas preenchidas manualmente.
+                medidas_data.append(
+                    {
+                        'id': f'plan-{p.id}',
+                        'step_number': step_number,
+                        'question_field': p.question_field,
+                        'scope_type': 'GERAL',
+                        'setor': None,
+                        'setor_name': '',
+                        'ghe': None,
+                        'ghe_name': '',
+                        'action_text': texto,
+                        'when_months': [],
+                        'created_at': None,
+                    }
+                )
         rel_payload = {
             'empresa': {'name': empresa.company_name},
             'overall': overall_bundle,
             'filters': {'ref_label': ref_label, 'evaluation_type': empresa.evaluation_type},
             'per_ref': per_ref,
-            'preliminary_measures': CampanhaMedidaPreliminarSerializer(medidas, many=True).data,
+            'preliminary_measures': medidas_data,
             'preliminary_whens': CampanhaQuandoPreliminarSerializer(quandos, many=True).data,
             'review_recommendation_months': campanha.review_recommendation_months,
             'attachments': CampanhaRelatorioAnexoSerializer(anexos, many=True).data,
-            'planos_acao': planos_acao_data,
+            'planos_acao': [],
         }
         return _build_report_pdf_response(campanha, rel_payload)
 

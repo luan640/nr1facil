@@ -5,6 +5,8 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 const TOKEN_KEY = "nr01_token";
 const USER_CACHE_KEY = "nr01_user";
 const SECTION_CACHE_KEY = "nr01_section";
+const REPORT_CAMPANHA_ID_KEY = "nr01_report_campanha_id";
+const REPORT_REF_ID_KEY = "nr01_report_ref_id";
 const HUMOR_OPTIONS = [
   { key: "feliz",          label: "Feliz",          emoji: "😊" },
   { key: "motivado",       label: "Motivado",       emoji: "💪" },
@@ -603,6 +605,7 @@ export default function App() {
   const [sideUserMenuOpen, setSideUserMenuOpen] = useState(false);
   const [cadOpen, setCadOpen] = useState(() => ["setor", "ghe", "cargos"].includes(getCachedSection()));
   const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState(""), [dashDateFrom, setDashDateFrom] = useState(""), [dashDateTo, setDashDateTo] = useState("");
+  const [dashEmpresaBusca, setDashEmpresaBusca] = useState(""), [dashEmpresaMenuOpen, setDashEmpresaMenuOpen] = useState(false);
   const [cfgData, setCfgData] = useState(null), [cfgLoad, setCfgLoad] = useState(false), [cfgErr, setCfgErr] = useState(""), [cfgSaving, setCfgSaving] = useState(false);
   const [cfgForm, setCfgForm] = useState({ cnpj: "", nome_consultoria: "", responsavel_legal: "", representante_legal_relatorio: "", cidade: "", uf: "" });
   const [cfgLogoFile, setCfgLogoFile] = useState(null);
@@ -664,8 +667,10 @@ export default function App() {
   const [campMeasureDrafts, setCampMeasureDrafts] = useState({}), [campMeasureSavingKey, setCampMeasureSavingKey] = useState(""), [campWhenSavingKey, setCampWhenSavingKey] = useState(""), [campMeasureErr, setCampMeasureErr] = useState("");
   const [campAttachUploading, setCampAttachUploading] = useState(false), [campAttachErr, setCampAttachErr] = useState("");
   const [campPdfLoading, setCampPdfLoading] = useState(false), [campPdfErr, setCampPdfErr] = useState("");
+  const [campPdfProgress, setCampPdfProgress] = useState(0), [campPdfProgressEstimated, setCampPdfProgressEstimated] = useState(false);
   const [campReviewMonths, setCampReviewMonths] = useState("3"), [campReviewSaving, setCampReviewSaving] = useState(false);
   const [planosAcaoAtivos, setPlanosAcaoAtivos] = useState({}), [planosAcaoSaving, setPlanosAcaoSaving] = useState(false);
+  const planosAcaoPendingRef = useRef(0);
   const [pubLoad, setPubLoad] = useState(false), [pubErr, setPubErr] = useState(""), [pubData, setPubData] = useState(null), [pubSaving, setPubSaving] = useState(false), [pubOk, setPubOk] = useState("");
   const [pubCpf, setPubCpf] = useState(""), [pubNome, setPubNome] = useState(""), [pubIdade, setPubIdade] = useState(""), [pubSexo, setPubSexo] = useState(""), [pubRef, setPubRef] = useState(""), [pubCargo, setPubCargo] = useState("");
   const [pubStep, setPubStep] = useState(1), [pubStep1Id, setPubStep1Id] = useState("");
@@ -1002,6 +1007,22 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SECTION_CACHE_KEY, section);
   }, [section]);
+
+  useEffect(() => {
+    if (section !== "campanhas-relatorio") return;
+    if (!token || !canEmp(user)) return;
+    if (campRelCampanha?.id) return;
+    const cachedIdRaw = localStorage.getItem(REPORT_CAMPANHA_ID_KEY) || "";
+    const cachedId = Number(cachedIdRaw);
+    if (!Number.isFinite(cachedId) || cachedId <= 0) {
+      setSection("campanhas");
+      return;
+    }
+    setCampRelCampanha({ id: cachedId });
+    const cachedRef = localStorage.getItem(REPORT_REF_ID_KEY) || "";
+    loadCampanhaRelatorio(cachedId, cachedRef);
+    loadPlanosAcao(cachedId);
+  }, [section, token, user, campRelCampanha]);
 
   useEffect(() => {
     if (["setor", "ghe", "cargos"].includes(section)) setCadOpen(true);
@@ -1539,6 +1560,17 @@ export default function App() {
   function onDashboardEmpresaChange(value) {
     setDashEmpresa(value);
     loadDashboardOverview(value, dashDateFrom, dashDateTo);
+  }
+  function onDashboardEmpresaBuscaChange(value) {
+    setDashEmpresaBusca(value);
+    if (!value.trim()) {
+      onDashboardEmpresaChange("");
+    }
+  }
+  function selectDashEmpresaBuscaOption(emp) {
+    setDashEmpresaBusca(String(emp.name || ""));
+    setDashEmpresaMenuOpen(false);
+    onDashboardEmpresaChange(String(emp.id));
   }
 
   function onDashboardDateChange(from, to) {
@@ -2108,6 +2140,8 @@ export default function App() {
       setCampRelatorio(d);
       setCampRelRefId(d?.filters?.selected_ref_id ? String(d.filters.selected_ref_id) : "");
       setCampReviewMonths(String(d?.campaign?.review_recommendation_months ?? "3"));
+      localStorage.setItem(REPORT_CAMPANHA_ID_KEY, String(campanhaId));
+      localStorage.setItem(REPORT_REF_ID_KEY, d?.filters?.selected_ref_id ? String(d.filters.selected_ref_id) : "");
     } catch (err) {
       setCampRelErr(err.message);
       setCampRelatorio(null);
@@ -2125,6 +2159,8 @@ export default function App() {
     setCampAttachErr("");
     setCampPdfErr("");
     setPlanosAcaoAtivos({});
+    localStorage.setItem(REPORT_CAMPANHA_ID_KEY, String(item.id || ""));
+    localStorage.setItem(REPORT_REF_ID_KEY, "");
     setSection("campanhas-relatorio");
     await loadCampanhaRelatorio(item.id, "");
     loadPlanosAcao(item.id);
@@ -2132,6 +2168,7 @@ export default function App() {
 
   async function onCampRelatorioRefChange(value) {
     setCampRelRefId(value);
+    localStorage.setItem(REPORT_REF_ID_KEY, String(value || ""));
     if (!campRelCampanha) return;
     await loadCampanhaRelatorio(campRelCampanha.id, value);
   }
@@ -2319,7 +2356,24 @@ export default function App() {
 
   async function exportCampanhaRelatorioPdf() {
     if (!campRelCampanha?.id) return;
-    setCampPdfLoading(true); setCampPdfErr("");
+    setCampPdfLoading(true); setCampPdfErr(""); setCampPdfProgress(0); setCampPdfProgressEstimated(false);
+    let progressTimer = null;
+    let usingRealDownloadProgress = false;
+    const startProgress = () => {
+      setCampPdfProgressEstimated(true);
+      setCampPdfProgress(2);
+      progressTimer = window.setInterval(() => {
+        setCampPdfProgress((prev) => {
+          // Durante processamento/geracao no servidor, avanca gradualmente sem chegar em 100%.
+          if (usingRealDownloadProgress) return prev;
+          if (prev >= 90) return prev;
+          if (prev < 20) return prev + 4;
+          if (prev < 55) return prev + 2;
+          return prev + 1;
+        });
+      }, 280);
+    };
+    startProgress();
     try {
       const r = await fetch(`${API}/campanhas/${campRelCampanha.id}/relatorio/pdf/`, {
         headers: { Authorization: `Token ${token}` },
@@ -2332,7 +2386,28 @@ export default function App() {
         } catch {}
         throw new Error(msg);
       }
-      const blob = await r.blob();
+      const totalBytes = Number(r.headers.get("content-length") || 0);
+      let blob;
+      if (r.body && Number.isFinite(totalBytes) && totalBytes > 0) {
+        usingRealDownloadProgress = true;
+        setCampPdfProgressEstimated(false);
+        const reader = r.body.getReader();
+        const chunks = [];
+        let loaded = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+          chunks.push(value);
+          loaded += value.length;
+          const pct = Math.max(5, Math.min(99, Math.round((loaded / totalBytes) * 100)));
+          setCampPdfProgress((prev) => Math.max(prev, pct));
+        }
+        blob = new Blob(chunks, { type: r.headers.get("content-type") || "application/pdf" });
+      } else {
+        blob = await r.blob();
+      }
+      setCampPdfProgress(100);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -2344,7 +2419,12 @@ export default function App() {
     } catch (err) {
       setCampPdfErr(err.message);
     } finally {
+      if (progressTimer) window.clearInterval(progressTimer);
       setCampPdfLoading(false);
+      window.setTimeout(() => {
+        setCampPdfProgress(0);
+        setCampPdfProgressEstimated(false);
+      }, 700);
     }
   }
 
@@ -2397,27 +2477,32 @@ export default function App() {
     const newAtivos = { ...planosAcaoAtivos, [key]: newAtivo };
     setPlanosAcaoAtivos(newAtivos);
     if (!campRelCampanha?.id) return;
+    planosAcaoPendingRef.current += 1;
     setPlanosAcaoSaving(true);
+    let timeoutId = null;
     try {
-      const payload = Object.entries(PLANOS_ACAO).flatMap(([sk, questions]) =>
-        Object.entries(questions).flatMap(([qf, plans]) =>
-          plans.map((_, pi) => ({
-            step_key: sk,
-            question_field: qf,
-            plano_index: pi,
-            ativo: !!newAtivos[`${sk}_${qf}_${pi}`],
-          }))
-        )
-      );
-      await fetch(`${API}/campanhas/${campRelCampanha.id}/planos-acao/`, {
+      const controller = new AbortController();
+      timeoutId = window.setTimeout(() => controller.abort(), 12000);
+      const payload = [{
+        step_key: stepKey,
+        question_field: questionField,
+        plano_index: planoIndex,
+        ativo: newAtivo,
+      }];
+      const r = await fetch(`${API}/campanhas/${campRelCampanha.id}/planos-acao/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      if (!r.ok) throw new Error("Nao foi possivel salvar o plano de acao.");
     } catch (_) {
-      // silently ignore
+      // Rollback otimista se persistencia falhar.
+      setPlanosAcaoAtivos((prev) => ({ ...prev, [key]: !newAtivo }));
     } finally {
-      setPlanosAcaoSaving(false);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      planosAcaoPendingRef.current = Math.max(0, planosAcaoPendingRef.current - 1);
+      setPlanosAcaoSaving(planosAcaoPendingRef.current > 0);
     }
   }
 
@@ -3062,6 +3147,11 @@ export default function App() {
       const histLabels = dashData?.history?.labels || [];
       const histValues = dashData?.history?.values || [];
       const maxHist = Math.max(1, ...histValues.map((v) => Number(v || 0)));
+      const termoDash = dashEmpresaBusca.trim().toLowerCase();
+      const dashEmpresaSugestoes = (termoDash
+        ? (dashData?.empresas || []).filter((emp) => String(emp.name || "").toLowerCase().includes(termoDash))
+        : (dashData?.empresas || [])
+      ).slice(0, 8);
       return (
         <section className="dashboard-analytics">
           <div className="dashboard-hero">
@@ -3070,10 +3160,48 @@ export default function App() {
             </div>
             {canEmp(user) && (
               <div className="dashboard-hero-filter">
-                <select value={dashEmpresa} onChange={(e) => onDashboardEmpresaChange(e.target.value)}>
-                  <option value="">Todas as empresas</option>
-                  {(dashData?.empresas || []).map((emp) => <option key={`dash-emp-${emp.id}`} value={String(emp.id)}>{emp.name}</option>)}
-                </select>
+                <div className="relative">
+                  <input
+                    id="dash-empresa-search"
+                    placeholder="Buscar empresa..."
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    value={dashEmpresaBusca}
+                    onFocus={() => setDashEmpresaMenuOpen(true)}
+                    onBlur={() => setTimeout(() => setDashEmpresaMenuOpen(false), 120)}
+                    onChange={(e) => { onDashboardEmpresaBuscaChange(e.target.value); setDashEmpresaMenuOpen(true); }}
+                  />
+                  {dashEmpresaMenuOpen && (
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      <button
+                        key="dash-emp-all"
+                        type="button"
+                        className="flex w-full items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => { setDashEmpresaBusca(""); setDashEmpresaMenuOpen(false); onDashboardEmpresaChange(""); }}
+                        style={{ minHeight: 0, marginTop: 0, fontWeight: 400 }}
+                      >
+                        <span className="text-sm text-slate-500">Todas as empresas</span>
+                      </button>
+                      {dashEmpresaSugestoes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                      ) : (
+                        dashEmpresaSugestoes.map((emp) => (
+                          <button
+                            key={`dash-emp-opt-${emp.id}`}
+                            type="button"
+                            className="flex w-full items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => selectDashEmpresaBuscaOption(emp)}
+                            style={{ minHeight: 0, marginTop: 0, fontWeight: 400 }}
+                          >
+                            <span className="text-sm font-medium text-slate-800">{emp.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="dash-date-range">
                   <input
                     type="date"
@@ -3727,50 +3855,75 @@ export default function App() {
           {setorErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{setorErr}</p>}
           {!setorLoad && (
             <>
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-slate-50">
-                    <tr className="text-left">
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Setor</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {setoresFiltrados.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhum setor encontrado.</td>
-                      </tr>
-                    ) : (
-                      setoresVisiveis.map((s) => (
-                        <tr key={s.id} className="align-top">
-                          <td className="px-3 py-3 font-semibold text-slate-700">{s.id}</td>
-                          <td className="px-3 py-3 text-slate-700">{s.name}</td>
-                          <td className="px-3 py-3 text-slate-600">{s.empresa_name}</td>
-                          <td className="px-3 py-3">
-                            <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${s.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                              {s.is_active ? "Ativo" : "Inativo"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <button className="campanha-icon-btn" title="Editar setor" aria-label="Editar setor" onClick={() => openSetor("edit", s)}>{I.edit}</button>
-                              {s.is_active ? (
-                                <button className="campanha-icon-btn" title="Inativar setor" aria-label="Inativar setor" onClick={() => openSetorInativarConfirm(s)}>{I.power}</button>
-                              ) : (
-                                <button className="campanha-icon-btn" title="Reativar setor" aria-label="Reativar setor" onClick={() => { toggleSetorAtivo(s, true).catch(() => {}); }}>{I.power}</button>
-                              )}
-                              <button className="campanha-icon-btn danger" title="Excluir setor" aria-label="Excluir setor" onClick={() => openSetor("delete", s)}>{I.del}</button>
-                            </div>
-                          </td>
+              {setoresFiltrados.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-slate-500">Nenhum setor encontrado.</p>
+              ) : (
+                <>
+                  <div className="space-y-3 sm:hidden">
+                    {setoresVisiveis.map((s) => (
+                      <article key={`setor-card-${s.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Setor #{s.id}</p>
+                            <h3 className="text-base font-semibold text-slate-900">{s.name}</h3>
+                            <p className="text-sm text-slate-500">{s.empresa_name}</p>
+                          </div>
+                          <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${s.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                            {s.is_active ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <button className="campanha-icon-btn" title="Editar setor" aria-label="Editar setor" onClick={() => openSetor("edit", s)}>{I.edit}</button>
+                          {s.is_active ? (
+                            <button className="campanha-icon-btn" title="Inativar setor" aria-label="Inativar setor" onClick={() => openSetorInativarConfirm(s)}>{I.power}</button>
+                          ) : (
+                            <button className="campanha-icon-btn" title="Reativar setor" aria-label="Reativar setor" onClick={() => { toggleSetorAtivo(s, true).catch(() => {}); }}>{I.power}</button>
+                          )}
+                          <button className="campanha-icon-btn danger" title="Excluir setor" aria-label="Excluir setor" onClick={() => openSetor("delete", s)}>{I.del}</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm sm:block">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-slate-50">
+                        <tr className="text-left">
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Setor</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Ações</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {setoresVisiveis.map((s) => (
+                          <tr key={s.id} className="align-top">
+                            <td className="px-3 py-3 font-semibold text-slate-700">{s.id}</td>
+                            <td className="px-3 py-3 text-slate-700">{s.name}</td>
+                            <td className="px-3 py-3 text-slate-600">{s.empresa_name}</td>
+                            <td className="px-3 py-3">
+                              <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${s.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                {s.is_active ? "Ativo" : "Inativo"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button className="campanha-icon-btn" title="Editar setor" aria-label="Editar setor" onClick={() => openSetor("edit", s)}>{I.edit}</button>
+                                {s.is_active ? (
+                                  <button className="campanha-icon-btn" title="Inativar setor" aria-label="Inativar setor" onClick={() => openSetorInativarConfirm(s)}>{I.power}</button>
+                                ) : (
+                                  <button className="campanha-icon-btn" title="Reativar setor" aria-label="Reativar setor" onClick={() => { toggleSetorAtivo(s, true).catch(() => {}); }}>{I.power}</button>
+                                )}
+                                <button className="campanha-icon-btn danger" title="Excluir setor" aria-label="Excluir setor" onClick={() => openSetor("delete", s)}>{I.del}</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
               {setoresFiltrados.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de setores">
                   <div className="text-sm text-slate-600">
@@ -3878,50 +4031,75 @@ export default function App() {
           {gheErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{gheErr}</p>}
           {!gheLoad && (
             <>
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-slate-50">
-                    <tr className="text-left">
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">GHE</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acões</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {ghesFiltrados.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhum GHE encontrado.</td>
-                      </tr>
-                    ) : (
-                      ghesVisiveis.map((g) => (
-                        <tr key={g.id} className="align-top">
-                          <td className="px-3 py-3 font-semibold text-slate-700">{g.id}</td>
-                          <td className="px-3 py-3 text-slate-700">{g.name}</td>
-                          <td className="px-3 py-3 text-slate-600">{g.empresa_name}</td>
-                          <td className="px-3 py-3">
-                            <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${g.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                              {g.is_active ? "Ativo" : "Inativo"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <button className="campanha-icon-btn" title="Editar GHE" aria-label="Editar GHE" onClick={() => openGhe("edit", g)}>{I.edit}</button>
-                              {g.is_active ? (
-                                <button className="campanha-icon-btn" title="Inativar GHE" aria-label="Inativar GHE" onClick={() => toggleGheAtivo(g, false)}>{I.power}</button>
-                              ) : (
-                                <button className="campanha-icon-btn" title="Reativar GHE" aria-label="Reativar GHE" onClick={() => toggleGheAtivo(g, true)}>{I.power}</button>
-                              )}
-                              <button className="campanha-icon-btn danger" title="Excluir GHE" aria-label="Excluir GHE" onClick={() => openGhe("delete", g)}>{I.del}</button>
-                            </div>
-                          </td>
+              {ghesFiltrados.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-slate-500">Nenhum GHE encontrado.</p>
+              ) : (
+                <>
+                  <div className="space-y-3 sm:hidden">
+                    {ghesVisiveis.map((g) => (
+                      <article key={`ghe-card-${g.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">GHE #{g.id}</p>
+                            <h3 className="text-base font-semibold text-slate-900">{g.name}</h3>
+                            <p className="text-sm text-slate-500">{g.empresa_name}</p>
+                          </div>
+                          <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${g.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                            {g.is_active ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <button className="campanha-icon-btn" title="Editar GHE" aria-label="Editar GHE" onClick={() => openGhe("edit", g)}>{I.edit}</button>
+                          {g.is_active ? (
+                            <button className="campanha-icon-btn" title="Inativar GHE" aria-label="Inativar GHE" onClick={() => toggleGheAtivo(g, false)}>{I.power}</button>
+                          ) : (
+                            <button className="campanha-icon-btn" title="Reativar GHE" aria-label="Reativar GHE" onClick={() => toggleGheAtivo(g, true)}>{I.power}</button>
+                          )}
+                          <button className="campanha-icon-btn danger" title="Excluir GHE" aria-label="Excluir GHE" onClick={() => openGhe("delete", g)}>{I.del}</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm sm:block">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-slate-50">
+                        <tr className="text-left">
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">GHE</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acões</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {ghesVisiveis.map((g) => (
+                          <tr key={g.id} className="align-top">
+                            <td className="px-3 py-3 font-semibold text-slate-700">{g.id}</td>
+                            <td className="px-3 py-3 text-slate-700">{g.name}</td>
+                            <td className="px-3 py-3 text-slate-600">{g.empresa_name}</td>
+                            <td className="px-3 py-3">
+                              <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${g.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                {g.is_active ? "Ativo" : "Inativo"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button className="campanha-icon-btn" title="Editar GHE" aria-label="Editar GHE" onClick={() => openGhe("edit", g)}>{I.edit}</button>
+                                {g.is_active ? (
+                                  <button className="campanha-icon-btn" title="Inativar GHE" aria-label="Inativar GHE" onClick={() => toggleGheAtivo(g, false)}>{I.power}</button>
+                                ) : (
+                                  <button className="campanha-icon-btn" title="Reativar GHE" aria-label="Reativar GHE" onClick={() => toggleGheAtivo(g, true)}>{I.power}</button>
+                                )}
+                                <button className="campanha-icon-btn danger" title="Excluir GHE" aria-label="Excluir GHE" onClick={() => openGhe("delete", g)}>{I.del}</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
               {ghesFiltrados.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de GHEs">
                   <div className="text-sm text-slate-600">
@@ -4029,50 +4207,75 @@ export default function App() {
           {cargoErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{cargoErr}</p>}
           {!cargoLoad && (
             <>
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-slate-50">
-                    <tr className="text-left">
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cargo</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acões</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {cargosFiltrados.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhum cargo encontrado.</td>
-                      </tr>
-                    ) : (
-                      cargosVisiveis.map((cg) => (
-                        <tr key={cg.id} className="align-top">
-                          <td className="px-3 py-3 font-semibold text-slate-700">{cg.id}</td>
-                          <td className="px-3 py-3 text-slate-700">{cg.name}</td>
-                          <td className="px-3 py-3 text-slate-600">{cg.empresa_name}</td>
-                          <td className="px-3 py-3">
-                            <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cg.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                              {cg.is_active ? "Ativo" : "Inativo"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <button className="campanha-icon-btn" title="Editar cargo" aria-label="Editar cargo" onClick={() => openCargo("edit", cg)}>{I.edit}</button>
-                              {cg.is_active ? (
-                                <button className="campanha-icon-btn" title="Inativar cargo" aria-label="Inativar cargo" onClick={() => toggleCargoAtivo(cg, false)}>{I.power}</button>
-                              ) : (
-                                <button className="campanha-icon-btn" title="Reativar cargo" aria-label="Reativar cargo" onClick={() => toggleCargoAtivo(cg, true)}>{I.power}</button>
-                              )}
-                              <button className="campanha-icon-btn danger" title="Excluir cargo" aria-label="Excluir cargo" onClick={() => openCargo("delete", cg)}>{I.del}</button>
-                            </div>
-                          </td>
+              {cargosFiltrados.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-slate-500">Nenhum cargo encontrado.</p>
+              ) : (
+                <>
+                  <div className="space-y-3 sm:hidden">
+                    {cargosVisiveis.map((cg) => (
+                      <article key={`cargo-card-${cg.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Cargo #{cg.id}</p>
+                            <h3 className="text-base font-semibold text-slate-900">{cg.name}</h3>
+                            <p className="text-sm text-slate-500">{cg.empresa_name}</p>
+                          </div>
+                          <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cg.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                            {cg.is_active ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <button className="campanha-icon-btn" title="Editar cargo" aria-label="Editar cargo" onClick={() => openCargo("edit", cg)}>{I.edit}</button>
+                          {cg.is_active ? (
+                            <button className="campanha-icon-btn" title="Inativar cargo" aria-label="Inativar cargo" onClick={() => toggleCargoAtivo(cg, false)}>{I.power}</button>
+                          ) : (
+                            <button className="campanha-icon-btn" title="Reativar cargo" aria-label="Reativar cargo" onClick={() => toggleCargoAtivo(cg, true)}>{I.power}</button>
+                          )}
+                          <button className="campanha-icon-btn danger" title="Excluir cargo" aria-label="Excluir cargo" onClick={() => openCargo("delete", cg)}>{I.del}</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm sm:block">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-slate-50">
+                        <tr className="text-left">
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cargo</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Acões</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {cargosVisiveis.map((cg) => (
+                          <tr key={cg.id} className="align-top">
+                            <td className="px-3 py-3 font-semibold text-slate-700">{cg.id}</td>
+                            <td className="px-3 py-3 text-slate-700">{cg.name}</td>
+                            <td className="px-3 py-3 text-slate-600">{cg.empresa_name}</td>
+                            <td className="px-3 py-3">
+                              <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cg.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                {cg.is_active ? "Ativo" : "Inativo"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button className="campanha-icon-btn" title="Editar cargo" aria-label="Editar cargo" onClick={() => openCargo("edit", cg)}>{I.edit}</button>
+                                {cg.is_active ? (
+                                  <button className="campanha-icon-btn" title="Inativar cargo" aria-label="Inativar cargo" onClick={() => toggleCargoAtivo(cg, false)}>{I.power}</button>
+                                ) : (
+                                  <button className="campanha-icon-btn" title="Reativar cargo" aria-label="Reativar cargo" onClick={() => toggleCargoAtivo(cg, true)}>{I.power}</button>
+                                )}
+                                <button className="campanha-icon-btn danger" title="Excluir cargo" aria-label="Excluir cargo" onClick={() => openCargo("delete", cg)}>{I.del}</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
               {cargosFiltrados.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Paginacao de cargos">
                   <div className="text-sm text-slate-600">
@@ -4187,12 +4390,27 @@ export default function App() {
 
       return (
         <section className="admin-panel report-panel">
-          <button type="button" className="floating-back-button" onClick={() => goSection("campanhas")}>
-            Voltar para campanhas
-          </button>
-          <button type="button" className="floating-pdf-button" onClick={exportCampanhaRelatorioPdf} disabled={campPdfLoading}>
-            {campPdfLoading ? "Gerando PDF..." : "Exportar PDF"}
-          </button>
+          <div className="report-floating-actions">
+            <button type="button" className="floating-back-button" onClick={() => goSection("campanhas")}>
+              Voltar para campanhas
+            </button>
+            <div className="floating-pdf-wrap">
+              <button type="button" className="floating-pdf-button" onClick={exportCampanhaRelatorioPdf} disabled={campPdfLoading || planosAcaoSaving}>
+                {planosAcaoSaving ? "Salvando ações..." : campPdfLoading ? "Gerando PDF..." : "Exportar PDF"}
+              </button>
+              {campPdfLoading && (
+                <div className="pdf-progress-card" aria-live="polite">
+                  <div className="pdf-progress-top">
+                    <span>{campPdfProgressEstimated ? "Progresso" : "Progresso do download"}</span>
+                    <strong>{Math.max(0, Math.min(100, campPdfProgress))}%</strong>
+                  </div>
+                  <div className="pdf-progress-track">
+                    <span className="pdf-progress-fill" style={{ width: `${Math.max(0, Math.min(100, campPdfProgress))}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           {/* <div className="report-header">
             <div>
               <h2>Relatorio da campanha</h2>
@@ -4203,7 +4421,7 @@ export default function App() {
             </div>
           </div> */}
 
-          {campRelLoad && <LoadingSpinner label="Carregando relatorio..." />}
+          {campRelLoad && <LoadingSpinner label="Montando relatório..." />}
           {campRelErr && <p className="error">{campRelErr}</p>}
           {campPdfErr && <p className="error">{campPdfErr}</p>}
 
@@ -4284,8 +4502,8 @@ export default function App() {
                             </div>
                           </div>
                         ))}
-                      </div>
-                    )}
+                  </div>
+              )}
                   </div>
                 );
               })}
@@ -4706,6 +4924,7 @@ export default function App() {
                     <article key={cp.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       {(() => {
                         const empresaCampanha = empresas.find((emp) => String(emp.id) === String(cp.empresa));
+                        const campanhaEvaluationType = String(empresaCampanha?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
                         const totalRespostasEsperadas = Number(empresaCampanha?.employee_count || 0);
                         const totalRespostasRecebidas = Number(cp.completed_count || 0);
                         return (
@@ -4720,6 +4939,9 @@ export default function App() {
                           <div className="flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
                             <span>{fDate(cp.start_date)} - {fDate(cp.end_date)}</span>
                             <span>{totalRespostasRecebidas}/{totalRespostasEsperadas || 0} respostas</span>
+                            <span className={`empresa-type-pill ${campanhaEvaluationType === "SETOR" ? "setor" : "ghe"}`}>
+                              {campanhaEvaluationType === "SETOR" ? "Por Setor" : "Por GHE"}
+                            </span>
                             <span
                               className={`inline-flex min-h-6 items-center self-start rounded-full px-2.5 py-0.5 text-xs font-bold uppercase leading-none tracking-wide sm:self-auto ${
                                 cp.status === "ATIVO"
@@ -4739,16 +4961,17 @@ export default function App() {
                             aria-label={cp.status === "ATIVO" ? "Encerrar campanha" : "Ativar campanha"}
                             disabled={campStatusLoadingId === cp.id}
                             onClick={() => toggleCampanhaStatus(cp)}
-                            className={`relative inline-flex h-7 w-14 shrink-0 self-center items-center rounded-full border p-0 align-middle transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            style={{ minHeight: 0, marginTop: 0 }}
+                            className={`relative inline-flex h-5 w-12 shrink-0 self-center items-center rounded-full p-0 align-middle transition disabled:cursor-not-allowed disabled:opacity-60 ${
                               cp.status === "ATIVO"
-                                ? "border-emerald-800 bg-emerald-700"
-                                : "border-slate-300 bg-slate-200"
+                                ? "bg-emerald-700"
+                                : "bg-slate-300"
                             }`}
                           >
                             <span
                               aria-hidden="true"
-                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition ${
-                                cp.status === "ATIVO" ? "translate-x-8" : "translate-x-1"
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition ${
+                                cp.status === "ATIVO" ? "translate-x-7" : "translate-x-0.5"
                               } ${campStatusLoadingId === cp.id ? "animate-pulse" : ""}`}
                             />
                           </button>
@@ -5260,64 +5483,99 @@ export default function App() {
               {denunciasFiltradas.length === 0 ? (
                 <p className="empty-state">Nenhuma denúncia registrada para esta empresa.</p>
               ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Data</th>
-                        <th>Origem</th>
-                        <th>Status</th>
-                        <th>Vínculo</th>
-                        <th>Identificação</th>
-                        <th>Tipo</th>
-                        <th>GHE</th>
-                        <th>Função</th>
-                        <th>Devolutiva</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {denunciasFiltradas.map((d) => (
-                        <tr key={`den-admin-${d.id}`}>
-                          <td>{d.id}</td>
-                          <td>{fDate(d.created_at)}</td>
-                          <td>{d.origem_label || (d.origem === "TOTEM" ? "Totem" : "Link de denúncia")}</td>
-                          <td>
-                            <span className={`denuncia-status-pill ${String(d.status || "").toLowerCase()}`}>
-                              {d.status === "EM_ANALISE" ? "Em analise" : d.status === "RESOLVIDA" ? "Resolvida" : "Aberta"}
-                            </span>
-                          </td>
-                          <td>{d.possui_vinculo ? "Sim" : "Nao"}</td>
-                          <td title={d.contato_identificacao || ""}>
-                            {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Não"}
-                          </td>
-                          <td>{d.tipo_label || "-"}</td>
-                          <td>{d.ghe_name || "-"}</td>
-                          <td>{d.cargo_name || "-"}</td>
-                          <td title={d.email_devolutiva || ""}>
-                            {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Não"}
-                          </td>
-                          <td className="actions denuncia-row-actions-cell">
-                            <div className="denuncia-row-menu">
-                              <button
-                                type="button"
-                                className="campanha-icon-btn denuncia-row-menu-trigger"
-                                title="Opções"
-                                aria-label={`Opções da denúncia ${d.id}`}
-                                aria-haspopup="menu"
-                                aria-expanded={denRowMenuOpenId === d.id}
-                                onClick={(e) => toggleDenunciaRowMenu(e, d)}
-                              >
-                                {I.moreV}
-                              </button>
-                            </div>
-                          </td>
+                <>
+                  <div className="denuncias-mobile-list">
+                    {denunciasFiltradas.map((d) => (
+                      <article key={`den-admin-mobile-${d.id}`} className="denuncia-mobile-card">
+                        <div className="denuncia-mobile-card-top">
+                          <strong>Denúncia #{d.id}</strong>
+                          <div className="denuncia-row-menu">
+                            <button
+                              type="button"
+                              className="campanha-icon-btn denuncia-row-menu-trigger"
+                              title="Opções"
+                              aria-label={`Opções da denúncia ${d.id}`}
+                              aria-haspopup="menu"
+                              aria-expanded={denRowMenuOpenId === d.id}
+                              onClick={(e) => toggleDenunciaRowMenu(e, d)}
+                            >
+                              {I.moreV}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="denuncia-mobile-card-grid">
+                          <p><span>Data:</span> {fDate(d.created_at)}</p>
+                          <p><span>Origem:</span> {d.origem_label || (d.origem === "TOTEM" ? "Totem" : "Link de denúncia")}</p>
+                          <p><span>Status:</span> <span className={`denuncia-status-pill ${String(d.status || "").toLowerCase()}`}>{d.status === "EM_ANALISE" ? "Em analise" : d.status === "RESOLVIDA" ? "Resolvida" : "Aberta"}</span></p>
+                          <p><span>Vínculo:</span> {d.possui_vinculo ? "Sim" : "Nao"}</p>
+                          <p title={d.contato_identificacao || ""}><span>Identificação:</span> {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Não"}</p>
+                          <p><span>Tipo:</span> {d.tipo_label || "-"}</p>
+                          <p><span>GHE:</span> {d.ghe_name || "-"}</p>
+                          <p><span>Função:</span> {d.cargo_name || "-"}</p>
+                          <p title={d.email_devolutiva || ""}><span>Devolutiva:</span> {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Não"}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="table-wrap denuncias-desktop-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Data</th>
+                          <th>Origem</th>
+                          <th>Status</th>
+                          <th>Vínculo</th>
+                          <th>Identificação</th>
+                          <th>Tipo</th>
+                          <th>GHE</th>
+                          <th>Função</th>
+                          <th>Devolutiva</th>
+                          <th>Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {denunciasFiltradas.map((d) => (
+                          <tr key={`den-admin-${d.id}`}>
+                            <td>{d.id}</td>
+                            <td>{fDate(d.created_at)}</td>
+                            <td>{d.origem_label || (d.origem === "TOTEM" ? "Totem" : "Link de denúncia")}</td>
+                            <td>
+                              <span className={`denuncia-status-pill ${String(d.status || "").toLowerCase()}`}>
+                                {d.status === "EM_ANALISE" ? "Em analise" : d.status === "RESOLVIDA" ? "Resolvida" : "Aberta"}
+                              </span>
+                            </td>
+                            <td>{d.possui_vinculo ? "Sim" : "Nao"}</td>
+                            <td title={d.contato_identificacao || ""}>
+                              {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Não"}
+                            </td>
+                            <td>{d.tipo_label || "-"}</td>
+                            <td>{d.ghe_name || "-"}</td>
+                            <td>{d.cargo_name || "-"}</td>
+                            <td title={d.email_devolutiva || ""}>
+                              {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Não"}
+                            </td>
+                            <td className="actions denuncia-row-actions-cell">
+                              <div className="denuncia-row-menu">
+                                <button
+                                  type="button"
+                                  className="campanha-icon-btn denuncia-row-menu-trigger"
+                                  title="Opções"
+                                  aria-label={`Opções da denúncia ${d.id}`}
+                                  aria-haspopup="menu"
+                                  aria-expanded={denRowMenuOpenId === d.id}
+                                  onClick={(e) => toggleDenunciaRowMenu(e, d)}
+                                >
+                                  {I.moreV}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
               {denRowMenuOpenId && denRowMenuItem && typeof document !== "undefined" && createPortal(
                 <div
@@ -5489,35 +5747,20 @@ export default function App() {
               {pedidosFiltrados.length === 0 ? (
                 <p className="empty-state">Nenhum pedido de ajuda para este filtro.</p>
               ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Data</th>
-                        <th>Nome</th>
-                        <th>Contato</th>
-                        <th>GHE</th>
-                        <th>Função</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedidosFiltrados.map((p) => (
-                        <tr key={`ajuda-admin-${p.id}`}>
-                          <td>{p.id}</td>
-                          <td>{fDate(p.created_at)}</td>
-                          <td>{p.nome}</td>
-                          <td>{p.contato || <span className="muted">—</span>}</td>
-                          <td>{p.ghe_name || <span className="muted">—</span>}</td>
-                          <td>{p.funcao_name || <span className="muted">—</span>}</td>
-                          <td>
+                <>
+                  <div className="space-y-3 sm:hidden">
+                    {pedidosFiltrados.map((p) => (
+                      <article key={`ajuda-admin-card-${p.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Pedido #{p.id}</p>
+                            <h3 className="truncate text-base font-semibold text-slate-900">{p.nome}</h3>
+                            <p className="text-xs text-slate-500">{fDate(p.created_at)}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
                             <span className={`denuncia-status-pill ${p.status === "ATENDIDO" ? "resolvida" : p.status === "EM_ATENDIMENTO" ? "em_analise" : "aberta"}`}>
                               {p.status === "ATENDIDO" ? "Atendido" : p.status === "EM_ATENDIMENTO" ? "Em atendimento" : "Aberto"}
                             </span>
-                          </td>
-                          <td className="actions denuncia-row-actions-cell">
                             <div className="denuncia-row-menu">
                               <button
                                 type="button"
@@ -5531,12 +5774,65 @@ export default function App() {
                                 {I.moreV}
                               </button>
                             </div>
-                          </td>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
+                          <p><strong>Contato:</strong> {p.contato || "—"}</p>
+                          <p><strong>GHE:</strong> {p.ghe_name || "—"}</p>
+                          <p className="col-span-2"><strong>Função:</strong> {p.funcao_name || "—"}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="table-wrap hidden sm:block">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Data</th>
+                          <th>Nome</th>
+                          <th>Contato</th>
+                          <th>GHE</th>
+                          <th>Função</th>
+                          <th>Status</th>
+                          <th>Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {pedidosFiltrados.map((p) => (
+                          <tr key={`ajuda-admin-${p.id}`}>
+                            <td>{p.id}</td>
+                            <td>{fDate(p.created_at)}</td>
+                            <td>{p.nome}</td>
+                            <td>{p.contato || <span className="muted">—</span>}</td>
+                            <td>{p.ghe_name || <span className="muted">—</span>}</td>
+                            <td>{p.funcao_name || <span className="muted">—</span>}</td>
+                            <td>
+                              <span className={`denuncia-status-pill ${p.status === "ATENDIDO" ? "resolvida" : p.status === "EM_ATENDIMENTO" ? "em_analise" : "aberta"}`}>
+                                {p.status === "ATENDIDO" ? "Atendido" : p.status === "EM_ATENDIMENTO" ? "Em atendimento" : "Aberto"}
+                              </span>
+                            </td>
+                            <td className="actions denuncia-row-actions-cell">
+                              <div className="denuncia-row-menu">
+                                <button
+                                  type="button"
+                                  className="campanha-icon-btn denuncia-row-menu-trigger ajuda-row-menu-trigger"
+                                  title="Opções"
+                                  aria-label={`Opções do pedido ${p.id}`}
+                                  aria-haspopup="menu"
+                                  aria-expanded={ajudaRowMenuOpenId === p.id}
+                                  onClick={(e) => toggleAjudaRowMenu(e, p)}
+                                >
+                                  {I.moreV}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
               {ajudaRowMenuOpenId && ajudaRowMenuItem && typeof document !== "undefined" && createPortal(
                 <div
@@ -6635,8 +6931,8 @@ export default function App() {
       {cgModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cgModal.type === "delete" ? "Excluir cargo" : cgModal.type === "edit" ? "Editar cargo" : "Novo cargo"}</h3>{cgModal.type === "delete" ? <><p>Deseja realmente excluir o cargo {cgModal.item?.name}?</p>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCargo}>Cancelar</button><button className="danger" onClick={delCargo} disabled={cgSaving}>{cgSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveCargo} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(cgEmpresa || cargoEmpresaFiltro))?.company_name || cgModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do cargo</label><input value={cgNome} onChange={(e) => setCgNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={cgDesc} onChange={(e) => setCgDesc(e.target.value)} /><label>Setores</label><input className="multi-pick-search" type="text" placeholder="Buscar setor..." value={cgSetorBusca} onChange={(e) => setCgSetorBusca(e.target.value)} /><div className="multi-pick">{setores.filter((s) => String(s.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).filter((s) => String(s.name || "").toLowerCase().includes(cgSetorBusca.trim().toLowerCase())).map((s) => <label key={`cargo-setor-${s.id}`} className="checkbox-line"><input type="checkbox" checked={cgSetores.includes(s.id)} onChange={() => toggleCargoSetor(s.id)} />{s.name}</label>)}</div><label>GHEs</label><input className="multi-pick-search" type="text" placeholder="Buscar GHE..." value={cgGheBusca} onChange={(e) => setCgGheBusca(e.target.value)} /><div className="multi-pick">{ghes.filter((g) => String(g.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).filter((g) => String(g.name || "").toLowerCase().includes(cgGheBusca.trim().toLowerCase())).map((g) => <label key={`cargo-ghe-${g.id}`} className="checkbox-line"><input type="checkbox" checked={cgGhes.includes(g.id)} onChange={() => toggleCargoGhe(g.id)} />{g.name}</label>)}</div><label className="checkbox-line"><input type="checkbox" checked={cgAtivo} onChange={(e) => setCgAtivo(e.target.checked)} />Ativo</label>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCargo}>Cancelar</button><button type="submit" disabled={cgSaving}>{cgSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
       {cpModal.type && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
+        <div className="modal-backdrop campanha-modal-backdrop">
+          <div className="modal-card campanha-modal-card">
             <h3>
               {cpModal.type === "delete"
                 ? "Excluir campanha"
