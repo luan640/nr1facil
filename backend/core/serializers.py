@@ -11,6 +11,12 @@ from .company_defaults import seed_empresa_default_structure
 from .models import CanalDenuncia, CanalDenunciaAtualizacao, Campanha, CampanhaMedidaPreliminar, CampanhaPlanoAcao, CampanhaQuandoPreliminar, CampanhaRelatorioAnexo, CampanhaRespostaStep1, CampanhaRespostaStep2, CampanhaRespostaStep3, CampanhaRespostaStep4, CampanhaRespostaStep5, CampanhaRespostaStep6, CampanhaRespostaStep7, CampanhaRespostaStep8, CampanhaRespostaStep9, Cargo, ConsultoriaConfiguracao, ConsultoriaResponsavelTecnico, DocumentType, Empresa, EstablishmentType, EvaluationType, FrequencyChoice, Ghe, MedidaScopeType, PedidoAjuda, PedidoAjudaAtualizacao, RegistroHumor, Setor, User, UserType
 
 
+def get_system_team_owner(user):
+    if user and (user.is_superuser or user.user_type == UserType.ADM):
+        return User.objects.filter(is_superuser=True, user_type=UserType.ADM).order_by('id').first() or user
+    return user
+
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
@@ -73,6 +79,49 @@ class ConsultorSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class SystemAccountSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, min_length=6)
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'full_name', 'password', 'is_active', 'access_expires_on', 'date_joined', 'is_superuser']
+        read_only_fields = ['id', 'date_joined', 'is_superuser']
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', None)
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=password,
+            full_name=validated_data.get('full_name', ''),
+            user_type=UserType.ADM,
+            is_active=validated_data.get('is_active', True),
+            is_staff=True,
+            is_superuser=True,
+        )
+        return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        instance.user_type = UserType.ADM
+        instance.is_staff = True
+        instance.is_superuser = True
+
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get('password'):
+            raise serializers.ValidationError({'password': 'Senha e obrigatoria para criar conta do sistema.'})
+        return attrs
+
+
 class EmpresaSerializer(serializers.ModelSerializer):
     responsible_email = serializers.EmailField(write_only=True)
     responsible_password = serializers.CharField(write_only=True, required=False, min_length=6)
@@ -115,11 +164,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         document_type = attrs.get('document_type') or getattr(self.instance, 'document_type', None)
         document_number = attrs.get('document_number') or getattr(self.instance, 'document_number', '')
-        responsible_password = attrs.get('responsible_password')
         establishment_type = attrs.get('establishment_type') or getattr(self.instance, 'establishment_type', None)
-
-        if self.instance is None and not responsible_password:
-            raise serializers.ValidationError({'responsible_password': 'Senha do responsavel e obrigatoria.'})
 
         if document_type == DocumentType.CPF and len(document_number) != 11:
             raise serializers.ValidationError({'document_number': 'CPF deve ter 11 digitos.'})
@@ -139,7 +184,8 @@ class EmpresaSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get('request')
         responsible_email = validated_data.pop('responsible_email')
-        responsible_password = validated_data.pop('responsible_password')
+        responsible_password = validated_data.pop('responsible_password', None)
+        consultor_owner = get_system_team_owner(request.user)
         with transaction.atomic():
             responsible_user = User.objects.create_user(
                 email=responsible_email,
@@ -150,7 +196,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
             )
 
             empresa = Empresa.objects.create(
-                consultor=request.user,
+                consultor=consultor_owner,
                 responsavel_usuario=responsible_user,
                 **validated_data,
             )

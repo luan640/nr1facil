@@ -12,7 +12,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.http import HttpResponse
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 import os
 import uuid
 import boto3
@@ -55,7 +59,7 @@ from .models import (
     User,
     UserType,
 )
-from .serializers import CanalDenunciaAtualizacaoCreateSerializer, CanalDenunciaListSerializer, CanalDenunciaPublicSerializer, CanalDenunciaStatusUpdateSerializer, CampanhaMedidaPreliminarSerializer, CampanhaPlanoAcaoSerializer, CampanhaQuandoPreliminarSerializer, CampanhaRelatorioAnexoSerializer, CampanhaSerializer, CampanhaStep1RespostaSerializer, CampanhaStep2RespostaSerializer, CampanhaStep3RespostaSerializer, CampanhaStep4RespostaSerializer, CampanhaStep5RespostaSerializer, CampanhaStep6RespostaSerializer, CampanhaStep7RespostaSerializer, CampanhaStep8RespostaSerializer, CampanhaStep9RespostaSerializer, CargoSerializer, ConsultoriaConfiguracaoSerializer, ConsultoriaResponsavelTecnicoSerializer, ConsultorSerializer, EmpresaSerializer, GheSerializer, LoginSerializer, PedidoAjudaAtualizacaoCreateSerializer, PedidoAjudaListSerializer, PedidoAjudaPublicSerializer, PedidoAjudaStatusUpdateSerializer, RegistroHumorPublicSerializer, SetorSerializer
+from .serializers import CanalDenunciaAtualizacaoCreateSerializer, CanalDenunciaListSerializer, CanalDenunciaPublicSerializer, CanalDenunciaStatusUpdateSerializer, CampanhaMedidaPreliminarSerializer, CampanhaPlanoAcaoSerializer, CampanhaQuandoPreliminarSerializer, CampanhaRelatorioAnexoSerializer, CampanhaSerializer, CampanhaStep1RespostaSerializer, CampanhaStep2RespostaSerializer, CampanhaStep3RespostaSerializer, CampanhaStep4RespostaSerializer, CampanhaStep5RespostaSerializer, CampanhaStep6RespostaSerializer, CampanhaStep7RespostaSerializer, CampanhaStep8RespostaSerializer, CampanhaStep9RespostaSerializer, CargoSerializer, ConsultoriaConfiguracaoSerializer, ConsultoriaResponsavelTecnicoSerializer, ConsultorSerializer, EmpresaSerializer, GheSerializer, LoginSerializer, PedidoAjudaAtualizacaoCreateSerializer, PedidoAjudaListSerializer, PedidoAjudaPublicSerializer, PedidoAjudaStatusUpdateSerializer, RegistroHumorPublicSerializer, SetorSerializer, SystemAccountSerializer, get_system_team_owner
 
 
 FREQUENCY_SCORE_POSITIVE = {
@@ -697,9 +701,40 @@ def _draw_pdf_cover_page(c, campanha, empresa_name):
     width, height = A4
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
-    c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 18)
-    c.drawCentredString(width / 2, height / 2, 'Relatório de Fatores de Risco Psicossociais')
+    blue = colors.HexColor('#2f53b6')
+    dark = colors.HexColor('#5b6670')
+    green = colors.HexColor('#14532d')
+    top_y = height - 40 * mm
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawCentredString(width / 2, top_y, 'RELATÓRIO DE SAÚDE ORGANIZACIONAL')
+
+    c.setFont('Helvetica', 8.5)
+    c.drawCentredString(width / 2, top_y - 5 * mm, 'Avaliação Ergonômica Preliminar dos Fatores de Risco')
+    c.drawCentredString(width / 2, top_y - 9 * mm, 'Psicossociais Relacionados ao Ambiente de Trabalho')
+
+    c.setFillColor(green)
+    c.setFont('Helvetica-Bold', 9)
+    c.drawCentredString(width / 2, top_y - 15 * mm, 'AEP-FRPRT NR01 / HSE-SIT-UK')
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica', 20)
+    c.drawCentredString(width / 2, height - 92 * mm, 'RELATÓRIO DE FATORES DE RISCOS PSICOSSOCIAIS')
+    c.drawCentredString(width / 2, height - 102 * mm, 'RELACIONADOS AO TRABALHO (FRPRT)')
+
+    c.setStrokeColor(green)
+    c.setLineWidth(1.5)
+    c.line((width / 2) - 18 * mm, height - 110 * mm, (width / 2) + 18 * mm, height - 110 * mm)
+
+    c.setFillColor(green)
+    c.setFont('Helvetica-Bold', 28)
+    c.drawCentredString(width / 2, height - 150 * mm, 'Avaliação Ergonômica')
+    c.drawCentredString(width / 2, height - 162 * mm, 'Preliminar')
+    c.drawCentredString(width / 2, height - 174 * mm, '(AEP)')
+
+    c.setFont('Helvetica-Bold', 12)
+    c.drawCentredString(width / 2, 18 * mm, 'NR-1, NR-17, Guia de Fatores Psicossociais, HSE-SIT-UK')
     c.showPage()
 
 
@@ -1606,7 +1641,7 @@ def _format_date_long_pt_br(value):
     if not value:
         return ''
     meses = [
-        'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+        'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
         'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
     ]
     try:
@@ -1819,8 +1854,9 @@ def _get_consultoria_tecnicos_rows(empresa=None, consultoria_cfg=None):
     if consultoria_cfg is not None:
         qs = consultoria_cfg.responsaveis_tecnicos.all().order_by('id')
     elif empresa is not None and getattr(empresa, 'consultor_id', None):
+        owner = get_system_team_owner(empresa.consultor)
         qs = ConsultoriaResponsavelTecnico.objects.filter(
-            configuracao__consultor_id=empresa.consultor_id,
+            configuracao__consultor_id=owner.id,
         ).order_by('id')
     else:
         qs = ConsultoriaResponsavelTecnico.objects.none()
@@ -2216,10 +2252,11 @@ def _build_report_pdf_response(campanha, rel_payload):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     empresa_name = rel_payload.get('empresa', {}).get('name', campanha.empresa.company_name)
+    consultoria_owner = get_system_team_owner(campanha.empresa.consultor)
     consultoria_cfg = (
         ConsultoriaConfiguracao.objects
         .prefetch_related('responsaveis_tecnicos')
-        .filter(consultor=campanha.empresa.consultor)
+        .filter(consultor=consultoria_owner)
         .first()
     )
     _draw_pdf_cover_page(c, campanha, empresa_name)
@@ -2293,6 +2330,72 @@ class MeView(APIView):
         )
 
 
+class PasswordResetRequestView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        email = str(request.data.get('email') or '').strip().lower()
+        generic_response = {
+            'detail': 'Se o e-mail estiver cadastrado, voce recebera um link para redefinir a senha.'
+        }
+        if not email:
+            return Response(generic_response, status=status.HTTP_200_OK)
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user:
+            return Response(generic_response, status=status.HTTP_200_OK)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        base_url = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/')
+        reset_url = f'{base_url}/reset-password?uid={uid}&token={token}'
+        subject = 'Redefinicao de senha'
+        message = (
+            'Recebemos uma solicitacao para redefinir sua senha.\n\n'
+            f'Acesse o link abaixo para cadastrar uma nova senha:\n{reset_url}\n\n'
+            'Se voce nao solicitou essa alteracao, ignore este e-mail.'
+        )
+
+        send_mail(
+            subject,
+            message,
+            getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            [user.email],
+            fail_silently=False,
+        )
+        return Response(generic_response, status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        uid = str(request.data.get('uid') or '').strip()
+        token = str(request.data.get('token') or '').strip()
+        password = str(request.data.get('password') or '')
+
+        if not uid or not token or not password:
+            return Response({'detail': 'Dados invalidos para redefinicao de senha.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(password) < 8:
+            return Response({'detail': 'A nova senha deve ter pelo menos 8 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except Exception:
+            return Response({'detail': 'Link de redefinicao invalido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({'detail': 'Link de redefinicao invalido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
+        user.save(update_fields=['password'])
+        Token.objects.filter(user=user).delete()
+        return Response({'detail': 'Senha redefinida com sucesso.'}, status=status.HTTP_200_OK)
+
+
 class IsAdmUser(BasePermission):
     def has_permission(self, request, view):
         user = request.user
@@ -2340,8 +2443,7 @@ class DashboardOverviewView(APIView):
 
 
 def _consultoria_owner_for_user(user):
-    # A configuracao e vinculada ao proprio usuario autenticado (ADM ou CONSULTOR).
-    return user
+    return get_system_team_owner(user)
 
 
 class ConsultoriaConfiguracaoView(APIView):
@@ -2489,6 +2591,48 @@ class ConsultorDetailView(APIView):
             return Response({'detail': 'Consultor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         consultor.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SystemAccountListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmUser]
+
+    def get(self, request):
+        contas = User.objects.filter(is_superuser=True, user_type=UserType.ADM).order_by('id')
+        serializer = SystemAccountSerializer(contas, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = SystemAccountSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        conta = serializer.save()
+        return Response(SystemAccountSerializer(conta).data, status=status.HTTP_201_CREATED)
+
+
+class SystemAccountDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmUser]
+
+    def get_object(self, account_id):
+        return User.objects.filter(id=account_id, is_superuser=True, user_type=UserType.ADM).first()
+
+    def patch(self, request, account_id):
+        conta = self.get_object(account_id)
+        if not conta:
+            return Response({'detail': 'Conta do sistema nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SystemAccountSerializer(conta, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        conta = serializer.save()
+        return Response(SystemAccountSerializer(conta).data)
+
+    def delete(self, request, account_id):
+        conta = self.get_object(account_id)
+        if not conta:
+            return Response({'detail': 'Conta do sistema nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if conta.id == request.user.id:
+            return Response({'detail': 'Voce nao pode excluir a propria conta.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        conta.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -2684,7 +2828,7 @@ class TotemPublicView(APIView):
         ]
         responsaveis_tecnicos = []
         try:
-            cfg = empresa.consultor.consultoria_configuracao
+            cfg = get_system_team_owner(empresa.consultor).consultoria_configuracao
             responsaveis_tecnicos = list(
                 cfg.responsaveis_tecnicos.filter(responsavel_totem=True).order_by('id').values('nome', 'formacao', 'registro')
             )

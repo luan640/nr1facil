@@ -191,6 +191,15 @@ CORS_ALLOW_ORIGINS = parse_origin_list(os.getenv('CORS_ALLOW_ORIGINS', '')) or D
 
 FRONTEND_PUBLIC_BASE_URL = os.getenv('FRONTEND_PUBLIC_BASE_URL', 'http://localhost:5173')
 
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', '1') == '1'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', '0') == '1'
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@cissconsultoria.local')
+
 SUPABASE_STORAGE_S3_ENDPOINT = os.getenv('SUPABASE_STORAGE_S3_ENDPOINT', 'https://kwygqibakpstvanogpjc.storage.supabase.co/storage/v1/s3')
 SUPABASE_STORAGE_REGION = os.getenv('SUPABASE_STORAGE_REGION', 'us-east-2')
 SUPABASE_STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET', 'cissconsult')

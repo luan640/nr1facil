@@ -73,6 +73,24 @@ function getPublicTotemToken() {
 
   return "";
 }
+
+function getPasswordResetParams() {
+  const path = window.location.pathname || "";
+  const hash = window.location.hash || "";
+  const search = window.location.search || "";
+  const hashPath = hash.split("?")[0] || "";
+  const hashSearch = hash.includes("?") ? hash.slice(hash.indexOf("?")) : "";
+  const isResetPath = /^\/reset-password\/?$/.test(path) || /^#\/reset-password\/?$/.test(hashPath);
+
+  if (!isResetPath) return { uid: "", token: "" };
+
+  const params = new URLSearchParams(hashSearch || search);
+  return {
+    uid: params.get("uid") || "",
+    token: params.get("token") || "",
+  };
+}
+
 const INIT_EMPRESA = {
   document_type: "CNPJ",
   establishment_type: "MATRIZ",
@@ -578,6 +596,492 @@ function DashboardSegmentsRadar({ domains = [], fmtPct }) {
   );
 }
 
+function DashboardOverviewModern({
+  cards = [],
+  domains = [],
+  histLabels = [],
+  histValues = [],
+  maxHist = 1,
+  dashEmpresaBusca = "",
+  dashEmpresaSugestoes = [],
+  dashEmpresa = "",
+  dashData = {},
+  dashEmpresaMenuOpen = false,
+  setDashEmpresaMenuOpen,
+  onDashboardEmpresaBuscaChange,
+  onDashboardEmpresaChange,
+  selectDashEmpresaBuscaOption,
+  dashDateFrom = "",
+  dashDateTo = "",
+  onDashboardDateChange,
+  canFilter = false,
+  dashLoad = false,
+  dashErr = "",
+  loadDashboardOverview,
+  userName = "Usuario",
+  userRoleLabel = "Usuario",
+  goSection,
+  fmtPct,
+  reportZoneClass,
+}) {
+  const canal = dashData?.canal_overview || {};
+  const denPorStatus = canal.den_por_status || [];
+  const denPorTipo = canal.den_por_tipo || [];
+  const denPorGhe = canal.den_por_ghe || [];
+  const humorPorTipo = canal.humor_por_tipo || [];
+  const humorTrendLabels = canal.humor_trend?.labels || [];
+  const humorTrendValues = canal.humor_trend?.values || [];
+  const maxHumorTrend = Math.max(1, ...humorTrendValues.map((v) => Number(v || 0)));
+  const empresaSelecionada = dashEmpresa
+    ? (dashData?.empresas || []).find((emp) => String(emp.id) === String(dashEmpresa))
+    : null;
+  const HUMOR_COLORS = {
+    feliz: "#22c55e", motivado: "#3b82f6", tranquilo: "#06b6d4",
+    cansado: "#f59e0b", estressado: "#ef4444", triste: "#6366f1",
+    ansioso: "#8b5cf6", sobrecarregado: "#f97316",
+  };
+  const HUMOR_EMOJI = {
+    feliz: "Feliz", motivado: "Motivado", tranquilo: "Tranquilo",
+    cansado: "Cansado", estressado: "Estressado", triste: "Triste",
+    ansioso: "Ansioso", sobrecarregado: "Sobrecarregado",
+  };
+  const DEN_STATUS_COLORS = { ABERTA: "#ef4444", EM_ANALISE: "#f59e0b", RESOLVIDA: "#22c55e" };
+  const maxDenStatus = Math.max(1, ...denPorStatus.map((d) => Number(d.value || 0)));
+  const maxDenTipo = Math.max(1, ...denPorTipo.map((d) => Number(d.value || 0)));
+  const maxDenGhe = Math.max(1, ...denPorGhe.map((d) => Number(d.value || 0)));
+  const maxHumorTipo = Math.max(1, ...humorPorTipo.map((d) => Number(d.value || 0)));
+  const totalSummary = cards.reduce((acc, card) => acc + Number(card.value || 0), 0);
+  const avgDomain = domains.length ? Math.round(domains.reduce((acc, d) => acc + Number(d.percent || 0), 0) / domains.length) : 0;
+  const topDomain = [...domains].sort((a, b) => Number(b.percent || 0) - Number(a.percent || 0))[0];
+  const openStatus = denPorStatus.find((item) => item.key === "ABERTA")?.value || 0;
+  const resolvedStatus = denPorStatus.find((item) => item.key === "RESOLVIDA")?.value || 0;
+  const topTipo = [...denPorTipo].sort((a, b) => Number(b.value || 0) - Number(a.value || 0))[0];
+  const topHumor = [...humorPorTipo].sort((a, b) => Number(b.value || 0) - Number(a.value || 0))[0];
+  const overviewCards = [
+    {
+      key: "summary-total",
+      title: cards[0]?.label || "Indicadores gerais",
+      value: cards[0]?.value ?? totalSummary,
+      detail: totalSummary > 0 ? `${totalSummary} leituras agregadas no panorama` : "Dados consolidados do período selecionado",
+      tone: "featured",
+    },
+    {
+      key: "summary-domain",
+      title: "Média de segmentos",
+      value: `${avgDomain}%`,
+      detail: topDomain ? `Maior peso atual em ${topDomain.label}` : "Sem distribuição registrada",
+      tone: "soft",
+    },
+    {
+      key: "summary-denuncias",
+      title: "Canal de denúncias",
+      value: canal.total_denuncias ?? 0,
+      detail: `${openStatus} em aberto • ${resolvedStatus} resolvidas`,
+      tone: "soft",
+    },
+    {
+      key: "summary-humor",
+      title: "Humor monitorado",
+      value: canal.total_humor ?? 0,
+      detail: topHumor ? `Predomínio de ${topHumor.label}` : "Sem registros de humor",
+      tone: "soft",
+    },
+  ];
+  const reminders = [
+    topTipo ? { title: topTipo.label, meta: `${topTipo.value} ocorrências no canal`, accent: "orange" } : null,
+    topDomain ? { title: topDomain.label, meta: `${fmtPct(topDomain.percent)} do total segmentado`, accent: reportZoneClass(topDomain.zone) } : null,
+    { title: "Pedidos de ajuda", meta: `${canal.total_pedidos_ajuda ?? 0} registros no período`, accent: "teal" },
+  ].filter(Boolean);
+
+  return (
+    <section className="dashboard-analytics dashboard-analytics-modern">
+      <div className="dashboard-topbar">
+        <div className="dashboard-topbar-search">
+          <span className="dashboard-topbar-search-icon" aria-hidden="true">⌕</span>
+          <input
+            id="dash-empresa-search"
+            placeholder="Buscar empresa ou filtrar visão..."
+            autoComplete="off"
+            value={dashEmpresaBusca}
+            onFocus={() => setDashEmpresaMenuOpen(true)}
+            onBlur={() => setTimeout(() => setDashEmpresaMenuOpen(false), 120)}
+            onChange={(e) => { onDashboardEmpresaBuscaChange(e.target.value); setDashEmpresaMenuOpen(true); }}
+          />
+          {dashEmpresaMenuOpen && canFilter && (
+            <div className="dashboard-topbar-menu">
+              <button type="button" className="dashboard-topbar-menu-item" onMouseDown={(ev) => ev.preventDefault()} onClick={() => { setDashEmpresaMenuOpen(false); onDashboardEmpresaChange(""); }}>
+                <span>Todas as empresas</span>
+              </button>
+              {dashEmpresaSugestoes.length === 0 ? (
+                <div className="dashboard-topbar-empty">Nenhuma empresa encontrada.</div>
+              ) : (
+                dashEmpresaSugestoes.map((emp) => (
+                  <button key={`dash-emp-opt-${emp.id}`} type="button" className="dashboard-topbar-menu-item" onMouseDown={(ev) => ev.preventDefault()} onClick={() => selectDashEmpresaBuscaOption(emp)}>
+                    <span>{emp.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="dashboard-topbar-actions">
+          <button type="button" className="dashboard-ghost-btn" onClick={() => loadDashboardOverview()}>
+            Atualizar
+          </button>
+          {(dashDateFrom || dashDateTo) && (
+            <button type="button" className="dashboard-ghost-btn" onClick={() => onDashboardDateChange("", "")}>
+              Limpar período
+            </button>
+          )}
+          {/* <div className="dashboard-profile-badge">
+            <span className="dashboard-profile-avatar">{String(userName || "U").trim().charAt(0).toUpperCase()}</span>
+            <div>
+              <strong>{userName}</strong>
+              <span>{userRoleLabel}</span>
+            </div>
+          </div> */}
+        </div>
+      </div>
+
+      <div className="dashboard-hero dashboard-hero-modern">
+        <div className="dashboard-hero-main">
+          <span className="dashboard-kicker">Central analítica</span>
+          <h2>Dashboard</h2>
+          <p className="subtitle">Visualize indicadores operacionais, evolução do ambiente ocupacional e sinais de atenção em uma única tela.</p>
+          {/* <div className="dashboard-hero-pills">
+            <span className="dashboard-pill dashboard-pill-strong">{empresaSelecionada?.name || "Visão consolidada"}</span>
+            <span className="dashboard-pill">{dashDateFrom || "Início livre"}</span>
+            <span className="dashboard-pill">{dashDateTo || "Até hoje"}</span>
+          </div> */}
+        </div>
+        {canFilter && (
+          <div className="dashboard-hero-filter dashboard-hero-filter-modern">
+            <div className="dash-date-range">
+              <input type="date" value={dashDateFrom} max={dashDateTo || undefined} onChange={(e) => onDashboardDateChange(e.target.value, dashDateTo)} title="Data inicial" />
+              <span className="dash-date-range-sep">—</span>
+              <input type="date" value={dashDateTo} min={dashDateFrom || undefined} onChange={(e) => onDashboardDateChange(dashDateFrom, e.target.value)} title="Data final" />
+            </div>
+            <button type="button" className="dashboard-primary-btn" onClick={() => loadDashboardOverview()}>
+              Aplicar visão
+            </button>
+          </div>
+        )}
+      </div>
+
+      {dashLoad && <LoadingSpinner label="Carregando dashboard..." />}
+      {dashErr && <p className="error">{dashErr}</p>}
+
+      {!dashLoad && (
+        <div className="dashboard-showcase">
+          <div className="dashboard-stat-grid">
+            {overviewCards.map((card) => (
+              <article key={card.key} className={`dashboard-stat-card ${card.tone === "featured" ? "featured" : ""}`}>
+                <div className="dashboard-stat-head">
+                  <p>{card.title}</p>
+                  <span>↗</span>
+                </div>
+                <strong>{card.value}</strong>
+                <small>{card.detail}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="dashboard-showcase-grid">
+            <div className="dashboard-showcase-main">
+              <article className="dashboard-panel dashboard-panel-large dashboard-panel-spotlight">
+                <div className="dashboard-panel-header-modern">
+                  <div>
+                    <span className="dashboard-panel-kicker">Mapa executivo</span>
+                    <h3>Distribuição por segmento</h3>
+                  </div>
+                  <span className="dashboard-panel-badge">{domains.length} frentes</span>
+                </div>
+                {domains.length === 0 ? (
+                  <p className="empty-state">Sem dados suficientes.</p>
+                ) : (
+                  <div className="dashboard-segment-layout">
+                    <div className="dashboard-segment-bars">
+                      {domains.map((d) => (
+                        <div key={`dash-domain-${d.key}`} className="dashboard-segment-row">
+                          <div>
+                            <strong>{d.label}</strong>
+                            <span>{fmtPct(d.percent)}</span>
+                          </div>
+                          <div className="dashboard-segment-track">
+                            <i className={`dashboard-segment-fill ${reportZoneClass(d.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(d.percent || 0)))}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="dashboard-progress-dial">
+                      <div className="dashboard-progress-ring" style={{ "--progress": avgDomain }}>
+                        <div className="dashboard-progress-ring-inner">
+                          <strong>{avgDomain}%</strong>
+                          <span>média geral</span>
+                        </div>
+                      </div>
+                      <p>{topDomain ? `${topDomain.label} lidera a composição atual.` : "A distribuição aparecerá aqui quando houver dados."}</p>
+                    </div>
+                  </div>
+                )}
+              </article>
+
+              <div className="dashboard-double-grid">
+                <article className="dashboard-panel">
+                  <div className="dashboard-panel-header-modern">
+                    <div>
+                      <span className="dashboard-panel-kicker">Evolução</span>
+                      <h3>Histórico de avaliações</h3>
+                    </div>
+                    <span className="dashboard-panel-badge">6 meses</span>
+                  </div>
+                  {histValues.length === 0 ? (
+                    <p className="empty-state">Sem histórico.</p>
+                  ) : (
+                    <div className="dashboard-chart-modern">
+                      {histValues.map((v, idx) => {
+                        const heightPct = Math.max(8, (Number(v || 0) / maxHist) * 100);
+                        return (
+                          <div key={`dash-hist-${idx}`} className="dashboard-chart-modern-col">
+                            <span className="dashboard-chart-modern-value">{v > 0 ? v : "\u200b"}</span>
+                            <div className="dashboard-chart-modern-bar-wrap">
+                              <div className="dashboard-chart-modern-bar" style={{ height: `${heightPct}%` }} title={`${histLabels[idx]}: ${v}`} />
+                            </div>
+                            <span className="dashboard-chart-modern-label">{histLabels[idx]}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </article>
+
+                <article className="dashboard-panel">
+                  <div className="dashboard-panel-header-modern">
+                    <div>
+                      <span className="dashboard-panel-kicker">Canal</span>
+                      <h3>Denúncias por status</h3>
+                    </div>
+                    <span className="dashboard-panel-badge">{canal.total_denuncias ?? 0} registros</span>
+                  </div>
+                  {denPorStatus.every((d) => d.value === 0) ? (
+                    <p className="empty-state">Nenhuma denúncia registrada.</p>
+                  ) : (
+                    <div className="dashboard-list-stack">
+                      {denPorStatus.map((d) => (
+                        <div key={`den-status-${d.key}`} className="dashboard-list-row">
+                          <div className="dashboard-list-title">
+                            <strong>{d.label}</strong>
+                            <span>{d.value} casos</span>
+                          </div>
+                          <div className="dashboard-list-track">
+                            <i style={{ width: `${(d.value / maxDenStatus) * 100}%`, background: DEN_STATUS_COLORS[d.key] || "#94a3b8" }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <div className="dashboard-double-grid">
+                <article className="dashboard-panel">
+                  <div className="dashboard-panel-header-modern">
+                    <div>
+                      <span className="dashboard-panel-kicker">Classificação</span>
+                      <h3>Denúncias por tipo</h3>
+                    </div>
+                  </div>
+                  {denPorTipo.length === 0 ? (
+                    <p className="empty-state">Nenhuma denúncia registrada.</p>
+                  ) : (
+                    <div className="dashboard-list-stack">
+                      {denPorTipo.map((d, i) => (
+                        <div key={`den-tipo-${i}`} className="dashboard-list-row">
+                          <div className="dashboard-list-title">
+                            <strong>{d.label}</strong>
+                            <span>{d.value} ocorrências</span>
+                          </div>
+                          <div className="dashboard-list-track">
+                            <i style={{ width: `${(d.value / maxDenTipo) * 100}%`, background: "linear-gradient(90deg, #0ea5e9, #0369a1)" }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="dashboard-panel">
+                  <div className="dashboard-panel-header-modern">
+                    <div>
+                      <span className="dashboard-panel-kicker">Humor</span>
+                      <h3>Humor por tipo</h3>
+                    </div>
+                  </div>
+                  {humorPorTipo.length === 0 ? (
+                    <p className="empty-state">Nenhum registro de humor.</p>
+                  ) : (
+                    <div className="dashboard-list-stack">
+                      {humorPorTipo.map((d) => (
+                        <div key={`humor-tipo-${d.key}`} className="dashboard-list-row">
+                          <div className="dashboard-list-title">
+                            <strong>{HUMOR_EMOJI[d.key] || ""}</strong>
+                            <span>{d.value} registros</span>
+                          </div>
+                          <div className="dashboard-list-track">
+                            <i style={{ width: `${(d.value / maxHumorTipo) * 100}%`, background: HUMOR_COLORS[d.key] || "#94a3b8" }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <article className="dashboard-panel dashboard-panel-wide">
+                <div className="dashboard-panel-header-modern">
+                  <div>
+                    <span className="dashboard-panel-kicker">Ritmo do período</span>
+                    <h3>Histórico de humor</h3>
+                  </div>
+                  <span className="dashboard-panel-badge">Últimos 6 meses</span>
+                </div>
+                {humorTrendValues.every((v) => v === 0) ? (
+                  <p className="empty-state">Nenhum registro de humor no período.</p>
+                ) : (
+                  <div className="dashboard-chart-modern dashboard-chart-modern-green">
+                    {humorTrendValues.map((v, idx) => {
+                      const heightPct = Math.max(8, (Number(v || 0) / maxHumorTrend) * 100);
+                      return (
+                        <div key={`humor-trend-${idx}`} className="dashboard-chart-modern-col">
+                          <span className="dashboard-chart-modern-value">{v > 0 ? v : "\u200b"}</span>
+                          <div className="dashboard-chart-modern-bar-wrap">
+                            <div className="dashboard-chart-modern-bar" style={{ height: `${heightPct}%`, background: "linear-gradient(180deg,#34d399,#047857)" }} title={`${humorTrendLabels[idx]}: ${v}`} />
+                          </div>
+                          <span className="dashboard-chart-modern-label">{humorTrendLabels[idx]}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </article>
+            </div>
+
+            <aside className="dashboard-showcase-side">
+              <article className="dashboard-panel dashboard-side-panel">
+                <div className="dashboard-panel-header-modern">
+                  <div>
+                    <span className="dashboard-panel-kicker">Resumo rápido</span>
+                    <h3>Prioridades do período</h3>
+                  </div>
+                  <span className="dashboard-panel-badge">Agora</span>
+                </div>
+                <div className="dashboard-reminder-list">
+                  {reminders.map((item, index) => (
+                    <button key={`dashboard-reminder-${index}`} type="button" className="dashboard-reminder-item" style={{ minHeight: 0 }}>
+                      <span className={`dashboard-reminder-dot ${item.accent || ""}`} />
+                      <div>
+                        <strong>{item.title}</strong>
+                        <span>{item.meta}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {/* <button type="button" className="dashboard-primary-btn dashboard-primary-btn-block" onClick={() => goSection("configuracoes")}>
+                  Abrir configurações
+                </button> */}
+              </article>
+
+              <article className="dashboard-panel dashboard-side-panel">
+                <div className="dashboard-panel-header-modern">
+                  <div>
+                    <span className="dashboard-panel-kicker">Radar de GHE</span>
+                    <h3>Denúncias por GHE</h3>
+                  </div>
+                </div>
+                {denPorGhe.length === 0 ? (
+                  <p className="empty-state">Nenhuma denúncia com GHE informado.</p>
+                ) : (
+                  <div className="dashboard-list-stack compact">
+                    {denPorGhe.slice(0, 5).map((d, i) => (
+                      <div key={`den-ghe-${i}`} className="dashboard-list-row">
+                        <div className="dashboard-list-title">
+                          <strong>{d.label}</strong>
+                          <span>{d.value} relatos</span>
+                        </div>
+                        <div className="dashboard-list-track">
+                          <i style={{ width: `${(d.value / maxDenGhe) * 100}%`, background: "linear-gradient(90deg, #8b5cf6, #6d28d9)" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+
+              <article className="dashboard-panel dashboard-panel-timer">
+                <span className="dashboard-panel-kicker">Monitor</span>
+                <h3>{canal.total_pedidos_ajuda ?? 0}</h3>
+                <p>Pedidos de ajuda acompanhados no período selecionado.</p>
+              </article>
+            </aside>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const BRAZIL_STATE_CODES = {
+  acre: "AC",
+  alagoas: "AL",
+  amapa: "AP",
+  amazonas: "AM",
+  bahia: "BA",
+  ceara: "CE",
+  "distrito federal": "DF",
+  "espirito santo": "ES",
+  goias: "GO",
+  maranhao: "MA",
+  "mato grosso": "MT",
+  "mato grosso do sul": "MS",
+  "minas gerais": "MG",
+  para: "PA",
+  paraiba: "PB",
+  parana: "PR",
+  pernambuco: "PE",
+  piaui: "PI",
+  "rio de janeiro": "RJ",
+  "rio grande do norte": "RN",
+  "rio grande do sul": "RS",
+  rondonia: "RO",
+  roraima: "RR",
+  "santa catarina": "SC",
+  "sao paulo": "SP",
+  sergipe: "SE",
+  tocantins: "TO",
+};
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function resolveBrazilStateCode(address = {}) {
+  const direct = String(address.state_code || "").trim().toUpperCase();
+  if (direct && direct.length === 2) return direct;
+
+  const iso = String(address["ISO3166-2-lvl4"] || address["ISO3166-2-lvl3"] || "").trim();
+  if (iso.includes("-")) {
+    const suffix = iso.split("-").pop().toUpperCase();
+    if (suffix.length === 2) return suffix;
+  }
+
+  return BRAZIL_STATE_CODES[normalizeText(address.state)] || "";
+}
+
 export default function App() {
   const publicToken = getPublicQuestionarioToken();
   const isPublicQuestionario = Boolean(publicToken);
@@ -585,6 +1089,8 @@ export default function App() {
   const isPublicCanalDenuncias = Boolean(denunciaToken) && !isPublicQuestionario;
   const totemPublicToken = getPublicTotemToken();
   const isPublicTotem = Boolean(totemPublicToken) && !isPublicQuestionario && !isPublicCanalDenuncias;
+  const passwordResetParams = getPasswordResetParams();
+  const isPasswordReset = Boolean(passwordResetParams.uid && passwordResetParams.token);
 
   function getCachedUser() {
     try {
@@ -597,6 +1103,8 @@ export default function App() {
 
   const [email, setEmail] = useState(""), [password, setPassword] = useState(""), [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || "");
   const [user, setUser] = useState(getCachedUser()), [loading, setLoading] = useState(false), [error, setError] = useState("");
+  const [forgotOpen, setForgotOpen] = useState(false), [forgotEmail, setForgotEmail] = useState(""), [forgotLoading, setForgotLoading] = useState(false), [forgotErr, setForgotErr] = useState(""), [forgotOk, setForgotOk] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState(""), [resetConfirmPassword, setResetConfirmPassword] = useState(""), [resetLoading, setResetLoading] = useState(false), [resetErr, setResetErr] = useState(""), [resetOk, setResetOk] = useState("");
   function getCachedSection() {
     return localStorage.getItem(SECTION_CACHE_KEY) || "dashboard";
   }
@@ -613,6 +1121,8 @@ export default function App() {
   const [cfgTecForm, setCfgTecForm] = useState({ id: null, nome: "", formacao: "", registro: "" });
   const [cfgTecModalOpen, setCfgTecModalOpen] = useState(false);
   const [cfgTecDeleteModal, setCfgTecDeleteModal] = useState({ item: null, saving: false, err: "" });
+  const [sysAccounts, setSysAccounts] = useState([]), [sysAccLoad, setSysAccLoad] = useState(false), [sysAccErr, setSysAccErr] = useState("");
+  const [sysModal, setSysModal] = useState({ type: "", item: null }), [sysName, setSysName] = useState(""), [sysEmail, setSysEmail] = useState(""), [sysPass, setSysPass] = useState(""), [sysActive, setSysActive] = useState(true), [sysSaving, setSysSaving] = useState(false), [sysModalErr, setSysModalErr] = useState("");
 
   const [consultores, setConsultores] = useState([]), [consErr, setConsErr] = useState(""), [consLoad, setConsLoad] = useState(false);
   const [cModal, setCModal] = useState({ type: "", item: null }), [cEmail, setCEmail] = useState(""), [cPass, setCPass] = useState(""), [cActive, setCActive] = useState(true), [cErr, setCErr] = useState(""), [cSaving, setCSaving] = useState(false);
@@ -620,6 +1130,7 @@ export default function App() {
   const [empresas, setEmpresas] = useState([]), [empErr, setEmpErr] = useState(""), [empLoad, setEmpLoad] = useState(false);
   const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("6"), [empPage, setEmpPage] = useState(1);
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false);
+  const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
   const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
@@ -862,6 +1373,7 @@ export default function App() {
   useEffect(() => { if (user && isAdm(user) && section === "consultores") loadConsultores(); }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "dashboard") loadDashboardOverview(); }, [user, section]);
   useEffect(() => { if (user && canEmp(user) && section === "configuracoes") loadConsultoriaConfig(); }, [user, section]);
+  useEffect(() => { if (user && isAdm(user) && section === "configuracoes") loadSystemAccounts(); }, [user, section]);
   useEffect(() => {
     if (user && canEmp(user) && !cfgData && !cfgLoad) loadConsultoriaConfig();
   }, [user]);
@@ -958,7 +1470,7 @@ export default function App() {
 
   const menu = useMemo(() => {
     const m = [{ key: "dashboard", label: "Dashboard", icon: I.dash }];
-    if (user && isAdm(user)) m.push({ key: "consultores", label: "Consultores", icon: I.con });
+    // if (user && isAdm(user)) m.push({ key: "consultores", label: "Consultores", icon: I.con });
     if (user && canEmp(user)) m.push({ key: "empresas", label: "Empresas", icon: I.emp });
     if (user && canEmp(user)) m.push({ key: "campanhas", label: "Campanhas", icon: I.camp });
     if (user && canEmp(user)) m.push({ key: "comparar-campanhas", label: "Comparar campanhas", icon: I.cmp });
@@ -984,7 +1496,7 @@ export default function App() {
   }, [menu, section]);
 
   useEffect(() => {
-    const baseTitle = "NR01 FACIL";
+    const baseTitle = "CISS Consultoria";
     if (isPublicQuestionario) {
       document.title = `${baseTitle} | Questionário`;
       return;
@@ -1119,7 +1631,7 @@ export default function App() {
     const key = String(zone?.key || "").toLowerCase();
     if (key === "green") return "Manter monitoramento e boas praticas.";
     if (key === "yellow") return "Acoes corretivas recomendadas.";
-    return "Acao corretiva imediata recomendada.";
+    return "Ação corretiva imediata recomendada.";
   }
 
   function questionarioBlockName(step) {
@@ -1834,6 +2346,74 @@ export default function App() {
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   }
 
+  function openForgotPassword() {
+    setForgotOpen(true);
+    setForgotEmail(email || "");
+    setForgotErr("");
+    setForgotOk("");
+  }
+
+  function closeForgotPassword() {
+    setForgotOpen(false);
+    setForgotLoading(false);
+    setForgotErr("");
+    setForgotOk("");
+  }
+
+  async function submitForgotPassword(e) {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotErr("");
+    setForgotOk("");
+    try {
+      const r = await fetch(`${API}/auth/password-reset/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setForgotOk(d?.detail || "Se o e-mail estiver cadastrado, enviaremos o link de redefinicao.");
+    } catch (err) {
+      setForgotErr(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
+  async function submitPasswordReset(e) {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetErr("");
+    setResetOk("");
+    try {
+      if (!resetNewPassword || !resetConfirmPassword) throw new Error("Preencha a nova senha e a confirmacao.");
+      if (resetNewPassword.length < 8) throw new Error("A nova senha deve ter pelo menos 8 caracteres.");
+      if (resetNewPassword !== resetConfirmPassword) throw new Error("As senhas informadas nao coincidem.");
+      const r = await fetch(`${API}/auth/password-reset/confirm/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: passwordResetParams.uid,
+          token: passwordResetParams.token,
+          password: resetNewPassword,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setResetOk(d?.detail || "Senha redefinida com sucesso.");
+      setResetNewPassword("");
+      setResetConfirmPassword("");
+      window.setTimeout(() => {
+        window.location.href = "/";
+      }, 1200);
+    } catch (err) {
+      setResetErr(err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
   function logout() {
     localStorage.removeItem(TOKEN_KEY); setToken(""); setUser(null); setEmail(""); setPassword(""); setError("");
     localStorage.removeItem(USER_CACHE_KEY);
@@ -1850,11 +2430,25 @@ export default function App() {
     } catch (err) { setConsErr(err.message); } finally { setConsLoad(false); }
   }
 
+  async function loadSystemAccounts() {
+    setSysAccLoad(true); setSysAccErr("");
+    try {
+      const r = await fetch(`${API}/system-accounts/`, { headers: { Authorization: `Token ${token}` } });
+      if (!r.ok) throw new Error("Nao foi possivel carregar contas do sistema.");
+      setSysAccounts(await r.json());
+    } catch (err) { setSysAccErr(err.message); } finally { setSysAccLoad(false); }
+  }
+
   function openC(type, item = null) {
     setCModal({ type, item }); setCErr("");
     setCEmail(item?.email || ""); setCPass(""); setCActive(item?.is_active ?? true);
   }
   function closeC() { setCModal({ type: "", item: null }); setCErr(""); setCSaving(false); }
+  function openSysModal(type, item = null) {
+    setSysModal({ type, item }); setSysModalErr("");
+    setSysName(item?.full_name || ""); setSysEmail(item?.email || ""); setSysPass(""); setSysActive(item?.is_active ?? true);
+  }
+  function closeSysModal() { setSysModal({ type: "", item: null }); setSysModalErr(""); setSysSaving(false); }
 
   async function saveConsultor(e) {
     e.preventDefault(); setCSaving(true); setCErr("");
@@ -1876,6 +2470,31 @@ export default function App() {
       if (!r.ok) throw new Error("Nao foi possivel excluir consultor.");
       setConsultores((prev) => prev.filter((x) => x.id !== cModal.item.id)); closeC();
     } catch (err) { setCErr(err.message); } finally { setCSaving(false); }
+  }
+
+  async function saveSystemAccount(e) {
+    e.preventDefault(); setSysSaving(true); setSysModalErr("");
+    try {
+      const isEdit = sysModal.type === "edit" && sysModal.item;
+      const payload = { full_name: sysName, email: sysEmail, is_active: sysActive }; if (sysPass) payload.password = sysPass;
+      if (!isEdit && !sysPass) throw new Error("Senha obrigatoria.");
+      const r = await fetch(isEdit ? `${API}/system-accounts/${sysModal.item.id}/` : `${API}/system-accounts/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
+      const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
+      setSysAccounts((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [...prev, d]);
+      closeSysModal();
+    } catch (err) { setSysModalErr(err.message); } finally { setSysSaving(false); }
+  }
+
+  async function delSystemAccount() {
+    if (!sysModal.item) return; setSysSaving(true); setSysModalErr("");
+    try {
+      const r = await fetch(`${API}/system-accounts/${sysModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.detail || "Nao foi possivel excluir a conta do sistema.");
+      }
+      setSysAccounts((prev) => prev.filter((x) => x.id !== sysModal.item.id)); closeSysModal();
+    } catch (err) { setSysModalErr(err.message); } finally { setSysSaving(false); }
   }
 
   async function loadEmpresas() {
@@ -3069,16 +3688,70 @@ export default function App() {
     setEMode("edit"); setEEdit(x); setEStep(1); setEErr(""); setEModalOpen(true);
     setEForm({ ...INIT_EMPRESA, document_type: x.document_type, establishment_type: x.establishment_type, establishment_custom_name: x.establishment_custom_name || "", company_name: x.company_name || "", cnae: x.cnae || "", document_number: x.document_number || "", responsible_name: x.responsible_name || "", responsible_email: x.responsible_user_email || "", responsible_password: "", establishment_name: x.establishment_name || "", evaluation_type: x.evaluation_type || "SETOR", risk_level: x.risk_level || "", employee_count: String(x.employee_count ?? ""), postal_code: x.postal_code || "", state: x.state || "", city: x.city || "", neighborhood: x.neighborhood || "", street: x.street || "", number: x.number || "", complement: x.complement || "", is_active: Boolean(x.is_active) });
   }
-  function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setESaving(false); setEInactivate(null); setEActing(false); setEForm(INIT_EMPRESA); }
-  function eChange(k, v) { setEForm((p) => ({ ...p, [k]: v })); }
+  function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setECepErr(""); setECepLoading(false); setESaving(false); setEInactivate(null); setEActing(false); setEForm(INIT_EMPRESA); }
+  function eChange(k, v) {
+    if (k === "postal_code") {
+      const cep = String(v || "").replace(/\D/g, "").slice(0, 8);
+      setECepErr("");
+      setEForm((p) => ({ ...p, postal_code: cep }));
+      return;
+    }
+    setEForm((p) => ({ ...p, [k]: v }));
+  }
+
+  useEffect(() => {
+    const cep = String(eForm.postal_code || "").replace(/\D/g, "");
+    if (eStep !== 3 || cep.length !== 8) {
+      setECepLoading(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setECepLoading(true);
+      setECepErr("");
+      try {
+        const normalizedQuery = `${cep}, Brazil`;
+        const url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("format", "json");
+        url.searchParams.set("q", normalizedQuery);
+        url.searchParams.set("countrycodes", "br");
+        url.searchParams.set("addressdetails", "1");
+        url.searchParams.set("limit", "15");
+
+        const r = await fetch(url.toString(), {
+          headers: {
+            "Accept": "application/json",
+          },
+        });
+        if (!r.ok) throw new Error("Nao foi possivel consultar o CEP.");
+        const data = await r.json();
+        const item = Array.isArray(data) ? data[0] : null;
+        const address = item?.address || {};
+        if (!item) throw new Error("CEP nao encontrado.");
+
+        setEForm((prev) => ({
+          ...prev,
+          state: resolveBrazilStateCode(address) || prev.state || "",
+          city: address.city || address.town || address.village || address.municipality || prev.city || "",
+          neighborhood: address.suburb || address.neighbourhood || address.quarter || address.city_district || prev.neighborhood || "",
+          street: address.road || address.pedestrian || address.footway || address.residential || prev.street || "",
+        }));
+      } catch (err) {
+        setECepErr(err.message || "Nao foi possivel preencher o endereco automaticamente.");
+      } finally {
+        setECepLoading(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [eForm.postal_code, eStep]);
 
   function checkStep(s) {
     if (s === 1 && !eForm.document_type) return "Selecione CPF ou CNPJ.";
     if (s === 2 && !eForm.establishment_type) return "Selecione o tipo do estabelecimento.";
     if (s === 3) {
-      const req = [["company_name", "Nome da empresa"], ["document_number", eForm.document_type], ["responsible_name", "Nome do responsável"], ["responsible_email", "E-mail do responsavel"], ["establishment_name", "Nome do estabelecimento"], ["evaluation_type", "Tipo de avaliacao"], ["risk_level", "Grau de risco"], ["employee_count", "Numero de funcionarios"], ["postal_code", "CEP"], ["state", "UF"], ["city", "Cidade"], ["neighborhood", "Bairro"], ["street", "Rua"], ["number", "Numero"]];
+      const req = [["company_name", "Nome da empresa"], ["document_number", eForm.document_type], ["responsible_name", "Nome do responsável"], ["responsible_email", "E-mail do responsavel"], ["establishment_name", "Nome do estabelecimento"], ["evaluation_type", "Tipo de avaliacao"], ["risk_level", "Grau de risco"], ["employee_count", "Numero de funcionarios"], ["postal_code", "CEP"], ["state", "UF"], ["city", "Cidade"], ["neighborhood", "Bairro"]];
       for (const [k, l] of req) if (!String(eForm[k] || "").trim()) return `Preencha: ${l}.`;
-      if (eMode === "create" && !eForm.responsible_password.trim()) return "Senha do responsavel e obrigatoria.";
     }
     return "";
   }
@@ -3152,332 +3825,34 @@ export default function App() {
         ? (dashData?.empresas || []).filter((emp) => String(emp.name || "").toLowerCase().includes(termoDash))
         : (dashData?.empresas || [])
       ).slice(0, 8);
-      return (
-        <section className="dashboard-analytics">
-          <div className="dashboard-hero">
-            <div>
-              <h2>Panorama geral</h2>
-            </div>
-            {canEmp(user) && (
-              <div className="dashboard-hero-filter">
-                <div className="relative">
-                  <input
-                    id="dash-empresa-search"
-                    placeholder="Buscar empresa..."
-                    autoComplete="off"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                    value={dashEmpresaBusca}
-                    onFocus={() => setDashEmpresaMenuOpen(true)}
-                    onBlur={() => setTimeout(() => setDashEmpresaMenuOpen(false), 120)}
-                    onChange={(e) => { onDashboardEmpresaBuscaChange(e.target.value); setDashEmpresaMenuOpen(true); }}
-                  />
-                  {dashEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                      <button
-                        key="dash-emp-all"
-                        type="button"
-                        className="flex w-full items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
-                        onMouseDown={(ev) => ev.preventDefault()}
-                        onClick={() => { setDashEmpresaBusca(""); setDashEmpresaMenuOpen(false); onDashboardEmpresaChange(""); }}
-                        style={{ minHeight: 0, marginTop: 0, fontWeight: 400 }}
-                      >
-                        <span className="text-sm text-slate-500">Todas as empresas</span>
-                      </button>
-                      {dashEmpresaSugestoes.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
-                      ) : (
-                        dashEmpresaSugestoes.map((emp) => (
-                          <button
-                            key={`dash-emp-opt-${emp.id}`}
-                            type="button"
-                            className="flex w-full items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
-                            onMouseDown={(ev) => ev.preventDefault()}
-                            onClick={() => selectDashEmpresaBuscaOption(emp)}
-                            style={{ minHeight: 0, marginTop: 0, fontWeight: 400 }}
-                          >
-                            <span className="text-sm font-medium text-slate-800">{emp.name}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="dash-date-range">
-                  <input
-                    type="date"
-                    value={dashDateFrom}
-                    max={dashDateTo || undefined}
-                    onChange={(e) => onDashboardDateChange(e.target.value, dashDateTo)}
-                    title="Data inicial"
-                  />
-                  <span className="dash-date-range-sep">—</span>
-                  <input
-                    type="date"
-                    value={dashDateTo}
-                    min={dashDateFrom || undefined}
-                    onChange={(e) => onDashboardDateChange(dashDateFrom, e.target.value)}
-                    title="Data final"
-                  />
-                  {(dashDateFrom || dashDateTo) && (
-                    <button
-                      type="button"
-                      className="dash-date-range-clear"
-                      title="Limpar período"
-                      onClick={() => onDashboardDateChange("", "")}
-                    >✕</button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {dashLoad && <LoadingSpinner label="Carregando dashboard..." />}
-          {dashErr && <p className="error">{dashErr}</p>}
-
-          {!dashLoad && (() => {
-            const canal = dashData?.canal_overview || {};
-            const denPorStatus = canal.den_por_status || [];
-            const denPorTipo = canal.den_por_tipo || [];
-            const denPorGhe = canal.den_por_ghe || [];
-            const humorPorTipo = canal.humor_por_tipo || [];
-            const humorTrendLabels = canal.humor_trend?.labels || [];
-            const humorTrendValues = canal.humor_trend?.values || [];
-            const maxHumorTrend = Math.max(1, ...humorTrendValues.map((v) => Number(v || 0)));
-            const HUMOR_COLORS = {
-              feliz: '#22c55e', motivado: '#3b82f6', tranquilo: '#06b6d4',
-              cansado: '#f59e0b', estressado: '#ef4444', triste: '#6366f1',
-              ansioso: '#8b5cf6', sobrecarregado: '#f97316',
-            };
-            const HUMOR_EMOJI = {
-              feliz: '😊', motivado: '💪', tranquilo: '😌',
-              cansado: '😔', estressado: '😤', triste: '😢',
-              ansioso: '😰', sobrecarregado: '😩',
-            };
-            const DEN_STATUS_COLORS = { ABERTA: '#ef4444', EM_ANALISE: '#f59e0b', RESOLVIDA: '#22c55e' };
-            const maxDenStatus = Math.max(1, ...denPorStatus.map((d) => d.value));
-            const maxDenTipo = Math.max(1, ...denPorTipo.map((d) => d.value));
-            const maxDenGhe = Math.max(1, ...denPorGhe.map((d) => d.value));
-            const maxHumorTipo = Math.max(1, ...humorPorTipo.map((d) => d.value));
-            return (
-              <>
-                {/* ── Campaign summary cards ── */}
-                <div className="dash-cards">
-                  {cards.map((card) => (
-                    <article key={`dash-card-${card.key}`} className={`dash-card ${card.color || "blue"}`}>
-                      <p>{card.label}</p>
-                      <strong>{card.value}</strong>
-                      <div className="dash-card-line" />
-                    </article>
-                  ))}
-                </div>
-
-                {/* ── Campaign charts ── */}
-                <div className="dash-grid-panels">
-                  <div className="dash-panel">
-                    <div className="dash-panel-header">
-                      <h3 className="dash-panel-title-strong">Distribuição por Segmento</h3>
-                    </div>
-                    {domains.length === 0 ? (
-                      <p className="empty-state">Sem dados suficientes.</p>
-                    ) : (
-                      <div className="dash-domain-bars">
-                        {domains.map((d) => (
-                          <div key={`dash-domain-${d.key}`} className="dash-domain-row">
-                            <span>{d.label}</span>
-                            <div className="dash-bar-track">
-                              <i className={`dash-bar-fill ${reportZoneClass(d.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(d.percent || 0)))}%` }} />
-                            </div>
-                            <b>{fmtPct(d.percent)}</b>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="dash-panel">
-                    <div className="dash-panel-header">
-                      <h3 className="dash-panel-title-strong">Histórico de Avaliações</h3>
-                      <span className="subtitle">Últimos 6 meses</span>
-                    </div>
-                    {histValues.length === 0 ? (
-                      <p className="empty-state">Sem historico.</p>
-                    ) : (
-                      <div className="dash-chart">
-                        <div className="dash-chart-bars">
-                          <div className="dash-chart-grid" aria-hidden="true">
-                            <div className="dash-chart-gridline" />
-                            <div className="dash-chart-gridline" />
-                            <div className="dash-chart-gridline" />
-                            <div className="dash-chart-gridline" />
-                          </div>
-                          {histValues.map((v, idx) => {
-                            const heightPct = Math.max(3, (Number(v || 0) / maxHist) * 100);
-                            return (
-                              <div key={`dash-hist-${idx}`} className="dash-chart-col">
-                                <span className="dash-chart-val">{v > 0 ? v : '\u200b'}</span>
-                                <div className="dash-chart-bar-area">
-                                  <div className="dash-chart-bar" style={{ height: `${heightPct}%` }} title={`${histLabels[idx]}: ${v}`} />
-                                </div>
-                                <span className="dash-chart-label">{histLabels[idx]}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Canal de Denúncias & Totem section ── */}
-                <div className="dash-section-divider">
-                  <span>Canal de Denúncias &amp; Totem</span>
-                </div>
-
-                {/* Canal summary cards */}
-                <div className="dash-cards dash-cards-canal">
-                  <article className="dash-card red">
-                    <p>Denúncias recebidas</p>
-                    <strong>{canal.total_denuncias ?? 0}</strong>
-                    <div className="dash-card-line" />
-                  </article>
-                  <article className="dash-card green">
-                    <p>Registros de humor</p>
-                    <strong>{canal.total_humor ?? 0}</strong>
-                    <div className="dash-card-line" />
-                  </article>
-                  <article className="dash-card yellow">
-                    <p>Pedidos de ajuda</p>
-                    <strong>{canal.total_pedidos_ajuda ?? 0}</strong>
-                    <div className="dash-card-line" />
-                  </article>
-                </div>
-
-                {/* Denúncias por status + por tipo */}
-                <div className="dash-grid-panels">
-                  <div className="dash-panel">
-                    <div className="dash-panel-header">
-                      <h3 className="dash-panel-title-strong">Denúncias por Status</h3>
-                    </div>
-                    {denPorStatus.every((d) => d.value === 0) ? (
-                      <p className="empty-state">Nenhuma denúncia registrada.</p>
-                    ) : (
-                      <div className="dash-domain-bars">
-                        {denPorStatus.map((d) => (
-                          <div key={`den-status-${d.key}`} className="dash-domain-row">
-                            <span>{d.label}</span>
-                            <div className="dash-bar-track">
-                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: DEN_STATUS_COLORS[d.key] || '#94a3b8', width: `${(d.value / maxDenStatus) * 100}%` }} />
-                            </div>
-                            <b>{d.value}</b>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="dash-panel">
-                    <div className="dash-panel-header">
-                      <h3 className="dash-panel-title-strong">Denúncias por Tipo</h3>
-                    </div>
-                    {denPorTipo.length === 0 ? (
-                      <p className="empty-state">Nenhuma denúncia registrada.</p>
-                    ) : (
-                      <div className="dash-domain-bars">
-                        {denPorTipo.map((d, i) => (
-                          <div key={`den-tipo-${i}`} className="dash-domain-row dash-domain-row-wide">
-                            <span>{d.label}</span>
-                            <div className="dash-bar-track">
-                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: '#3b82f6', width: `${(d.value / maxDenTipo) * 100}%` }} />
-                            </div>
-                            <b>{d.value}</b>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Denúncias por GHE + Humor por tipo */}
-                <div className="dash-grid-panels">
-                  <div className="dash-panel">
-                    <div className="dash-panel-header">
-                      <h3 className="dash-panel-title-strong">Denúncias por GHE</h3>
-                    </div>
-                    {denPorGhe.length === 0 ? (
-                      <p className="empty-state">Nenhuma denúncia com GHE informado.</p>
-                    ) : (
-                      <div className="dash-domain-bars">
-                        {denPorGhe.map((d, i) => (
-                          <div key={`den-ghe-${i}`} className="dash-domain-row dash-domain-row-wide">
-                            <span>{d.label}</span>
-                            <div className="dash-bar-track">
-                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: '#8b5cf6', width: `${(d.value / maxDenGhe) * 100}%` }} />
-                            </div>
-                            <b>{d.value}</b>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="dash-panel">
-                    <div className="dash-panel-header">
-                      <h3 className="dash-panel-title-strong">Humor por Tipo</h3>
-                    </div>
-                    {humorPorTipo.length === 0 ? (
-                      <p className="empty-state">Nenhum registro de humor.</p>
-                    ) : (
-                      <div className="dash-domain-bars">
-                        {humorPorTipo.map((d) => (
-                          <div key={`humor-tipo-${d.key}`} className="dash-domain-row dash-domain-row-wide">
-                            <span>{HUMOR_EMOJI[d.key] || ''} {d.label}</span>
-                            <div className="dash-bar-track">
-                              <i style={{ display: 'block', height: '100%', borderRadius: '999px', background: HUMOR_COLORS[d.key] || '#94a3b8', width: `${(d.value / maxHumorTipo) * 100}%` }} />
-                            </div>
-                            <b>{d.value}</b>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Humor trend – últimos 6 meses */}
-                <div className="dash-panel dash-panel-full">
-                  <div className="dash-panel-header">
-                    <h3 className="dash-panel-title-strong">Histórico de Humor</h3>
-                    <span className="subtitle">Últimos 6 meses</span>
-                  </div>
-                  {humorTrendValues.every((v) => v === 0) ? (
-                    <p className="empty-state">Nenhum registro de humor no período.</p>
-                  ) : (
-                    <div className="dash-chart">
-                      <div className="dash-chart-bars">
-                        <div className="dash-chart-grid" aria-hidden="true">
-                          <div className="dash-chart-gridline" /><div className="dash-chart-gridline" />
-                          <div className="dash-chart-gridline" /><div className="dash-chart-gridline" />
-                        </div>
-                        {humorTrendValues.map((v, idx) => {
-                          const heightPct = Math.max(3, (Number(v || 0) / maxHumorTrend) * 100);
-                          return (
-                            <div key={`humor-trend-${idx}`} className="dash-chart-col">
-                              <span className="dash-chart-val">{v > 0 ? v : '\u200b'}</span>
-                              <div className="dash-chart-bar-area">
-                                <div className="dash-chart-bar" style={{ height: `${heightPct}%`, background: 'linear-gradient(180deg,#34d399,#059669)' }} title={`${humorTrendLabels[idx]}: ${v}`} />
-                              </div>
-                              <span className="dash-chart-label">{humorTrendLabels[idx]}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            );
-          })()}
-        </section>
-      );
+      return <DashboardOverviewModern
+        cards={cards}
+        domains={domains}
+        histLabels={histLabels}
+        histValues={histValues}
+        maxHist={maxHist}
+        dashEmpresaBusca={dashEmpresaBusca}
+        dashEmpresaSugestoes={dashEmpresaSugestoes}
+        dashEmpresa={dashEmpresa}
+        dashData={dashData}
+        dashEmpresaMenuOpen={dashEmpresaMenuOpen}
+        setDashEmpresaMenuOpen={setDashEmpresaMenuOpen}
+        onDashboardEmpresaBuscaChange={onDashboardEmpresaBuscaChange}
+        onDashboardEmpresaChange={onDashboardEmpresaChange}
+        selectDashEmpresaBuscaOption={selectDashEmpresaBuscaOption}
+        dashDateFrom={dashDateFrom}
+        dashDateTo={dashDateTo}
+        onDashboardDateChange={onDashboardDateChange}
+        canFilter={canEmp(user)}
+        dashLoad={dashLoad}
+        dashErr={dashErr}
+        loadDashboardOverview={loadDashboardOverview}
+        userName={(user.full_name || user.email || "Usuario").slice(0, 22)}
+        userRoleLabel={isAdm(user) ? "Administrador" : user?.user_type === "CONSULTOR" ? "Consultor" : "Empresa"}
+        goSection={goSection}
+        fmtPct={fmtPct}
+        reportZoneClass={reportZoneClass}
+      />;
     }
     if (section === "consultores" && isAdm(user)) return (
       <section className="admin-panel">
@@ -3506,13 +3881,13 @@ export default function App() {
                   <input value={cfgForm.nome_consultoria} onChange={(e) => setCfgForm((p) => ({ ...p, nome_consultoria: e.target.value }))} />
                 </div>
                 <div>
-                  <label>Responsável legal</label>
+                  <label>Representante legal (relatório/PDF)</label>
                   <input value={cfgForm.responsavel_legal} onChange={(e) => setCfgForm((p) => ({ ...p, responsavel_legal: e.target.value }))} />
                 </div>
-                <div>
+                {/* <div>
                   <label>Representante legal (relatório/PDF)</label>
                   <input value={cfgForm.representante_legal_relatorio} onChange={(e) => setCfgForm((p) => ({ ...p, representante_legal_relatorio: e.target.value }))} />
-                </div>
+                </div> */}
                 <div>
                   <label>Cidade</label>
                   <input value={cfgForm.cidade} onChange={(e) => setCfgForm((p) => ({ ...p, cidade: e.target.value }))} />
@@ -3597,6 +3972,57 @@ export default function App() {
               </table>
             </div>
           </section>
+
+          {isAdm(user) && (
+            <section className="config-card">
+              <div className="config-card-header config-card-header-split">
+                <div>
+                  <h2>Contas do sistema</h2>
+                  <p>Gerencie acessos administrativos. Todas as contas criadas aqui são super usuários.</p>
+                </div>
+                <button type="button" className="config-card-header-action-btn" onClick={() => openSysModal("create")}>Adicionar conta</button>
+              </div>
+
+              {sysAccLoad && <LoadingSpinner label="Carregando contas do sistema..." />}
+              {sysAccErr && <p className="error">{sysAccErr}</p>}
+
+              {!sysAccLoad && (
+                <div className="table-wrap config-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Status</th>
+                        <th>Perfil</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sysAccounts.length === 0 ? (
+                        <tr><td colSpan={6}>Nenhuma conta do sistema cadastrada.</td></tr>
+                      ) : (
+                        sysAccounts.map((acc) => (
+                          <tr key={`sys-acc-${acc.id}`}>
+                            <td>{acc.id}</td>
+                            <td>{acc.full_name || "-"}</td>
+                            <td>{acc.email}</td>
+                            <td>{acc.is_active ? "Ativo" : "Inativo"}</td>
+                            <td>{acc.is_superuser ? "Super usuário" : "Administrador"}</td>
+                            <td className="actions">
+                              <button type="button" onClick={() => openSysModal("edit", acc)}>Editar</button>
+                              <button type="button" className="danger" onClick={() => openSysModal("delete", acc)}>Excluir</button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
 
           {cfgTecDeleteModal.item && (
             <div className="modal-backdrop">
@@ -4602,9 +5028,9 @@ export default function App() {
                                       <strong>Nivel de Risco:</strong> {reportRiskText(item.zone)}
                                     </p>
                                     <p className="conclusion-meta-line">
-                                      <strong>Acao Recomendada:</strong> {reportRecommendedAction(item.zone)}
+                                      <strong>Ação Recomendada:</strong> {reportRecommendedAction(item.zone)}
                                     </p>
-                                    <p className="conclusion-section-label">Medidas de Prevencao/Controle:</p>
+                                    <p className="conclusion-section-label">Medidas de Prevenção/Controle:</p>
                                   </div>
                                   <span className={`report-zone ${reportZoneClass(item.zone)}`}>{fmtScore(item.avg_score)} / 5</span>
                                 </div>
@@ -5017,7 +5443,7 @@ export default function App() {
           || String(emp.document_number || "").toLowerCase().includes(termoCmpEmpresa)
         ))
         : empresas
-      ).slice(0, 8);
+      );
       const campanhasDaEmpresa = cmpEmpresaFiltro
         ? campanhas.filter((cp) => String(cp.empresa) === String(cmpEmpresaFiltro))
         : [];
@@ -6097,7 +6523,7 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>2. Voce gostaria de se identificar? Lembre-se que essa informacao e opcional!</label>
+                <label>2. Você gostaria de se identificar? Lembre-se que essa informação e opcional!</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="totem-den-identificar" checked={denIdentificar === "SIM"} onChange={() => setDenIdentificar("SIM")} />Sim</label>
                   <label className="checkbox-line"><input type="radio" name="totem-den-identificar" checked={denIdentificar === "NAO"} onChange={() => { setDenIdentificar("NAO"); setDenContatoIdentificacao(""); }} />Nao</label>
@@ -6751,20 +7177,77 @@ export default function App() {
 
   return (
     <main className={`app-shell ${user ? "app-shell-auth" : ""}`}>
-      {!user ? (
+      {isPasswordReset ? (
         <div className="login-page">
           <div className="login-panel-left">
             <div className="login-brand">
-              <img src="/logo.png" alt="Logo" className="login-logo" />
-              <h1 className="login-brand-title">Plataforma NR01</h1>
-              <p className="login-brand-sub">Gestão de Riscos Psicossociais no Trabalho</p>
+              <span className="login-brand-chip">CISS Consultoria</span>
+              <div className="login-logo-wrap">
+                <div className="login-logo-ring" />
+                <img src="/logo.png" alt="Logo" className="login-logo" />
+              </div>
+              <div className="login-brand-copy">
+                <p className="login-brand-kicker">Centro integrado em saúde e segurança do trabalho</p>
+                <h1 className="login-brand-title">Redefina sua senha</h1>
+                <p className="login-brand-sub">Cadastre uma nova senha para voltar ao sistema com o mesmo acesso administrativo.</p>
+              </div>
             </div>
             <p className="login-panel-footer">© {new Date().getFullYear()} Ciss Consultoria. Todos os direitos reservados.</p>
           </div>
           <div className="login-panel-right">
             <div className="login-form-wrap">
+              <span className="login-form-chip">Recuperação de acesso</span>
+              <h2 className="login-form-title">Nova senha</h2>
+              <p className="login-form-sub">Use uma senha com pelo menos 8 caracteres. Esse link pode ser usado apenas enquanto estiver valido.</p>
+              <form onSubmit={submitPasswordReset} className="login-form-main">
+                <div className="login-field">
+                  <label htmlFor="reset-password">Nova senha</label>
+                  <input id="reset-password" type="password" value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} placeholder="••••••••" required />
+                </div>
+                <div className="login-field">
+                  <label htmlFor="reset-password-confirm">Confirmar senha</label>
+                  <input id="reset-password-confirm" type="password" value={resetConfirmPassword} onChange={(e) => setResetConfirmPassword(e.target.value)} placeholder="••••••••" required />
+                </div>
+                {resetErr && <p className="error">{resetErr}</p>}
+                {resetOk && <p className="login-inline-note login-inline-note-success">{resetOk}</p>}
+                <button type="submit" className="login-submit-btn" disabled={resetLoading}>
+                  {resetLoading ? "Salvando..." : "Redefinir senha"}
+                </button>
+                <button
+                  type="button"
+                  className="login-secondary-action"
+                  onClick={() => {
+                    window.location.href = "/";
+                  }}
+                >
+                  Voltar para o login
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : !user ? (
+        <div className="login-page">
+          <div className="login-panel-left">
+            <div className="login-brand">
+              <span className="login-brand-chip">CISS Consultoria</span>
+              <div className="login-logo-wrap">
+                <div className="login-logo-ring" />
+                <img src="/logo.png" alt="Logo" className="login-logo" />
+              </div>
+              <div className="login-brand-copy">
+                <p className="login-brand-kicker">Centro integrado em saúde e segurança do trabalho</p>
+                <h1 className="login-brand-title">Plataforma de gestão ocupacional</h1>
+                <p className="login-brand-sub">Acesse um ambiente pensado para acompanhamento técnico, operação segura e comunicação clara com sua equipe.</p>
+              </div>
+            </div>
+            <p className="login-panel-footer">© {new Date().getFullYear()} Ciss Consultoria. Todos os direitos reservados.</p>
+          </div>
+          <div className="login-panel-right">
+            <div className="login-form-wrap">
+              <span className="login-form-chip">Acesso seguro</span>
               <h2 className="login-form-title">Bem-vindo</h2>
-              <p className="login-form-sub">Faça login para acessar o sistema</p>
+              <p className="login-form-sub">Faça login para acessar o sistema e continuar sua operação com agilidade.</p>
               <form onSubmit={login} className="login-form-main">
                 <div className="login-field">
                   <label htmlFor="login-email">E-mail</label>
@@ -6775,6 +7258,9 @@ export default function App() {
                   <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
                 {error && <p className="error">{error}</p>}
+                <button type="button" className="login-secondary-action" onClick={openForgotPassword}>
+                  Esqueci a senha
+                </button>
                 <button type="submit" className="login-submit-btn" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </button>
@@ -6850,14 +7336,34 @@ export default function App() {
             )}
           </aside>
           {sideOpen && <div className="sidebar-overlay" onClick={() => setSideOpen(false)} />}
-          <section className="content-area">
-            <header className="content-header"><div><h1>{currentPageTitle}</h1></div></header>
+          <section className={`content-area ${section === "dashboard" ? "content-area-dashboard" : ""}`}>
+            {section !== "dashboard" && <header className="content-header"><div><h1>{currentPageTitle}</h1></div></header>}
             {renderContent()}
           </section>
         </section>
       )}
 
+      {forgotOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Esqueci minha senha</h3>
+            <p>Informe o e-mail da sua conta. Se ele estiver cadastrado, enviaremos um link para redefinicao.</p>
+            <form onSubmit={submitForgotPassword} className="login-form">
+              <label htmlFor="forgot-email">E-mail</label>
+              <input id="forgot-email" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} placeholder="seu@email.com" required />
+              {forgotErr && <p className="error">{forgotErr}</p>}
+              {forgotOk && <p className="login-inline-note login-inline-note-success">{forgotOk}</p>}
+              <div className="modal-actions">
+                <button type="button" className="secondary" onClick={closeForgotPassword} disabled={forgotLoading}>Cancelar</button>
+                <button type="submit" disabled={forgotLoading}>{forgotLoading ? "Enviando..." : "Enviar link"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {cModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cModal.type === "delete" ? "Excluir consultor" : cModal.type === "edit" ? "Editar consultor" : "Novo consultor"}</h3>{cModal.type === "delete" ? <><p>Deseja realmente excluir {cModal.item?.email}?</p>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeC}>Cancelar</button><button className="danger" onClick={delConsultor} disabled={cSaving}>{cSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveConsultor} className="login-form"><label>E-mail</label><input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} required /><label>Senha {cModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={cPass} onChange={(e) => setCPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={cActive} onChange={(e) => setCActive(e.target.checked)} />Ativo</label>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeC}>Cancelar</button><button disabled={cSaving}>{cSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+      {sysModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sysModal.type === "delete" ? "Excluir conta do sistema" : sysModal.type === "edit" ? "Editar conta do sistema" : "Nova conta do sistema"}</h3>{sysModal.type === "delete" ? <><p>Deseja realmente excluir {sysModal.item?.email}?</p>{sysModalErr && <p className="error">{sysModalErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSysModal}>Cancelar</button><button className="danger" onClick={delSystemAccount} disabled={sysSaving}>{sysSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSystemAccount} className="login-form"><label>Nome</label><input value={sysName} onChange={(e) => setSysName(e.target.value)} placeholder="Nome do usuário" /><label>E-mail</label><input type="email" value={sysEmail} onChange={(e) => setSysEmail(e.target.value)} required /><label>Senha {sysModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={sysPass} onChange={(e) => setSysPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sysActive} onChange={(e) => setSysActive(e.target.checked)} />Ativo</label>{sysModalErr && <p className="error">{sysModalErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSysModal}>Cancelar</button><button disabled={sysSaving}>{sysSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
       {sModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sModal.type === "delete" ? "Excluir setor" : sModal.type === "edit" ? "Editar setor" : "Novo setor"}</h3>{sModal.type === "delete" ? <><p>Deseja realmente excluir o setor {sModal.item?.name}?</p>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSetor}>Cancelar</button><button className="danger" onClick={delSetor} disabled={sSaving}>{sSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSetor} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(sEmpresa || setorEmpresaFiltro))?.company_name || sModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do setor</label><input value={sNome} onChange={(e) => setSNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={sDesc} onChange={(e) => setSDesc(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sAtivo} onChange={(e) => setSAtivo(e.target.checked)} />Ativo</label>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSetor}>Cancelar</button><button type="submit" disabled={sSaving}>{sSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
       {setorInativarModal.item && (
@@ -7086,23 +7592,28 @@ export default function App() {
               )}
 
               {eStep === 3 && <div className="wizard-grid">
-                <div><label>Nome da empresa</label><input value={eForm.company_name} onChange={(e) => eChange("company_name", e.target.value)} /></div>
-                <div><label>CNAE</label><input value={eForm.cnae} onChange={(e) => eChange("cnae", e.target.value)} placeholder="Ex.: 47.11-3-02" /></div>
-                <div><label>{eForm.document_type}</label><input value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
-                <div><label>Nome do responsável</label><input value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
-                <div><label>E-mail do responsável</label><input type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
-                <div><label>Senha do responsável {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div>
-                <div><label>Nome do estabelecimento</label><input value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
-                <div><label>Tipo de avaliação</label><select value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
-                <div><label>Grau de risco</label><select value={eForm.risk_level} onChange={(e) => eChange("risk_level", e.target.value)}><option value="">Selecione</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-                <div><label>Número de funcionários</label><input type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
-                <div><label>CEP</label><input value={eForm.postal_code} onChange={(e) => eChange("postal_code", e.target.value)} /></div>
-                <div><label>UF</label><input maxLength={2} value={eForm.state} onChange={(e) => eChange("state", e.target.value.toUpperCase())} /></div>
-                <div><label>Cidade</label><input value={eForm.city} onChange={(e) => eChange("city", e.target.value)} /></div>
-                <div><label>Bairro</label><input value={eForm.neighborhood} onChange={(e) => eChange("neighborhood", e.target.value)} /></div>
-                <div><label>Rua</label><input value={eForm.street} onChange={(e) => eChange("street", e.target.value)} /></div>
-                <div><label>Número</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
-                <div><label>Complemento</label><input value={eForm.complement} onChange={(e) => eChange("complement", e.target.value)} /></div>
+                <div><label>Nome da empresa (Obrigatório)</label><input value={eForm.company_name} onChange={(e) => eChange("company_name", e.target.value)} /></div>
+                <div><label>CNAE (Opcional)</label><input value={eForm.cnae} onChange={(e) => eChange("cnae", e.target.value)} placeholder="Ex.: 47.11-3-02" /></div>
+                <div><label>{eForm.document_type} (Obrigatório)</label><input value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
+                <div><label>Nome do responsável (Obrigatório)</label><input value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
+                <div><label>E-mail do responsável (Obrigatório)</label><input type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
+                {/* <div><label>Senha do responsável {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div> */}
+                <div><label>Nome do estabelecimento (Obrigatório)</label><input value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
+                <div><label>Tipo de avaliação (Obrigatório)</label><select value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
+                <div><label>Grau de risco (Obrigatório)</label><select value={eForm.risk_level} onChange={(e) => eChange("risk_level", e.target.value)}><option value="">Selecione</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+                <div><label>Número de funcionários (Obrigatório)</label><input type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
+                <div>
+                  <label>CEP (Obrigatório)</label>
+                  <input value={eForm.postal_code} onChange={(e) => eChange("postal_code", e.target.value)} placeholder="Somente numeros" />
+                  {eCepLoading && <small>Buscando endereço automaticamente...</small>}
+                  {!eCepLoading && eCepErr && <small className="error">{eCepErr}</small>}
+                </div>
+                <div><label>UF (Obrigatório)</label><input maxLength={2} value={eForm.state} disabled readOnly /></div>
+                <div><label>Cidade (Obrigatório)</label><input value={eForm.city} disabled readOnly /></div>
+                <div><label>Bairro (Obrigatório)</label><input value={eForm.neighborhood} disabled readOnly /></div>
+                <div><label>Rua (Opcional)</label><input value={eForm.street} disabled readOnly /></div>
+                <div><label>Número (Opcional)</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
+                <div><label>Complemento (Opcional)</label><input value={eForm.complement} onChange={(e) => eChange("complement", e.target.value)} /></div>
               </div>}
 
               {eErr && <p className="error">{eErr}</p>}
