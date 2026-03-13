@@ -7925,8 +7925,8 @@ export default function App() {
               {pubStep === 2 && (
                 <form onSubmit={submitPublicStep2} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step2Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -7952,8 +7952,8 @@ export default function App() {
               {pubStep === 3 && (
                 <form onSubmit={submitPublicStep3} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step3Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -7979,8 +7979,8 @@ export default function App() {
               {pubStep === 4 && (
                 <form onSubmit={submitPublicStep4} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step4Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8006,8 +8006,8 @@ export default function App() {
               {pubStep === 5 && (
                 <form onSubmit={submitPublicStep5} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step5Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8033,8 +8033,8 @@ export default function App() {
               {pubStep === 6 && (
                 <form onSubmit={submitPublicStep6} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step6Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8060,8 +8060,8 @@ export default function App() {
               {pubStep === 7 && (
                 <form onSubmit={submitPublicStep7} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step7Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8087,8 +8087,8 @@ export default function App() {
               {pubStep === 8 && (
                 <form onSubmit={submitPublicStep8} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
                   </div>
                   {step8Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
