@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/+$/, "");
 const TOKEN_KEY = "nr01_token";
 const USER_CACHE_KEY = "nr01_user";
 const SECTION_CACHE_KEY = "nr01_section";
@@ -4457,6 +4457,7 @@ export default function App() {
   async function saveEmpresa(e) {
     e.preventDefault(); const msg = checkStep(3); if (msg) return setEErr(msg);
     setESaving(true); setEErr("");
+    const authToken = token || localStorage.getItem(TOKEN_KEY) || "";
     const form = new FormData();
     form.append("document_type", eForm.document_type);
     form.append("document_number", eForm.document_number);
@@ -4483,7 +4484,12 @@ export default function App() {
     if (eLogoFile) form.append("logo", eLogoFile);
     try {
       const isEdit = eMode === "edit" && eEdit;
-      const r = await fetch(isEdit ? `${API}/empresas/${eEdit.id}/` : `${API}/empresas/`, { method: isEdit ? "PATCH" : "POST", headers: { Authorization: `Token ${token}` }, body: form });
+      const r = await fetch(isEdit ? `${API}/empresas/${eEdit.id}/` : `${API}/empresas/`, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: authToken ? { Authorization: `Token ${authToken}` } : {},
+        credentials: "include",
+        body: form,
+      });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setEmpresas((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]); resourceCacheRef.current.empresas.loaded = true; invalidateResourceCache("dashboard"); closeEmpresa();
     } catch (err) { setEErr(err.message); } finally { setESaving(false); }

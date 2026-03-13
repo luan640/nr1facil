@@ -1,4 +1,5 @@
 from django.urls import reverse
+from datetime import date
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from io import BytesIO
@@ -122,6 +123,27 @@ class ConsultoriaHierarchyTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['email'], self.consultoria.email)
         self.assertEqual(response.data[0]['total_usuarios'], 2)
+
+    def test_admin_can_create_consultoria_with_access_expiration_date(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            reverse('consultor-list-create'),
+            {
+                'full_name': 'Consultoria Beta',
+                'email': 'consultoria-beta@example.com',
+                'password': 'secret123',
+                'is_active': True,
+                'access_expires_on': '2026-12-31',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['access_expires_on'], '2026-12-31')
+
+        consultoria = User.objects.get(email='consultoria-beta@example.com')
+        self.assertEqual(consultoria.access_expires_on, date(2026, 12, 31))
 
     def test_different_consultorias_can_use_same_document_number(self):
         outra_consultoria = User.objects.create_user(

@@ -104,6 +104,7 @@ class ConsultorSerializer(serializers.ModelSerializer):
             full_name=validated_data.get('full_name', ''),
             user_type=UserType.CONSULTOR,
             is_active=validated_data.get('is_active', True),
+            access_expires_on=validated_data.get('access_expires_on'),
             is_staff=False,
             is_superuser=False,
         )
