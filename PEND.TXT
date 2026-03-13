@@ -1,0 +1,2 @@
+Selecionar mais de um ghe | setor | funcao para inativar ou excluir
+Importar via excel ghe | setor | funcao
