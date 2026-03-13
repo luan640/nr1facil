@@ -225,6 +225,85 @@ REPORT_STEP_DEFS = [
     },
 ]
 
+# Ajuste interno da metodologia por pergunta: polaridade define a direção da escala
+# e weight define o peso relativo da pergunta no cálculo do domínio.
+QUESTION_SCORING_CONFIG = {
+    'step2': {
+        'q1': {'polarity': 'negative', 'weight': 1.0},
+        'q2': {'polarity': 'negative', 'weight': 1.0},
+        'q3': {'polarity': 'negative', 'weight': 1.0},
+        'q4': {'polarity': 'negative', 'weight': 1.0},
+        'q5': {'polarity': 'negative', 'weight': 1.0},
+        'q6': {'polarity': 'negative', 'weight': 1.0},
+        'q7': {'polarity': 'negative', 'weight': 1.0},
+        'q8': {'polarity': 'negative', 'weight': 1.0},
+    },
+    'step3': {
+        'q1': {'polarity': 'positive', 'weight': 1.0},
+        'q2': {'polarity': 'positive', 'weight': 1.0},
+        'q3': {'polarity': 'positive', 'weight': 1.0},
+        'q4': {'polarity': 'positive', 'weight': 1.0},
+        'q5': {'polarity': 'positive', 'weight': 1.0},
+        'q6': {'polarity': 'positive', 'weight': 1.0},
+    },
+    'step4': {
+        'q1': {'polarity': 'positive', 'weight': 1.0},
+        'q2': {'polarity': 'positive', 'weight': 1.0},
+        'q3': {'polarity': 'positive', 'weight': 1.0},
+        'q4': {'polarity': 'positive', 'weight': 1.0},
+        'q5': {'polarity': 'positive', 'weight': 1.0},
+    },
+    'step5': {
+        'q1': {'polarity': 'positive', 'weight': 1.0},
+        'q2': {'polarity': 'positive', 'weight': 1.0},
+        'q3': {'polarity': 'positive', 'weight': 1.0},
+        'q4': {'polarity': 'positive', 'weight': 1.0},
+    },
+    'step6': {
+        'q1': {'polarity': 'negative', 'weight': 1.0},
+        'q2': {'polarity': 'negative', 'weight': 1.0},
+        'q3': {'polarity': 'negative', 'weight': 1.0},
+        'q4': {'polarity': 'negative', 'weight': 1.0},
+    },
+    'step7': {
+        'q1': {'polarity': 'positive', 'weight': 1.0},
+        'q2': {'polarity': 'positive', 'weight': 1.0},
+        'q3': {'polarity': 'positive', 'weight': 1.0},
+        'q4': {'polarity': 'positive', 'weight': 1.0},
+        'q5': {'polarity': 'positive', 'weight': 1.0},
+    },
+    'step8': {
+        'q1': {'polarity': 'positive', 'weight': 1.0},
+        'q2': {'polarity': 'positive', 'weight': 1.0},
+        'q3': {'polarity': 'positive', 'weight': 1.0},
+    },
+}
+
+
+def _question_scoring_meta(step_key, field, fallback_orientation='positive'):
+    step_meta = QUESTION_SCORING_CONFIG.get(step_key, {})
+    meta = step_meta.get(field, {})
+    polarity = str(meta.get('polarity') or fallback_orientation or 'positive').lower()
+    if polarity not in ('positive', 'negative'):
+        polarity = 'positive'
+    try:
+        weight = float(meta.get('weight', 1.0) or 1.0)
+    except (TypeError, ValueError):
+        weight = 1.0
+    if weight <= 0:
+        weight = 1.0
+    return {'polarity': polarity, 'weight': weight}
+
+
+def _step_scoring_orientation(step_def):
+    polarities = {
+        _question_scoring_meta(step_def['key'], field, step_def.get('orientation', 'positive'))['polarity']
+        for field in step_def.get('question_fields', [])
+    }
+    if len(polarities) == 1:
+        return next(iter(polarities))
+    return 'mixed'
+
 
 def _report_zone(percent):
     if percent < 40:
@@ -235,19 +314,22 @@ def _report_zone(percent):
 
 
 def _build_step_report(step_def, step1_ids):
-    score_map = FREQUENCY_SCORE_NEGATIVE if step_def['orientation'] == 'negative' else FREQUENCY_SCORE_POSITIVE
     rows = list(step_def['model'].objects.filter(step1_id__in=step1_ids).values(*step_def['question_fields']))
     response_count = len(rows)
     question_reports = []
-    domain_scores = []
+    domain_score_sum = 0.0
+    domain_weight_sum = 0.0
 
     for idx, field in enumerate(step_def['question_fields']):
+        meta = _question_scoring_meta(step_def['key'], field, step_def.get('orientation', 'positive'))
+        score_map = FREQUENCY_SCORE_NEGATIVE if meta['polarity'] == 'negative' else FREQUENCY_SCORE_POSITIVE
         scores = [score_map.get(row.get(field), 0) for row in rows if row.get(field) in score_map]
         avg_score = (sum(scores) / len(scores)) if scores else 0.0
         percent = (avg_score / 5.0) * 100.0 if avg_score else 0.0
         zone = _report_zone(percent)
         if scores:
-            domain_scores.append(avg_score)
+            domain_score_sum += avg_score * meta['weight']
+            domain_weight_sum += meta['weight']
         question_reports.append(
             {
                 'question': step_def['questions'][idx],
@@ -259,13 +341,13 @@ def _build_step_report(step_def, step1_ids):
             }
         )
 
-    domain_avg = (sum(domain_scores) / len(domain_scores)) if domain_scores else 0.0
+    domain_avg = (domain_score_sum / domain_weight_sum) if domain_weight_sum else 0.0
     domain_percent = (domain_avg / 5.0) * 100.0 if domain_avg else 0.0
     return {
         'step': step_def['step'],
         'key': step_def['key'],
         'domain': step_def['domain'],
-        'orientation': step_def['orientation'],
+        'orientation': _step_scoring_orientation(step_def),
         'response_count': response_count,
         'avg_score': round(domain_avg, 2),
         'percent': round(domain_percent, 1),
@@ -3724,7 +3806,7 @@ class EmpresaCanalDenunciasListView(APIView):
         qs = (
             CanalDenuncia.objects
             .filter(empresa=empresa)
-            .select_related('empresa', 'ghe', 'cargo_funcao')
+            .select_related('empresa', 'setor', 'ghe', 'cargo_funcao')
             .prefetch_related('atualizacoes__criado_por')
             .order_by('-created_at')
         )
@@ -3732,6 +3814,7 @@ class EmpresaCanalDenunciasListView(APIView):
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
+            'evaluation_type': empresa.evaluation_type,
             'count': qs.count(),
             'results': serializer.data,
         })
@@ -3747,7 +3830,7 @@ class EmpresaCanalDenunciaDetailView(APIView):
         denuncia = (
             CanalDenuncia.objects
             .filter(id=denuncia_id, empresa=empresa)
-            .select_related('empresa', 'ghe', 'cargo_funcao')
+            .select_related('empresa', 'setor', 'ghe', 'cargo_funcao')
             .prefetch_related('atualizacoes__criado_por')
             .first()
         )
@@ -3787,7 +3870,7 @@ class EmpresaCanalDenunciaAtualizacaoCreateView(APIView):
         denuncia = (
             CanalDenuncia.objects
             .filter(id=denuncia.id)
-            .select_related('empresa', 'ghe', 'cargo_funcao')
+            .select_related('empresa', 'setor', 'ghe', 'cargo_funcao')
             .prefetch_related('atualizacoes__criado_por')
             .first()
         )
@@ -3927,9 +4010,11 @@ def _build_denuncia_pdf_response(denuncia):
     y -= 10 * mm
 
     # ── Details box ──
+    ref_label = 'Setor' if getattr(denuncia.empresa, 'evaluation_type', '') == 'SETOR' else 'GHE'
+    ref_value = denuncia.setor.name if ref_label == 'Setor' and denuncia.setor else (denuncia.ghe.name if denuncia.ghe else '—')
     details_items = [
         ('Tipo de denúncia', denuncia.get_tipo_display() or 'Outros'),
-        ('GHE', denuncia.ghe.name if denuncia.ghe else '—'),
+        (ref_label, ref_value),
         ('Função / Cargo', denuncia.cargo_funcao.name if denuncia.cargo_funcao else '—'),
         ('Vínculo empregatício', 'Sim' if denuncia.possui_vinculo else 'Não'),
         (
@@ -4075,8 +4160,8 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
     now_str = datetime.now().strftime('%d/%m/%Y %H:%M')
     created_local = denuncia.created_at.astimezone()
-    date_str = created_local.strftime('%d/%m/%Y as %H:%M')
-    origem_label = {'LINK': 'Link de denuncia', 'TOTEM': 'Totem'}.get(denuncia.origem, denuncia.origem)
+    date_str = created_local.strftime('%d/%m/%Y às %H:%M')
+    origem_label = {'LINK': 'Link de denúncia', 'TOTEM': 'Totem'}.get(denuncia.origem, denuncia.origem)
 
     page_num = [0]
 
@@ -4089,14 +4174,14 @@ def _build_denuncia_documental_pdf_response(denuncia):
         c.line(mx, h - 16 * mm, w - mx, h - 16 * mm)
         c.setFillColor(black)
         c.setFont('Helvetica-Bold', 10)
-        c.drawString(mx, h - 11.5 * mm, 'RELATORIO DOCUMENTAL - CANAL DE DENUNCIAS')
+        c.drawString(mx, h - 11.5 * mm, 'RELATÓRIO DOCUMENTAL - CANAL DE DENÚNCIAS')
         c.setFont('Helvetica', 8)
-        c.drawRightString(w - mx, h - 11.5 * mm, f'Pagina {page_num[0]}')
+        c.drawRightString(w - mx, h - 11.5 * mm, f'Página {page_num[0]}')
         c.line(mx, 14 * mm, w - mx, 14 * mm)
         c.setFillColor(gray)
         c.setFont('Helvetica', 7)
         c.drawString(mx, 9 * mm, f'Gerado em: {now_str}')
-        c.drawRightString(w - mx, 9 * mm, f'Denuncia #{denuncia.id} | {denuncia.empresa.company_name}')
+        c.drawRightString(w - mx, 9 * mm, f'Denúncia #{denuncia.id} | {denuncia.empresa.company_name}')
 
     def new_page():
         c.showPage()
@@ -4234,9 +4319,9 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
     c.setFillColor(dark)
     c.setFont('Helvetica-Bold', 16)
-    c.drawString(mx, y, f'Denuncia #{denuncia.id}')
+    c.drawString(mx, y, f'Denúncia #{denuncia.id}')
     c.setFont('Helvetica', 9)
-    c.drawRightString(w - mx, y, f'Situacao atual: {status_labels.get(denuncia.status, denuncia.status)}')
+    c.drawRightString(w - mx, y, f'Situação atual: {status_labels.get(denuncia.status, denuncia.status)}')
     y -= 10 * mm
 
     c.setFillColor(gray)
@@ -4246,22 +4331,24 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
     y = draw_identification_card(y)
 
+    ref_label = 'Setor' if getattr(denuncia.empresa, 'evaluation_type', '') == 'SETOR' else 'GHE'
+    ref_value = denuncia.setor.name if ref_label == 'Setor' and denuncia.setor else (denuncia.ghe.name if denuncia.ghe else '-')
     details_items = [
-        ('Tipo de denuncia', denuncia.get_tipo_display() or 'Outros'),
-        ('GHE', denuncia.ghe.name if denuncia.ghe else '-'),
-        ('Funcao / Cargo', denuncia.cargo_funcao.name if denuncia.cargo_funcao else '-'),
-        ('Vinculo empregaticio', 'Sim' if denuncia.possui_vinculo else 'Nao'),
+        ('Tipo de denúncia', denuncia.get_tipo_display() or 'Outros'),
+        (ref_label, ref_value),
+        ('Função / Cargo', denuncia.cargo_funcao.name if denuncia.cargo_funcao else '-'),
+        ('Vínculo empregatício', 'Sim' if denuncia.possui_vinculo else 'Não'),
         (
             'Denunciante identificado',
             ('Sim - ' + denuncia.contato_identificacao)
             if (denuncia.deseja_identificar and denuncia.contato_identificacao)
-            else ('Sim' if denuncia.deseja_identificar else 'Nao'),
+            else ('Sim' if denuncia.deseja_identificar else 'Não'),
         ),
         (
             'Devolutiva solicitada',
             ('Sim - ' + denuncia.email_devolutiva)
             if (denuncia.aceita_devolutiva and denuncia.email_devolutiva)
-            else ('Sim' if denuncia.aceita_devolutiva else 'Nao'),
+            else ('Sim' if denuncia.aceita_devolutiva else 'Não'),
         ),
     ]
 
@@ -4371,7 +4458,7 @@ class EmpresaCanalDenunciaPdfView(APIView):
         denuncia = (
             CanalDenuncia.objects
             .filter(id=denuncia_id, empresa=empresa)
-            .select_related('empresa', 'ghe', 'cargo_funcao')
+            .select_related('empresa', 'setor', 'ghe', 'cargo_funcao')
             .prefetch_related('atualizacoes__criado_por')
             .first()
         )
@@ -5152,311 +5239,436 @@ class CampanhaRelatorioView(APIView):
 
 def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     from datetime import datetime as _dt
+
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-    MARGIN = 18 * mm
+    margin_x = 20 * mm
+    top_y = height - 22 * mm
+    bottom_y = 18 * mm
 
-    DARK = colors.HexColor('#111827')
-    GREEN_H = colors.HexColor('#14532d')
-    BLUE = colors.HexColor('#1d4ed8')
-    BLUE_LIGHT = colors.HexColor('#eff6ff')
-    NAVY = colors.HexColor('#1e3a5f')
-    GRAY = colors.HexColor('#6b7280')
-    GRAY_LIGHT = colors.HexColor('#f8fafc')
-    BORDER = colors.HexColor('#e2e8f0')
-    RED_Z = colors.HexColor('#ef4444')
-    YELLOW_Z = colors.HexColor('#f59e0b')
-    GREEN_Z = colors.HexColor('#22c55e')
+    black = colors.black
+    dark = colors.HexColor('#202020')
+    gray = colors.HexColor('#5a5a5a')
+    light_gray = colors.HexColor('#f5f5f5')
+    border = colors.HexColor('#cfcfcf')
 
-    def zone_color(key):
-        if key == 'green':
-            return GREEN_Z
-        if key == 'yellow':
-            return YELLOW_Z
-        return RED_Z
+    empresa = camp1.empresa
+    generated_at = _dt.now().strftime('%d/%m/%Y %H:%M')
+    page_num = [0]
 
-    def delta_color_fn(d):
-        if d > 0.05:
-            return GREEN_Z
-        if d < -0.05:
-            return RED_Z
-        return GRAY
+    def zone_label(key):
+        mapping = {
+            'green': 'Zona Verde',
+            'yellow': 'Zona Amarela',
+            'red': 'Zona Vermelha',
+        }
+        return mapping.get(str(key or '').lower(), 'Zona Vermelha')
 
-    def delta_str_fn(d):
-        if abs(d) < 0.05:
-            return '='
-        return f'+{d:.1f}%' if d > 0 else f'{d:.1f}%'
+    def delta_str(delta, suffix=''):
+        if abs(delta) < 0.05:
+            return f'0{suffix}'
+        prefix = '+' if delta > 0 else ''
+        return f'{prefix}{delta:.1f}{suffix}'
 
-    def draw_footer(c, page_num):
-        c.setFont('Helvetica', 6.5)
-        c.setFillColor(GRAY)
-        c.drawString(MARGIN, 9 * mm, 'DOCUMENTO CONFIDENCIAL – USO RESTRITO')
-        c.drawRightString(width - MARGIN, 9 * mm, f'Página {page_num}')
-        c.setStrokeColor(BORDER)
-        c.setLineWidth(0.5)
-        c.line(MARGIN, 13 * mm, width - MARGIN, 13 * mm)
-
-    q_col_w = 112 * mm
-    score_col_w = (width - 2 * MARGIN - q_col_w) / 3
-    col_xs = [
-        MARGIN,
-        MARGIN + q_col_w,
-        MARGIN + q_col_w + score_col_w,
-        MARGIN + q_col_w + 2 * score_col_w,
-    ]
-
-    def draw_cmp_row(c, y_row, label, v1_str, v2_str, delta_val, z1_key='', z2_key='', alt=False):
-        row_h = 8 * mm
-        if alt:
-            c.setFillColor(GRAY_LIGHT)
-            c.rect(MARGIN, y_row - row_h, width - 2 * MARGIN, row_h, stroke=0, fill=1)
-        c.setFont('Helvetica', 7.5)
-        c.setFillColor(DARK)
-        c.drawString(col_xs[0] + 2 * mm, y_row - 5.5 * mm, label)
-        c.setFont('Helvetica-Bold', 7.5)
-        c.setFillColor(zone_color(z1_key) if z1_key else DARK)
-        c.drawString(col_xs[1] + 2 * mm, y_row - 5.5 * mm, v1_str)
-        c.setFillColor(zone_color(z2_key) if z2_key else DARK)
-        c.drawString(col_xs[2] + 2 * mm, y_row - 5.5 * mm, v2_str)
-        c.setFillColor(delta_color_fn(delta_val))
-        c.drawString(col_xs[3] + 2 * mm, y_row - 5.5 * mm, delta_str_fn(delta_val))
-        c.setStrokeColor(BORDER)
-        c.setLineWidth(0.3)
-        c.line(MARGIN, y_row - row_h, width - MARGIN, y_row - row_h)
-        return y_row - row_h
-
-    # ── PAGE 1: COVER ────────────────────────────────────────────────────────
-    c.setFillColor(DARK)
-    c.rect(0, height - 48 * mm, width, 48 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 14)
-    c.drawCentredString(width / 2, height - 20 * mm, 'RELATÓRIO COMPARATIVO')
-    c.setFont('Helvetica', 9)
-    c.drawCentredString(width / 2, height - 29 * mm, 'AVALIAÇÃO DE FATORES DE RISCO PSICOSSOCIAIS NO TRABALHO')
-    c.setFont('Helvetica', 8)
-    c.setFillColor(colors.HexColor('#9ca3af'))
-    c.drawCentredString(width / 2, height - 38 * mm, camp1.empresa.company_name)
-
-    y = height - 70 * mm
-    box_w = (width - 2 * MARGIN - 8 * mm) / 2
-    box_h = 30 * mm
-    for i, camp in enumerate([camp1, camp2]):
-        bx = MARGIN + i * (box_w + 8 * mm)
-        c.setFillColor(BLUE_LIGHT)
-        c.setStrokeColor(BLUE)
-        c.setLineWidth(0.8)
-        c.roundRect(bx, y - box_h, box_w, box_h, 3 * mm, stroke=1, fill=1)
-        c.setFillColor(BLUE)
-        c.setFont('Helvetica-Bold', 9)
-        c.drawString(bx + 4 * mm, y - 7 * mm, f'CAMPANHA {i + 1}')
-        c.setFillColor(DARK)
-        c.setFont('Helvetica-Bold', 8.5)
-        label = str(camp.title or '')
-        if len(label) > 42:
-            label = label[:40] + '...'
-        c.drawString(bx + 4 * mm, y - 14 * mm, label)
-        c.setFillColor(GRAY)
-        c.setFont('Helvetica', 7.5)
-        camp_date = camp.start_date.strftime('%d/%m/%Y') if getattr(camp, 'start_date', None) else '–'
-        c.drawString(bx + 4 * mm, y - 22 * mm, f'Início: {camp_date}')
-
-    y -= (box_h + 14 * mm)
-    c.setFillColor(GRAY)
-    c.setFont('Helvetica', 8)
-    c.drawCentredString(width / 2, y, f'Relatório gerado em {_dt.now().strftime("%d/%m/%Y às %H:%M")}')
-    draw_footer(c, 1)
-    c.showPage()
-
-    # ── PAGE 2: EXECUTIVE SUMMARY + DOMAIN TABLE ─────────────────────────────
-    page_num = 2
-    y = height - MARGIN
-
-    def section_header(c, y, title):
-        c.setFillColor(DARK)
-        c.rect(MARGIN, y - 7 * mm, width - 2 * MARGIN, 7 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 8)
-        c.drawString(MARGIN + 4 * mm, y - 5 * mm, title)
-        return y - 12 * mm
-
-    def table_header(c, y, labels):
-        c.setFillColor(GREEN_H)
-        c.rect(MARGIN, y - 7 * mm, width - 2 * MARGIN, 7 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 9)
-        for i, lbl in enumerate(labels):
-            c.drawString(col_xs[i] + 2 * mm, y - 5 * mm, lbl)
-        return y - 9 * mm
-
-    y = section_header(c, y, 'RESUMO EXECUTIVO – VISÃO COMPARATIVA')
-    t1 = (camp1.title or 'Campanha 1')[:24]
-    t2 = (camp2.title or 'Campanha 2')[:24]
-    y = table_header(c, y, ['INDICADOR', 'Camp. 1', 'Camp. 2', 'VARIAÇÃO'])
-
-    s1 = bundle1.get('summary', {})
-    s2 = bundle2.get('summary', {})
-    p1 = float(s1.get('company_mean_percent', 0) or 0)
-    p2 = float(s2.get('company_mean_percent', 0) or 0)
-    sc1 = float(s1.get('company_mean_score', 0) or 0)
-    sc2 = float(s2.get('company_mean_score', 0) or 0)
-    r1 = int(s1.get('completed_responses', 0) or 0)
-    r2 = int(s2.get('completed_responses', 0) or 0)
-    sp1 = float(s1.get('sample_percent', 0) or 0)
-    sp2 = float(s2.get('sample_percent', 0) or 0)
-    z1 = (s1.get('company_zone') or {}).get('key', 'red')
-    z2 = (s2.get('company_zone') or {}).get('key', 'red')
-    sz1 = (s1.get('sample_zone') or {}).get('key', 'red')
-    sz2 = (s2.get('sample_zone') or {}).get('key', 'red')
-
-    exec_rows = [
-        ('Média Geral (%)', f'{p1:.1f}%', f'{p2:.1f}%', p2 - p1, z1, z2),
-        ('Score Médio (0–5)', f'{sc1:.2f}', f'{sc2:.2f}', sc2 - sc1, '', ''),
-        ('Respostas Concluídas', str(r1), str(r2), float(r2 - r1), '', ''),
-        ('Amostra da Empresa (%)', f'{sp1:.1f}%', f'{sp2:.1f}%', sp2 - sp1, sz1, sz2),
-    ]
-    for i, row in enumerate(exec_rows):
-        y = draw_cmp_row(c, y, row[0], row[1], row[2], row[3], row[4], row[5], alt=(i % 2 == 1))
-
-    y -= 8 * mm
-
-    # Domain comparison on same page
-    y = section_header(c, y, 'COMPARATIVO POR DOMÍNIO')
-    y = table_header(c, y, ['DOMÍNIO / BLOCO', 'Camp. 1', 'Camp. 2', 'VARIAÇÃO'])
-
-    domains1 = bundle1.get('domains', [])
-    domains2 = bundle2.get('domains', [])
-    d2_by_key = {d['key']: d for d in domains2}
-    for idx, d1 in enumerate(domains1):
-        d2 = d2_by_key.get(d1['key'], {})
-        dp1 = float(d1.get('percent', 0) or 0)
-        dp2 = float(d2.get('percent', 0) or 0) if d2 else 0.0
-        dz1 = (d1.get('zone') or {}).get('key', 'red')
-        dz2 = (d2.get('zone') or {}).get('key', 'red') if d2 else 'red'
-        y = draw_cmp_row(c, y, str(d1.get('domain', '') or ''), f'{dp1:.1f}%', f'{dp2:.1f}%', dp2 - dp1, dz1, dz2, alt=(idx % 2 == 1))
-
-    draw_footer(c, page_num)
-    c.showPage()
-
-    # ── PAGES 3+: PER-DOMAIN QUESTION COMPARISON ─────────────────────────────
-    steps1 = bundle1.get('steps', [])
-    steps2 = bundle2.get('steps', [])
-    s2_by_key = {s['key']: s for s in steps2}
-    STEP_NAMES = {
-        2: 'Demandas', 3: 'Controle', 4: 'Apoio da Gestão',
-        5: 'Suporte dos Colegas', 6: 'Relacionamentos',
-        7: 'Clareza de Papel | Função', 8: 'Gerenciamento de Mudanças',
-    }
-    page_num += 1
-
-    for step in steps1:
-        step2 = s2_by_key.get(step['key'], {})
-        domain_name = str(step.get('domain', '') or STEP_NAMES.get(step.get('step', 0), 'Bloco'))
-        qs1 = step.get('questions', [])
-        qs2 = step2.get('questions', []) if step2 else []
-        q2_by_field = {q['field']: q for q in qs2}
-
-        y = height - MARGIN
-
-        # Block header bar
-        c.setFillColor(DARK)
-        c.rect(MARGIN, y - 8 * mm, width - 2 * MARGIN, 8 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 9)
-        c.drawString(MARGIN + 4 * mm, y - 5.5 * mm, domain_name.upper())
-        y -= 13 * mm
-
-        # Domain average row
-        dp1 = float(step.get('percent', 0) or 0)
-        dp2 = float(step2.get('percent', 0) or 0) if step2 else 0.0
-        dz1 = (step.get('zone') or {}).get('key', 'red')
-        dz2 = (step2.get('zone') or {}).get('key', 'red') if step2 else 'red'
-        c.setFillColor(NAVY)
-        c.rect(MARGIN, y - 8 * mm, width - 2 * MARGIN, 8 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 7.5)
-        c.drawString(MARGIN + 2 * mm, y - 5.5 * mm, 'MÉDIA DO DOMÍNIO')
-        c.setFillColor(zone_color(dz1))
-        c.drawString(col_xs[1] + 2 * mm, y - 5.5 * mm, f'{dp1:.1f}%')
-        c.setFillColor(zone_color(dz2))
-        c.drawString(col_xs[2] + 2 * mm, y - 5.5 * mm, f'{dp2:.1f}%')
-        c.setFillColor(delta_color_fn(dp2 - dp1))
-        c.drawString(col_xs[3] + 2 * mm, y - 5.5 * mm, delta_str_fn(dp2 - dp1))
-        y -= 12 * mm
-
-        # Question table header
-        y = table_header(c, y, ['QUESTÃO', f'Camp. 1 (%)', f'Camp. 2 (%)', 'VAR.'])
-
-        for qi, q1 in enumerate(qs1):
-            q2 = q2_by_field.get(q1.get('field', ''), {})
-            qp1 = float(q1.get('percent', 0) or 0)
-            qp2 = float(q2.get('percent', 0) or 0) if q2 else 0.0
-            qz1 = (q1.get('zone') or {}).get('key', 'red')
-            qz2 = (q2.get('zone') or {}).get('key', 'red') if q2 else 'red'
-            question_text = str(q1.get('question', '') or '')
-
-            # Word-wrap question
-            max_chars = 72
-            q_lines = []
-            words = question_text.split()
-            cur = ''
-            for w in words:
-                if len(cur) + len(w) + (1 if cur else 0) <= max_chars:
-                    cur = (cur + ' ' + w).strip() if cur else w
+    def wrap_text(text, font_name, font_size, max_width):
+        paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        lines = []
+        for para in paragraphs:
+            if not para.strip():
+                lines.append('')
+                continue
+            words = para.split()
+            current = ''
+            for word in words:
+                test = f'{current} {word}'.strip()
+                if c.stringWidth(test, font_name, font_size) <= max_width:
+                    current = test
                 else:
-                    if cur:
-                        q_lines.append(cur)
-                    cur = w
-            if cur:
-                q_lines.append(cur)
-            if not q_lines:
-                q_lines = ['']
+                    if current:
+                        lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+        return lines or ['']
 
-            row_h = max(8 * mm, len(q_lines) * 4.2 * mm + 2 * mm)
+    def draw_logo(x_right, y_top, max_w=38 * mm, max_h=22 * mm):
+        logo = getattr(empresa, 'logo', None)
+        if not logo:
+            return
+        logo_bytes = None
+        try:
+            if hasattr(logo, 'open'):
+                logo.open('rb')
+                logo_bytes = logo.read()
+                logo.close()
+        except Exception:
+            logo_bytes = None
+        if not logo_bytes:
+            try:
+                with urlopen(logo.url, timeout=8) as fp:
+                    logo_bytes = fp.read()
+            except Exception:
+                logo_bytes = None
+        if not logo_bytes:
+            return
+        try:
+            img = ImageReader(BytesIO(logo_bytes))
+            img_w, img_h = img.getSize()
+            scale = min(max_w / img_w, max_h / img_h)
+            draw_w = img_w * scale
+            draw_h = img_h * scale
+            c.drawImage(img, x_right - draw_w, y_top - draw_h, width=draw_w, height=draw_h, mask='auto')
+        except Exception:
+            return
 
-            # New page if needed
-            if y - row_h < 20 * mm:
-                draw_footer(c, page_num)
-                c.showPage()
-                page_num += 1
-                y = height - MARGIN
-                c.setFillColor(colors.HexColor('#334155'))
-                c.rect(MARGIN, y - 6 * mm, width - 2 * MARGIN, 6 * mm, stroke=0, fill=1)
-                c.setFillColor(colors.white)
-                c.setFont('Helvetica-Bold', 9)
-                c.drawString(MARGIN + 2 * mm, y - 4.5 * mm, f'(continuação) {domain_name.upper()}')
-                y -= 9 * mm
-                y = table_header(c, y, ['QUESTÃO', 'Camp. 1 (%)', 'Camp. 2 (%)', 'VAR.'])
+    def draw_page_frame(title):
+        page_num[0] += 1
+        c.setFillColor(colors.white)
+        c.rect(0, 0, width, height, stroke=0, fill=1)
+        c.setStrokeColor(black)
+        c.setLineWidth(0.8)
+        c.line(margin_x, height - 15 * mm, width - margin_x, height - 15 * mm)
+        c.line(margin_x, 14 * mm, width - margin_x, 14 * mm)
+        c.setFillColor(black)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(margin_x, height - 10.5 * mm, title)
+        c.setFont('Helvetica', 7)
+        c.setFillColor(gray)
+        c.drawString(margin_x, 9 * mm, f'Gerado em: {generated_at}')
+        c.drawCentredString(width / 2, 9 * mm, 'Documento confidencial para fins de auditoria e registro interno')
+        c.drawRightString(width - margin_x, 9 * mm, f'Página {page_num[0]}')
+        return top_y
 
-            if qi % 2 == 1:
-                c.setFillColor(GRAY_LIGHT)
-                c.rect(MARGIN, y - row_h, width - 2 * MARGIN, row_h, stroke=0, fill=1)
+    def ensure_space(y, needed, title):
+        if y - needed < bottom_y:
+            c.showPage()
+            return draw_page_frame(title)
+        return y
 
-            # Question text
-            c.setFont('Helvetica', 7)
-            c.setFillColor(DARK)
-            txt_y = y - 4.8 * mm
-            for line in q_lines:
-                c.drawString(MARGIN + 2 * mm, txt_y, line)
-                txt_y -= 4.2 * mm
+    def draw_section_title(y, text):
+        y = ensure_space(y, 14 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(margin_x, y, text.upper())
+        y -= 2.5 * mm
+        c.setStrokeColor(black)
+        c.setLineWidth(0.7)
+        c.line(margin_x, y, width - margin_x, y)
+        return y - 8 * mm
 
-            # Scores
-            c.setFont('Helvetica-Bold', 7.5)
-            c.setFillColor(zone_color(qz1))
-            c.drawString(col_xs[1] + 2 * mm, y - 5 * mm, f'{qp1:.1f}%')
-            c.setFillColor(zone_color(qz2))
-            c.drawString(col_xs[2] + 2 * mm, y - 5 * mm, f'{qp2:.1f}%')
-            c.setFillColor(delta_color_fn(qp2 - qp1))
-            c.drawString(col_xs[3] + 2 * mm, y - 5 * mm, delta_str_fn(qp2 - qp1))
+    def draw_text_lines(y, lines, font='Helvetica', size=9, color=dark, leading=4.8 * mm, x=None):
+        if x is None:
+            x = margin_x
+        c.setFont(font, size)
+        c.setFillColor(color)
+        for line in lines:
+            y = ensure_space(y, leading + 2 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            if line:
+                c.drawString(x, y, line)
+            y -= leading
+        return y
 
-            c.setStrokeColor(BORDER)
-            c.setLineWidth(0.3)
-            c.line(MARGIN, y - row_h, width - MARGIN, y - row_h)
+    def draw_label_value(y, label, value, label_w=34 * mm, x=None, value_x=None, max_width=None):
+        if x is None:
+            x = margin_x
+        if value_x is None:
+            value_x = x + label_w
+        if max_width is None:
+            max_width = width - margin_x - value_x
+        lines = wrap_text(value, 'Helvetica', 9, max_width)
+        y = ensure_space(y, max(8 * mm, len(lines) * 5 * mm + 2 * mm), 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(x, y, label)
+        c.setFont('Helvetica', 9)
+        for idx, line in enumerate(lines):
+            c.drawString(value_x, y - idx * 4.8 * mm, line or '-')
+        return y - max(6 * mm, len(lines) * 4.8 * mm)
+
+    def draw_two_col_table(y, rows, col1='Campo', col2='Informação'):
+        table_w = width - 2 * margin_x
+        col1_w = 44 * mm
+        row_pad = 2.2 * mm
+        header_h = 8 * mm
+        y = ensure_space(y, header_h + 12 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        c.setFillColor(light_gray)
+        c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
+        c.setStrokeColor(border)
+        c.setLineWidth(0.5)
+        c.line(margin_x + col1_w, y - header_h, margin_x + col1_w, y)
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawString(margin_x + 2 * mm, y - 5.2 * mm, col1)
+        c.drawString(margin_x + col1_w + 2 * mm, y - 5.2 * mm, col2)
+        y -= header_h
+
+        for label, value in rows:
+            value_lines = wrap_text(value, 'Helvetica', 8.5, table_w - col1_w - 6 * mm)
+            row_h = max(7 * mm, len(value_lines) * 4.5 * mm + 2 * row_pad)
+            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            c.setFillColor(colors.white)
+            c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
+            c.setStrokeColor(border)
+            c.setLineWidth(0.5)
+            c.line(margin_x + col1_w, y - row_h, margin_x + col1_w, y)
+            c.setFillColor(dark)
+            c.setFont('Helvetica-Bold', 8.5)
+            c.drawString(margin_x + 2 * mm, y - row_pad - 3 * mm, label)
+            c.setFont('Helvetica', 8.5)
+            text_y = y - row_pad - 3 * mm
+            for line in value_lines:
+                c.drawString(margin_x + col1_w + 2 * mm, text_y, line or '-')
+                text_y -= 4.5 * mm
             y -= row_h
+        return y - 8 * mm
 
-        draw_footer(c, page_num)
+    def draw_campaign_table(y, camp_a, camp_b):
+        rows = [
+            ('Título da campanha', camp_a.title or '-', camp_b.title or '-'),
+            ('Período', f"{camp_a.start_date.strftime('%d/%m/%Y') if camp_a.start_date else '-'} a {camp_a.end_date.strftime('%d/%m/%Y') if camp_a.end_date else '-'}", f"{camp_b.start_date.strftime('%d/%m/%Y') if camp_b.start_date else '-'} a {camp_b.end_date.strftime('%d/%m/%Y') if camp_b.end_date else '-'}"),
+            ('Status', camp_a.status or '-', camp_b.status or '-'),
+        ]
+        table_w = width - 2 * margin_x
+        col_label = 46 * mm
+        col_cmp = (table_w - col_label) / 2
+        header_h = 8 * mm
+        y = ensure_space(y, 40 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        c.setFillColor(light_gray)
+        c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
+        c.setStrokeColor(border)
+        c.setLineWidth(0.5)
+        c.line(margin_x + col_label, y - header_h, margin_x + col_label, y)
+        c.line(margin_x + col_label + col_cmp, y - header_h, margin_x + col_label + col_cmp, y)
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawString(margin_x + 2 * mm, y - 5.2 * mm, 'Campo')
+        c.drawString(margin_x + col_label + 2 * mm, y - 5.2 * mm, 'Campanha 1')
+        c.drawString(margin_x + col_label + col_cmp + 2 * mm, y - 5.2 * mm, 'Campanha 2')
+        y -= header_h
+
+        for label, value1, value2 in rows:
+            value1_lines = wrap_text(value1, 'Helvetica', 8.5, col_cmp - 4 * mm)
+            value2_lines = wrap_text(value2, 'Helvetica', 8.5, col_cmp - 4 * mm)
+            row_h = max(7 * mm, max(len(value1_lines), len(value2_lines)) * 4.5 * mm + 4 * mm)
+            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            c.setFillColor(colors.white)
+            c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
+            c.setStrokeColor(border)
+            c.setLineWidth(0.5)
+            c.line(margin_x + col_label, y - row_h, margin_x + col_label, y)
+            c.line(margin_x + col_label + col_cmp, y - row_h, margin_x + col_label + col_cmp, y)
+            c.setFillColor(dark)
+            c.setFont('Helvetica-Bold', 8.5)
+            c.drawString(margin_x + 2 * mm, y - 5 * mm, label)
+            c.setFont('Helvetica', 8.5)
+            for idx, line in enumerate(value1_lines):
+                c.drawString(margin_x + col_label + 2 * mm, y - 5 * mm - idx * 4.5 * mm, line or '-')
+            for idx, line in enumerate(value2_lines):
+                c.drawString(margin_x + col_label + col_cmp + 2 * mm, y - 5 * mm - idx * 4.5 * mm, line or '-')
+            y -= row_h
+        return y - 8 * mm
+
+    def draw_comparison_table(y, rows, headers):
+        table_w = width - 2 * margin_x
+        label_w = 72 * mm
+        value_w = (table_w - label_w) / 3
+        header_h = 8 * mm
+        x1 = margin_x + label_w
+        x2 = x1 + value_w
+        x3 = x2 + value_w
+        y = ensure_space(y, 28 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        c.setFillColor(light_gray)
+        c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
+        c.setStrokeColor(border)
+        c.setLineWidth(0.5)
+        c.line(x1, y - header_h, x1, y)
+        c.line(x2, y - header_h, x2, y)
+        c.line(x3, y - header_h, x3, y)
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 8.2)
+        c.drawString(margin_x + 2 * mm, y - 5.2 * mm, headers[0])
+        c.drawString(x1 + 2 * mm, y - 5.2 * mm, headers[1])
+        c.drawString(x2 + 2 * mm, y - 5.2 * mm, headers[2])
+        c.drawString(x3 + 2 * mm, y - 5.2 * mm, headers[3])
+        y -= header_h
+
+        for label, v1, v2, delta in rows:
+            label_lines = wrap_text(label, 'Helvetica', 8.2, label_w - 4 * mm)
+            row_h = max(7 * mm, len(label_lines) * 4.4 * mm + 4 * mm)
+            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            c.setFillColor(colors.white)
+            c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
+            c.setStrokeColor(border)
+            c.setLineWidth(0.5)
+            c.line(x1, y - row_h, x1, y)
+            c.line(x2, y - row_h, x2, y)
+            c.line(x3, y - row_h, x3, y)
+            c.setFillColor(dark)
+            c.setFont('Helvetica', 8.2)
+            for idx, line in enumerate(label_lines):
+                c.drawString(margin_x + 2 * mm, y - 5 * mm - idx * 4.4 * mm, line or '-')
+            c.setFont('Helvetica', 8.2)
+            c.drawString(x1 + 2 * mm, y - 5 * mm, v1)
+            c.drawString(x2 + 2 * mm, y - 5 * mm, v2)
+            c.drawString(x3 + 2 * mm, y - 5 * mm, delta)
+            y -= row_h
+        return y - 8 * mm
+
+    def company_address():
+        parts = []
+        street = (empresa.street or '').strip()
+        number = (empresa.number or '').strip()
+        neighborhood = (empresa.neighborhood or '').strip()
+        city = (empresa.city or '').strip()
+        state = (empresa.state or '').strip()
+        postal_code = (empresa.postal_code or '').strip()
+        complement = (empresa.complement or '').strip()
+        if street:
+            first = street
+            if number:
+                first = f'{first}, {number}'
+            parts.append(first)
+        if neighborhood:
+            parts.append(neighborhood)
+        city_state = ' / '.join([p for p in [city, state] if p])
+        if city_state:
+            parts.append(city_state)
+        if postal_code:
+            parts.append(f'CEP {postal_code}')
+        if complement:
+            parts.append(complement)
+        return ' - '.join(parts) if parts else '-'
+
+    summary1 = bundle1.get('summary', {}) or {}
+    summary2 = bundle2.get('summary', {}) or {}
+    domains1 = bundle1.get('domains', []) or []
+    domains2 = bundle2.get('domains', []) or []
+    steps1 = bundle1.get('steps', []) or []
+    steps2 = bundle2.get('steps', []) or []
+    domains2_by_key = {d.get('key'): d for d in domains2}
+    steps2_by_key = {s.get('key'): s for s in steps2}
+
+    y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
+    draw_logo(width - margin_x, height - 20 * mm)
+
+    c.setFillColor(black)
+    c.setFont('Helvetica-Bold', 15)
+    # c.drawString(margin_x, y, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+    y -= 7 * mm
+    c.setFont('Helvetica', 9)
+    c.setFillColor(gray)
+    c.drawString(margin_x, y, 'Avaliação comparativa de fatores de risco psicossociais no trabalho')
+    y -= 10 * mm
+
+    y = draw_section_title(y, '1. Identificação da empresa')
+    empresa_rows = [
+        ('Empresa', empresa.company_name or '-'),
+        ('CNPJ', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('Estabelecimento', empresa.establishment_name or '-'),
+        ('Tipo de avaliação', 'Setor' if str(empresa.evaluation_type or '').upper() == 'SETOR' else 'GHE'),
+        ('CNAE', empresa.cnae or '-'),
+        ('Grau de risco', empresa.risk_level or '-'),
+        ('N° de colaboradores', str(empresa.employee_count or 0)),
+        ('Responsável', empresa.responsible_name or '-'),
+        ('Endereço', company_address()),
+    ]
+    y = draw_two_col_table(y, empresa_rows)
+
+    y = draw_section_title(y, '2. Identificação das campanhas comparadas')
+    y = draw_campaign_table(y, camp1, camp2)
+
+    y = draw_section_title(y, '3. Finalidade e critérios do documento')
+    intro_lines = [
+        'Este documento apresenta a comparação técnica entre duas campanhas realizadas para a mesma empresa.',
+        'O objetivo é demonstrar variações de desempenho, amostra respondente e classificação de risco entre os períodos avaliados.',
+        'As informações foram organizadas em seções formais para suportar auditoria, rastreabilidade e arquivo institucional.',
+    ]
+    y = draw_text_lines(y, intro_lines, size=9)
+
+    c.showPage()
+    y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
+
+    y = draw_section_title(y, '4. Resumo executivo comparativo')
+    exec_rows = [
+        (
+            'Média geral da empresa (%)',
+            f"{float(summary1.get('company_mean_percent', 0) or 0):.1f}% | {zone_label((summary1.get('company_zone') or {}).get('key'))}",
+            f"{float(summary2.get('company_mean_percent', 0) or 0):.1f}% | {zone_label((summary2.get('company_zone') or {}).get('key'))}",
+            delta_str(float(summary2.get('company_mean_percent', 0) or 0) - float(summary1.get('company_mean_percent', 0) or 0), '%'),
+        ),
+        (
+            'Score médio (escala de 0 a 5)',
+            f"{float(summary1.get('company_mean_score', 0) or 0):.2f}",
+            f"{float(summary2.get('company_mean_score', 0) or 0):.2f}",
+            delta_str(float(summary2.get('company_mean_score', 0) or 0) - float(summary1.get('company_mean_score', 0) or 0)),
+        ),
+        (
+            'Respostas concluídas',
+            str(int(summary1.get('completed_responses', 0) or 0)),
+            str(int(summary2.get('completed_responses', 0) or 0)),
+            delta_str(float(int(summary2.get('completed_responses', 0) or 0) - int(summary1.get('completed_responses', 0) or 0))),
+        ),
+        (
+            'Amostra respondente (%)',
+            f"{float(summary1.get('sample_percent', 0) or 0):.1f}% | {zone_label((summary1.get('sample_zone') or {}).get('key'))}",
+            f"{float(summary2.get('sample_percent', 0) or 0):.1f}% | {zone_label((summary2.get('sample_zone') or {}).get('key'))}",
+            delta_str(float(summary2.get('sample_percent', 0) or 0) - float(summary1.get('sample_percent', 0) or 0), '%'),
+        ),
+    ]
+    y = draw_comparison_table(y, exec_rows, ['Indicador', 'Campanha 1', 'Campanha 2', 'Variação'])
+
+    y = draw_section_title(y, '5. Comparativo consolidado por domínio')
+    domain_rows = []
+    for d1 in domains1:
+        d2 = domains2_by_key.get(d1.get('key'), {}) or {}
+        p1 = float(d1.get('percent', 0) or 0)
+        p2 = float(d2.get('percent', 0) or 0)
+        label = str(d1.get('domain') or d1.get('label') or d1.get('key') or 'Domínio')
+        domain_rows.append((
+            label,
+            f'{p1:.1f}% | {zone_label((d1.get("zone") or {}).get("key"))}',
+            f'{p2:.1f}% | {zone_label((d2.get("zone") or {}).get("key"))}',
+            delta_str(p2 - p1, '%'),
+        ))
+    y = draw_comparison_table(y, domain_rows, ['Domínio', 'Campanha 1', 'Campanha 2', 'Variação'])
+
+    step_names = {
+        2: 'Demandas',
+        3: 'Controle',
+        4: 'Apoio da Gestão',
+        5: 'Suporte dos Colegas',
+        6: 'Relacionamentos',
+        7: 'Clareza de Papel / Função',
+        8: 'Gerenciamento de Mudanças',
+    }
+
+    for idx, step1 in enumerate(steps1, start=1):
+        step2 = steps2_by_key.get(step1.get('key'), {}) or {}
         c.showPage()
-        page_num += 1
+        y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        domain_name = str(step1.get('domain') or step_names.get(step1.get('step'), f'Domínio {idx}'))
+
+        y = draw_section_title(y, f'6.{idx}. Análise detalhada do domínio - {domain_name}')
+        y = draw_label_value(y, 'Média campanha 1:', f"{float(step1.get('percent', 0) or 0):.1f}% | {zone_label((step1.get('zone') or {}).get('key'))}")
+        y = draw_label_value(y, 'Média campanha 2:', f"{float(step2.get('percent', 0) or 0):.1f}% | {zone_label((step2.get('zone') or {}).get('key'))}")
+        y = draw_label_value(y, 'Variação do domínio:', delta_str(float(step2.get('percent', 0) or 0) - float(step1.get('percent', 0) or 0), '%'))
+        y -= 3 * mm
+
+        question_rows = []
+        q2_by_field = {q.get('field'): q for q in (step2.get('questions') or [])}
+        for q1 in (step1.get('questions') or []):
+            q2 = q2_by_field.get(q1.get('field'), {}) or {}
+            label = str(q1.get('question') or q1.get('field') or 'Pergunta')
+            p1 = float(q1.get('percent', 0) or 0)
+            p2 = float(q2.get('percent', 0) or 0)
+            question_rows.append((
+                label,
+                f'{p1:.1f}% | {zone_label((q1.get("zone") or {}).get("key"))}',
+                f'{p2:.1f}% | {zone_label((q2.get("zone") or {}).get("key"))}',
+                delta_str(p2 - p1, '%'),
+            ))
+        y = draw_comparison_table(y, question_rows, ['Pergunta avaliada', 'Campanha 1', 'Campanha 2', 'Variação'])
 
     c.save()
     pdf = buffer.getvalue()

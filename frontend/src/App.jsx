@@ -1141,16 +1141,19 @@ export default function App() {
   const [selectedSetores, setSelectedSetores] = useState([]);
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
   const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
+  const [setorBulkDeleteModal, setSetorBulkDeleteModal] = useState({ open: false, ids: [], saving: false, err: "" });
   const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1), [setorEmpresaMenuOpen, setSetorEmpresaMenuOpen] = useState(false);
   const [setorNomeBusca, setSetorNomeBusca] = useState("");
   const [ghes, setGhes] = useState([]), [gheErr, setGheErr] = useState(""), [gheLoad, setGheLoad] = useState(false);
   const [selectedGhes, setSelectedGhes] = useState([]);
   const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gSetores, setGSetores] = useState([]), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
+  const [gheBulkDeleteModal, setGheBulkDeleteModal] = useState({ open: false, ids: [], saving: false, err: "" });
   const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false);
   const [gheNomeBusca, setGheNomeBusca] = useState("");
   const [cargos, setCargos] = useState([]), [cargoErr, setCargoErr] = useState(""), [cargoLoad, setCargoLoad] = useState(false);
   const [selectedCargos, setSelectedCargos] = useState([]);
   const [cgModal, setCgModal] = useState({ type: "", item: null }), [cgEmpresa, setCgEmpresa] = useState(""), [cgNome, setCgNome] = useState(""), [cgDesc, setCgDesc] = useState(""), [cgAtivo, setCgAtivo] = useState(true), [cgSetores, setCgSetores] = useState([]), [cgGhes, setCgGhes] = useState([]), [cgErr, setCgErr] = useState(""), [cgSaving, setCgSaving] = useState(false);
+  const [cargoBulkDeleteModal, setCargoBulkDeleteModal] = useState({ open: false, ids: [], saving: false, err: "" });
   const [gSetorBusca, setGSetorBusca] = useState("");
   const [cgSetorBusca, setCgSetorBusca] = useState("");
   const [cgGheBusca, setCgGheBusca] = useState("");
@@ -2287,6 +2290,15 @@ export default function App() {
     setPubS8((prev) => ({ ...prev, [key]: value }));
   }
 
+  function fillPublicStepAnswers(setter, totalQuestions, value) {
+    const next = {};
+    for (let idx = 1; idx <= totalQuestions; idx += 1) {
+      next[`q${idx}`] = value;
+    }
+    setter(next);
+    setPubErr("");
+  }
+
   async function submitPublicStep2(e) {
     e.preventDefault();
     setPubSaving(true); setPubErr(""); setPubOk("");
@@ -2846,7 +2858,16 @@ export default function App() {
     } catch (err) { setSetorErr(err.message); }
   }
 
+  function openSetorBulkDeleteConfirm(ids) {
+    setSetorBulkDeleteModal({ open: true, ids: [...ids], saving: false, err: "" });
+  }
+
+  function closeSetorBulkDeleteConfirm() {
+    setSetorBulkDeleteModal({ open: false, ids: [], saving: false, err: "" });
+  }
+
   async function bulkDeleteSetores(ids) {
+    setSetorBulkDeleteModal((prev) => ({ ...prev, saving: true, err: "" }));
     try {
       const r = await fetch(`${API}/setores/bulk-delete/`, {
         method: "POST",
@@ -2856,7 +2877,11 @@ export default function App() {
       if (!r.ok) throw new Error("Erro ao excluir setores");
       setSetores((prev) => prev.filter((x) => !ids.includes(x.id)));
       setSelectedSetores([]);
-    } catch (err) { setSetorErr(err.message); }
+      closeSetorBulkDeleteConfirm();
+    } catch (err) {
+      setSetorBulkDeleteModal((prev) => ({ ...prev, saving: false, err: err.message }));
+      setSetorErr(err.message);
+    }
   }
 
   function getFilteredSetoresForSelection() {
@@ -3013,7 +3038,16 @@ export default function App() {
     } catch (err) { setGheErr(err.message); }
   }
 
+  function openGheBulkDeleteConfirm(ids) {
+    setGheBulkDeleteModal({ open: true, ids: [...ids], saving: false, err: "" });
+  }
+
+  function closeGheBulkDeleteConfirm() {
+    setGheBulkDeleteModal({ open: false, ids: [], saving: false, err: "" });
+  }
+
   async function bulkDeleteGhes(ids) {
+    setGheBulkDeleteModal((prev) => ({ ...prev, saving: true, err: "" }));
     try {
       const r = await fetch(`${API}/ghes/bulk-delete/`, {
         method: "POST",
@@ -3023,7 +3057,11 @@ export default function App() {
       if (!r.ok) throw new Error("Erro ao excluir GHEs");
       setGhes((prev) => prev.filter((x) => !ids.includes(x.id)));
       setSelectedGhes([]);
-    } catch (err) { setGheErr(err.message); }
+      closeGheBulkDeleteConfirm();
+    } catch (err) {
+      setGheBulkDeleteModal((prev) => ({ ...prev, saving: false, err: err.message }));
+      setGheErr(err.message);
+    }
   }
 
   function getFilteredGhesForSelection() {
@@ -3169,7 +3207,16 @@ export default function App() {
     } catch (err) { setCargoErr(err.message); }
   }
 
+  function openCargoBulkDeleteConfirm(ids) {
+    setCargoBulkDeleteModal({ open: true, ids: [...ids], saving: false, err: "" });
+  }
+
+  function closeCargoBulkDeleteConfirm() {
+    setCargoBulkDeleteModal({ open: false, ids: [], saving: false, err: "" });
+  }
+
   async function bulkDeleteCargos(ids) {
+    setCargoBulkDeleteModal((prev) => ({ ...prev, saving: true, err: "" }));
     try {
       const r = await fetch(`${API}/cargos/bulk-delete/`, {
         method: "POST",
@@ -3179,7 +3226,11 @@ export default function App() {
       if (!r.ok) throw new Error("Erro ao excluir cargos");
       setCargos((prev) => prev.filter((x) => !ids.includes(x.id)));
       setSelectedCargos([]);
-    } catch (err) { setCargoErr(err.message); }
+      closeCargoBulkDeleteConfirm();
+    } catch (err) {
+      setCargoBulkDeleteModal((prev) => ({ ...prev, saving: false, err: err.message }));
+      setCargoErr(err.message);
+    }
   }
 
   function getFilteredCargosForSelection() {
@@ -4972,7 +5023,7 @@ export default function App() {
                   Inativar
                 </button>
                 <button
-                  onClick={() => bulkDeleteSetores(selectedSetores)}
+                  onClick={() => openSetorBulkDeleteConfirm(selectedSetores)}
                   className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-300 bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
                 >
                   Excluir
@@ -5214,7 +5265,7 @@ export default function App() {
                   Inativar
                 </button>
                 <button
-                  onClick={() => bulkDeleteGhes(selectedGhes)}
+                  onClick={() => openGheBulkDeleteConfirm(selectedGhes)}
                   className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-300 bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
                 >
                   Excluir
@@ -5456,7 +5507,7 @@ export default function App() {
                   Inativar
                 </button>
                 <button
-                  onClick={() => bulkDeleteCargos(selectedCargos)}
+                  onClick={() => openCargoBulkDeleteConfirm(selectedCargos)}
                   className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-300 bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
                 >
                   Excluir
@@ -5655,7 +5706,7 @@ export default function App() {
             </div>
           </div>
           <p className="report-step-legend">
-            {step.response_count || 0} respostas | {step.orientation === "negative" ? "domínio com perguntas negativas" : "domínio com perguntas positivas"}
+            {step.response_count || 0} respostas | {step.orientation === "negative" ? "domínio com perguntas negativas" : step.orientation === "mixed" ? "domínio com perguntas mistas" : "domínio com perguntas positivas"}
           </p>
           <div className="report-question-list">
             {(step.questions || []).map((q, idx) => (
@@ -6693,6 +6744,8 @@ export default function App() {
         : empresas
       ).slice(0, 8);
       const denuncias = denListData?.results || [];
+      const denListEvaluationType = String(denListData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
+      const denListRefLabel = denListEvaluationType === "SETOR" ? "Setor" : "GHE";
       const denunciasFiltradas = denListStatusFiltro === "TODAS"
         ? denuncias
         : denuncias.filter((d) => String(d.status || "") === denListStatusFiltro);
@@ -6797,7 +6850,7 @@ export default function App() {
                           <p><span>Vínculo:</span> {d.possui_vinculo ? "Sim" : "Nao"}</p>
                           <p title={d.contato_identificacao || ""}><span>Identificação:</span> {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Não"}</p>
                           <p><span>Tipo:</span> {d.tipo_label || "-"}</p>
-                          <p><span>GHE:</span> {d.ghe_name || "-"}</p>
+                          <p><span>{denListRefLabel}:</span> {denListEvaluationType === "SETOR" ? (d.setor_name || "-") : (d.ghe_name || "-")}</p>
                           <p><span>Função:</span> {d.cargo_name || "-"}</p>
                           <p title={d.email_devolutiva || ""}><span>Devolutiva:</span> {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Não"}</p>
                         </div>
@@ -6815,7 +6868,7 @@ export default function App() {
                           <th>Vínculo</th>
                           <th>Identificação</th>
                           <th>Tipo</th>
-                          <th>GHE</th>
+                          <th>{denListRefLabel}</th>
                           <th>Função</th>
                           <th>Devolutiva</th>
                           <th>Ações</th>
@@ -6837,7 +6890,7 @@ export default function App() {
                               {d.deseja_identificar ? (d.contato_identificacao || "Sim") : "Não"}
                             </td>
                             <td>{d.tipo_label || "-"}</td>
-                            <td>{d.ghe_name || "-"}</td>
+                            <td>{denListEvaluationType === "SETOR" ? (d.setor_name || "-") : (d.ghe_name || "-")}</td>
                             <td>{d.cargo_name || "-"}</td>
                             <td title={d.email_devolutiva || ""}>
                               {d.aceita_devolutiva ? (d.email_devolutiva || "Sim") : "Não"}
@@ -7865,6 +7918,10 @@ export default function App() {
 
               {pubStep === 2 && (
                 <form onSubmit={submitPublicStep2} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step2Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -7888,6 +7945,10 @@ export default function App() {
 
               {pubStep === 3 && (
                 <form onSubmit={submitPublicStep3} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step3Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -7911,6 +7972,10 @@ export default function App() {
 
               {pubStep === 4 && (
                 <form onSubmit={submitPublicStep4} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step4Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -7934,6 +7999,10 @@ export default function App() {
 
               {pubStep === 5 && (
                 <form onSubmit={submitPublicStep5} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step5Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -7957,6 +8026,10 @@ export default function App() {
 
               {pubStep === 6 && (
                 <form onSubmit={submitPublicStep6} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step6Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -7980,6 +8053,10 @@ export default function App() {
 
               {pubStep === 7 && (
                 <form onSubmit={submitPublicStep7} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step7Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -8003,6 +8080,10 @@ export default function App() {
 
               {pubStep === 8 && (
                 <form onSubmit={submitPublicStep8} className="login-form">
+                  <div className="public-actions">
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "NUNCA")}>Responder tudo com Nunca</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "SEMPRE")}>Responder tudo com Sempre</button>
+                  </div>
                   {step8Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
                     return (
@@ -8294,6 +8375,24 @@ export default function App() {
         </div>
       )}
 
+      {setorBulkDeleteModal.open && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Excluir setores</h3>
+            <p>
+              Deseja realmente excluir {setorBulkDeleteModal.ids.length} setor{setorBulkDeleteModal.ids.length > 1 ? "es" : ""} selecionado{setorBulkDeleteModal.ids.length > 1 ? "s" : ""}?
+            </p>
+            {setorBulkDeleteModal.err && <p className="error">{setorBulkDeleteModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={closeSetorBulkDeleteConfirm} disabled={setorBulkDeleteModal.saving}>Cancelar</button>
+              <button type="button" className="danger" onClick={() => bulkDeleteSetores(setorBulkDeleteModal.ids)} disabled={setorBulkDeleteModal.saving}>
+                {setorBulkDeleteModal.saving ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {gModal.type && (
         <div className="modal-backdrop">
           <div className="modal-card">
@@ -8346,7 +8445,43 @@ export default function App() {
         </div>
       )}
 
+      {gheBulkDeleteModal.open && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Excluir GHEs</h3>
+            <p>
+              Deseja realmente excluir {gheBulkDeleteModal.ids.length} GHE{gheBulkDeleteModal.ids.length > 1 ? "s" : ""} selecionado{gheBulkDeleteModal.ids.length > 1 ? "s" : ""}?
+            </p>
+            {gheBulkDeleteModal.err && <p className="error">{gheBulkDeleteModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={closeGheBulkDeleteConfirm} disabled={gheBulkDeleteModal.saving}>Cancelar</button>
+              <button type="button" className="danger" onClick={() => bulkDeleteGhes(gheBulkDeleteModal.ids)} disabled={gheBulkDeleteModal.saving}>
+                {gheBulkDeleteModal.saving ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cgModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cgModal.type === "delete" ? "Excluir cargo" : cgModal.type === "edit" ? "Editar cargo" : "Novo cargo"}</h3>{cgModal.type === "delete" ? <><p>Deseja realmente excluir o cargo {cgModal.item?.name}?</p>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCargo}>Cancelar</button><button className="danger" onClick={delCargo} disabled={cgSaving}>{cgSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveCargo} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(cgEmpresa || cargoEmpresaFiltro))?.company_name || cgModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do cargo</label><input value={cgNome} onChange={(e) => setCgNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={cgDesc} onChange={(e) => setCgDesc(e.target.value)} /><label>Setores</label><input className="multi-pick-search" type="text" placeholder="Buscar setor..." value={cgSetorBusca} onChange={(e) => setCgSetorBusca(e.target.value)} /><div className="multi-pick">{setores.filter((s) => String(s.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).filter((s) => String(s.name || "").toLowerCase().includes(cgSetorBusca.trim().toLowerCase())).map((s) => <label key={`cargo-setor-${s.id}`} className="checkbox-line"><input type="checkbox" checked={cgSetores.includes(s.id)} onChange={() => toggleCargoSetor(s.id)} />{s.name}</label>)}</div><label>GHEs</label><input className="multi-pick-search" type="text" placeholder="Buscar GHE..." value={cgGheBusca} onChange={(e) => setCgGheBusca(e.target.value)} /><div className="multi-pick">{ghes.filter((g) => String(g.empresa) === String(cgEmpresa || cargoEmpresaFiltro)).filter((g) => String(g.name || "").toLowerCase().includes(cgGheBusca.trim().toLowerCase())).map((g) => <label key={`cargo-ghe-${g.id}`} className="checkbox-line"><input type="checkbox" checked={cgGhes.includes(g.id)} onChange={() => toggleCargoGhe(g.id)} />{g.name}</label>)}</div><label className="checkbox-line"><input type="checkbox" checked={cgAtivo} onChange={(e) => setCgAtivo(e.target.checked)} />Ativo</label>{cgErr && <p className="error">{cgErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCargo}>Cancelar</button><button type="submit" disabled={cgSaving}>{cgSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+
+      {cargoBulkDeleteModal.open && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Excluir cargos</h3>
+            <p>
+              Deseja realmente excluir {cargoBulkDeleteModal.ids.length} cargo{cargoBulkDeleteModal.ids.length > 1 ? "s" : ""} selecionado{cargoBulkDeleteModal.ids.length > 1 ? "s" : ""}?
+            </p>
+            {cargoBulkDeleteModal.err && <p className="error">{cargoBulkDeleteModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={closeCargoBulkDeleteConfirm} disabled={cargoBulkDeleteModal.saving}>Cancelar</button>
+              <button type="button" className="danger" onClick={() => bulkDeleteCargos(cargoBulkDeleteModal.ids)} disabled={cargoBulkDeleteModal.saving}>
+                {cargoBulkDeleteModal.saving ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cpModal.type && (
         <div className="modal-backdrop campanha-modal-backdrop">
@@ -8737,6 +8872,11 @@ export default function App() {
           <div className="modal-card modal-card-large">
             <h3>Detalhes da denuncia #{denViewModal.id}</h3>
             <p className="subtitle">{fDate(denViewModal.created_at)}</p>
+            {(() => {
+              const denViewEvaluationType = String(denListData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
+              const denViewRefLabel = denViewEvaluationType === "SETOR" ? "Setor" : "GHE";
+              const denViewRefValue = denViewEvaluationType === "SETOR" ? (denViewModal.setor_name || "-") : (denViewModal.ghe_name || "-");
+              return (
             <div className="denuncia-detail-grid">
               <div className="info-block">
                 <h3>Dados gerais</h3>
@@ -8745,7 +8885,7 @@ export default function App() {
                 <p><strong>Deseja se identificar:</strong> {denViewModal.deseja_identificar ? "Sim" : "Nao"}</p>
                 {denViewModal.contato_identificacao && <p><strong>Contato:</strong> {denViewModal.contato_identificacao}</p>}
                 <p><strong>Tipo da denúncia:</strong> {denViewModal.tipo_label || "-"}</p>
-                <p><strong>GHE:</strong> {denViewModal.ghe_name || "-"}</p>
+                <p><strong>{denViewRefLabel}:</strong> {denViewRefValue}</p>
                 <p><strong>Função:</strong> {denViewModal.cargo_name || "-"}</p>
                 <p><strong>Aceita devolutiva:</strong> {denViewModal.aceita_devolutiva ? "Sim" : "Nao"}</p>
                 {denViewModal.email_devolutiva && <p><strong>E-mail devolutiva:</strong> {denViewModal.email_devolutiva}</p>}
@@ -8777,6 +8917,8 @@ export default function App() {
                 )}
               </div>
             </div>
+              );
+            })()}
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={() => setDenViewModal(null)}>Fechar</button>
             </div>
