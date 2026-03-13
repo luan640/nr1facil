@@ -20,17 +20,24 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 import os
 import uuid
 import copy
+import csv
+import re
 from pathlib import Path
 import boto3
 import math
 import base64
-from io import BytesIO
+from io import BytesIO, StringIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from urllib.request import urlopen
+try:
+    from openpyxl import Workbook, load_workbook
+except Exception:  # pragma: no cover
+    Workbook = None
+    load_workbook = None
 
 from .models import (
     CanalDenuncia,
@@ -88,6 +95,27 @@ REPORT_BODY_TOP_MARGIN = 138.0
 REPORT_BODY_BOTTOM_MARGIN = 57.0
 REPORT_SOURCE_TOP_MARGIN = 18 * mm
 REPORT_SOURCE_BOTTOM_MARGIN = 15 * mm
+
+IMPORT_SAMPLE_ROWS = {
+    'setores': [
+        {'nome': 'Administrativo', 'descricao': 'Setor administrativo', 'ativo': 'Sim'},
+        {'nome': 'Produção', 'descricao': 'Operação principal', 'ativo': 'Sim'},
+    ],
+    'ghes': [
+        {'nome': 'Administrativo', 'descricao': 'GHE administrativo', 'setores': 'Administrativo', 'ativo': 'Sim'},
+        {'nome': 'Operacional', 'descricao': 'GHE operacional', 'setores': 'Produção', 'ativo': 'Sim'},
+    ],
+    'cargos': [
+        {'nome': 'Assistente Administrativo', 'descricao': 'Função de apoio', 'setores': 'Administrativo', 'ghes': 'Administrativo', 'ativo': 'Sim'},
+        {'nome': 'Operador de Máquina', 'descricao': 'Função operacional', 'setores': 'Produção', 'ghes': 'Operacional', 'ativo': 'Sim'},
+    ],
+}
+
+IMPORT_HEADERS = {
+    'setores': ['nome', 'descricao', 'ativo'],
+    'ghes': ['nome', 'descricao', 'setores', 'ativo'],
+    'cargos': ['nome', 'descricao', 'setores', 'ghes', 'ativo'],
+}
 
 REPORT_STEP_DEFS = [
     {
@@ -4371,6 +4399,114 @@ class SetorListCreateView(APIView):
         return Response(SetorSerializer(setor).data, status=status.HTTP_201_CREATED)
 
 
+def _normalize_import_header(value):
+    text = str(value or '').strip().lower()
+    replacements = {
+        'ã': 'a', 'á': 'a', 'à': 'a', 'â': 'a',
+        'é': 'e', 'ê': 'e',
+        'í': 'i',
+        'ó': 'o', 'ô': 'o', 'õ': 'o',
+        'ú': 'u',
+        'ç': 'c',
+    }
+    for src, dest in replacements.items():
+        text = text.replace(src, dest)
+    return re.sub(r'[^a-z0-9]+', '_', text).strip('_')
+
+
+def _parse_import_bool(value, default=True):
+    if value is None or str(value).strip() == '':
+        return default
+    normalized = str(value).strip().lower()
+    return normalized in {'1', 'true', 'sim', 's', 'yes', 'y', 'ativo'}
+
+
+def _split_import_names(value):
+    if value is None:
+        return []
+    parts = re.split(r'[,\n;|]+', str(value))
+    return [part.strip() for part in parts if part and part.strip()]
+
+
+def _read_import_rows(file_obj):
+    name = str(getattr(file_obj, 'name', '') or '').lower()
+    if name.endswith('.csv'):
+        decoded = file_obj.read().decode('utf-8-sig')
+        rows = list(csv.DictReader(StringIO(decoded)))
+    elif name.endswith('.xlsx'):
+        if load_workbook is None:
+            raise ValueError('Importação Excel indisponível. Instale openpyxl.')
+        workbook = load_workbook(filename=BytesIO(file_obj.read()), read_only=True, data_only=True)
+        sheet = workbook.active
+        values = list(sheet.iter_rows(values_only=True))
+        if not values:
+            return []
+        headers = [str(cell or '').strip() for cell in values[0]]
+        rows = []
+        for raw_row in values[1:]:
+            if not any(cell not in (None, '') for cell in raw_row):
+                continue
+            rows.append({headers[idx]: raw_row[idx] for idx in range(len(headers))})
+    else:
+        raise ValueError('Envie um arquivo CSV ou Excel (.xlsx).')
+
+    normalized_rows = []
+    for row in rows:
+        normalized_rows.append({_normalize_import_header(key): value for key, value in row.items()})
+    return normalized_rows
+
+
+def _build_import_template_response(entity_key, export_format):
+    headers = IMPORT_HEADERS[entity_key]
+    sample_rows = IMPORT_SAMPLE_ROWS[entity_key]
+    filename = f'{entity_key}_exemplo'
+
+    if export_format == 'csv':
+        stream = StringIO()
+        writer = csv.DictWriter(stream, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(sample_rows)
+        response = HttpResponse(stream.getvalue().encode('utf-8-sig'), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+        return response
+
+    if export_format == 'xlsx':
+        if Workbook is None:
+            return Response({'detail': 'Exportação Excel indisponível. Instale openpyxl.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = entity_key.capitalize()
+        sheet.append(headers)
+        for row in sample_rows:
+            sheet.append([row.get(header, '') for header in headers])
+        binary = BytesIO()
+        workbook.save(binary)
+        response = HttpResponse(
+            binary.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+        return response
+
+    return Response({'detail': 'Formato inválido. Use csv ou xlsx.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def _resolve_import_empresa(request, empresa_id):
+    queryset = Empresa.objects.all()
+    if request.user.is_superuser or request.user.user_type == UserType.ADM:
+        return queryset.filter(id=empresa_id).first()
+    return queryset.filter(id=empresa_id, consultor=_consultoria_owner_for_user(request.user)).first()
+
+
+def _serialize_import_result(created, updated, errors):
+    return Response({
+        'created': created,
+        'updated': updated,
+        'errors': errors,
+        'processed': created + updated,
+    }, status=status.HTTP_200_OK if (created or updated) else status.HTTP_400_BAD_REQUEST)
+
+
 class SetorDetailView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
@@ -4410,6 +4546,98 @@ class SetorDetailView(APIView):
             return Response({'detail': 'Setor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         setor.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SetorBulkInactivateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'detail': 'Nenhum ID fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = Setor.objects.filter(id__in=ids)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            setores = queryset.all()
+        else:
+            setores = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
+
+        updated_count = setores.update(is_active=False)
+        return Response({'updated': updated_count})
+
+
+class SetorBulkDeleteView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'detail': 'Nenhum ID fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = Setor.objects.filter(id__in=ids)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            setores = queryset.all()
+        else:
+            setores = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
+
+        deleted_count, _ = setores.delete()
+        return Response({'deleted': deleted_count})
+
+
+class SetorImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request):
+        export_format = str(request.query_params.get('format', 'csv')).lower()
+        return _build_import_template_response('setores', export_format)
+
+
+class SetorImportView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        empresa_id = request.data.get('empresa_id')
+        file_obj = request.FILES.get('file')
+        if not empresa_id:
+            return Response({'detail': 'Empresa é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not file_obj:
+            return Response({'detail': 'Arquivo é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+        empresa = _resolve_import_empresa(request, empresa_id)
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            rows = _read_import_rows(file_obj)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = 0
+        updated = 0
+        errors = []
+        for idx, row in enumerate(rows, start=2):
+            payload = {
+                'empresa_id': empresa.id,
+                'name': str(row.get('nome') or row.get('name') or '').strip(),
+                'description': str(row.get('descricao') or row.get('description') or '').strip(),
+                'is_active': _parse_import_bool(row.get('ativo'), default=True),
+            }
+            if not payload['name']:
+                errors.append({'row': idx, 'detail': 'Nome é obrigatório.'})
+                continue
+
+            instance = Setor.objects.filter(empresa=empresa, name=payload['name']).first()
+            serializer = SetorSerializer(instance, data=payload, partial=bool(instance), context={'request': request})
+            if not serializer.is_valid():
+                errors.append({'row': idx, 'detail': serializer.errors})
+                continue
+            serializer.save()
+            if instance:
+                updated += 1
+            else:
+                created += 1
+
+        return _serialize_import_result(created, updated, errors)
 
 
 class GheListCreateView(APIView):
@@ -4479,6 +4707,105 @@ class GheDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class GheBulkInactivateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'detail': 'Nenhum ID fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        queryset = Ghe.objects.filter(id__in=ids)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            ghes = queryset.all()
+        else:
+            ghes = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
+        
+        updated_count = ghes.update(is_active=False)
+        return Response({'updated': updated_count})
+
+
+class GheBulkDeleteView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'detail': 'Nenhum ID fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        queryset = Ghe.objects.filter(id__in=ids)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            ghes = queryset.all()
+        else:
+            ghes = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
+        
+        deleted_count, _ = ghes.delete()
+        return Response({'deleted': deleted_count})
+
+
+class GheImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request):
+        export_format = str(request.query_params.get('format', 'csv')).lower()
+        return _build_import_template_response('ghes', export_format)
+
+
+class GheImportView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        empresa_id = request.data.get('empresa_id')
+        file_obj = request.FILES.get('file')
+        if not empresa_id:
+            return Response({'detail': 'Empresa é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not file_obj:
+            return Response({'detail': 'Arquivo é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+        empresa = _resolve_import_empresa(request, empresa_id)
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            rows = _read_import_rows(file_obj)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        setores_map = {s.name.lower(): s for s in Setor.objects.filter(empresa=empresa)}
+        created = 0
+        updated = 0
+        errors = []
+        for idx, row in enumerate(rows, start=2):
+            payload = {
+                'empresa_id': empresa.id,
+                'name': str(row.get('nome') or row.get('name') or '').strip(),
+                'description': str(row.get('descricao') or row.get('description') or '').strip(),
+                'is_active': _parse_import_bool(row.get('ativo'), default=True),
+            }
+            setor_names = _split_import_names(row.get('setores') or row.get('setor'))
+            missing_setores = [name for name in setor_names if name.lower() not in setores_map]
+            if not payload['name']:
+                errors.append({'row': idx, 'detail': 'Nome é obrigatório.'})
+                continue
+            if missing_setores:
+                errors.append({'row': idx, 'detail': f'Setores não encontrados: {", ".join(missing_setores)}'})
+                continue
+
+            payload['setor_ids'] = [setores_map[name.lower()].id for name in setor_names]
+            instance = Ghe.objects.filter(empresa=empresa, name=payload['name']).first()
+            serializer = GheSerializer(instance, data=payload, partial=bool(instance), context={'request': request})
+            if not serializer.is_valid():
+                errors.append({'row': idx, 'detail': serializer.errors})
+                continue
+            serializer.save()
+            if instance:
+                updated += 1
+            else:
+                created += 1
+
+        return _serialize_import_result(created, updated, errors)
+
+
 class CargoListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
@@ -4546,6 +4873,115 @@ class CargoDetailView(APIView):
             return Response({'detail': 'Cargo nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         cargo.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CargoBulkInactivateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'detail': 'Nenhum ID fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = Cargo.objects.filter(id__in=ids)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            cargos = queryset.all()
+        else:
+            cargos = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
+
+        updated_count = cargos.update(is_active=False)
+        return Response({'updated': updated_count})
+
+
+class CargoBulkDeleteView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'detail': 'Nenhum ID fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = Cargo.objects.filter(id__in=ids)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            cargos = queryset.all()
+        else:
+            cargos = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
+
+        deleted_count, _ = cargos.delete()
+        return Response({'deleted': deleted_count})
+
+
+class CargoImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request):
+        export_format = str(request.query_params.get('format', 'csv')).lower()
+        return _build_import_template_response('cargos', export_format)
+
+
+class CargoImportView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        empresa_id = request.data.get('empresa_id')
+        file_obj = request.FILES.get('file')
+        if not empresa_id:
+            return Response({'detail': 'Empresa é obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not file_obj:
+            return Response({'detail': 'Arquivo é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+        empresa = _resolve_import_empresa(request, empresa_id)
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            rows = _read_import_rows(file_obj)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        setores_map = {s.name.lower(): s for s in Setor.objects.filter(empresa=empresa)}
+        ghes_map = {g.name.lower(): g for g in Ghe.objects.filter(empresa=empresa)}
+        created = 0
+        updated = 0
+        errors = []
+        for idx, row in enumerate(rows, start=2):
+            payload = {
+                'empresa_id': empresa.id,
+                'name': str(row.get('nome') or row.get('name') or '').strip(),
+                'description': str(row.get('descricao') or row.get('description') or '').strip(),
+                'is_active': _parse_import_bool(row.get('ativo'), default=True),
+            }
+            setor_names = _split_import_names(row.get('setores') or row.get('setor'))
+            ghe_names = _split_import_names(row.get('ghes') or row.get('ghe'))
+            missing_setores = [name for name in setor_names if name.lower() not in setores_map]
+            missing_ghes = [name for name in ghe_names if name.lower() not in ghes_map]
+            if not payload['name']:
+                errors.append({'row': idx, 'detail': 'Nome é obrigatório.'})
+                continue
+            if not setor_names and not ghe_names:
+                errors.append({'row': idx, 'detail': 'Informe ao menos um setor ou um GHE.'})
+                continue
+            if missing_setores:
+                errors.append({'row': idx, 'detail': f'Setores não encontrados: {", ".join(missing_setores)}'})
+                continue
+            if missing_ghes:
+                errors.append({'row': idx, 'detail': f'GHEs não encontrados: {", ".join(missing_ghes)}'})
+                continue
+
+            payload['setor_ids'] = [setores_map[name.lower()].id for name in setor_names]
+            payload['ghe_ids'] = [ghes_map[name.lower()].id for name in ghe_names]
+            instance = Cargo.objects.filter(empresa=empresa, name=payload['name']).first()
+            serializer = CargoSerializer(instance, data=payload, partial=bool(instance), context={'request': request})
+            if not serializer.is_valid():
+                errors.append({'row': idx, 'detail': serializer.errors})
+                continue
+            serializer.save()
+            if instance:
+                updated += 1
+            else:
+                created += 1
+
+        return _serialize_import_result(created, updated, errors)
 
 
 class CampanhaListCreateView(APIView):

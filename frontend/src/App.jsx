@@ -101,6 +101,7 @@ const INIT_EMPRESA = {
   responsible_name: "",
   responsible_email: "",
   responsible_password: "",
+  create_default_structure: true,
   establishment_name: "",
   evaluation_type: "SETOR",
   risk_level: "",
@@ -764,7 +765,7 @@ function DashboardOverviewModern({
               <input type="date" value={dashDateTo} min={dashDateFrom || undefined} onChange={(e) => onDashboardDateChange(dashDateFrom, e.target.value)} title="Data final" />
             </div>
             <button type="button" className="dashboard-primary-btn" onClick={() => loadDashboardOverview()}>
-              Aplicar visão
+              Aplicar
             </button>
           </div>
         )}
@@ -1137,18 +1138,24 @@ export default function App() {
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
+  const [selectedSetores, setSelectedSetores] = useState([]);
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
   const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
   const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1), [setorEmpresaMenuOpen, setSetorEmpresaMenuOpen] = useState(false);
+  const [setorNomeBusca, setSetorNomeBusca] = useState("");
   const [ghes, setGhes] = useState([]), [gheErr, setGheErr] = useState(""), [gheLoad, setGheLoad] = useState(false);
+  const [selectedGhes, setSelectedGhes] = useState([]);
   const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gSetores, setGSetores] = useState([]), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
   const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false);
+  const [gheNomeBusca, setGheNomeBusca] = useState("");
   const [cargos, setCargos] = useState([]), [cargoErr, setCargoErr] = useState(""), [cargoLoad, setCargoLoad] = useState(false);
+  const [selectedCargos, setSelectedCargos] = useState([]);
   const [cgModal, setCgModal] = useState({ type: "", item: null }), [cgEmpresa, setCgEmpresa] = useState(""), [cgNome, setCgNome] = useState(""), [cgDesc, setCgDesc] = useState(""), [cgAtivo, setCgAtivo] = useState(true), [cgSetores, setCgSetores] = useState([]), [cgGhes, setCgGhes] = useState([]), [cgErr, setCgErr] = useState(""), [cgSaving, setCgSaving] = useState(false);
   const [gSetorBusca, setGSetorBusca] = useState("");
   const [cgSetorBusca, setCgSetorBusca] = useState("");
   const [cgGheBusca, setCgGheBusca] = useState("");
   const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1), [cargoEmpresaMenuOpen, setCargoEmpresaMenuOpen] = useState(false);
+  const [cargoNomeBusca, setCargoNomeBusca] = useState("");
   const [campanhas, setCampanhas] = useState([]), [campErr, setCampErr] = useState(""), [campLoad, setCampLoad] = useState(false), [campStatusLoadingId, setCampStatusLoadingId] = useState(null);
   const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
   const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false);
@@ -1205,6 +1212,7 @@ export default function App() {
   const [denVinculo, setDenVinculo] = useState(""), [denIdentificar, setDenIdentificar] = useState("NAO"), [denContatoIdentificacao, setDenContatoIdentificacao] = useState(""), [denSetor, setDenSetor] = useState(""), [denGhe, setDenGhe] = useState(""), [denCargo, setDenCargo] = useState(""), [denTipo, setDenTipo] = useState(""), [denRelato, setDenRelato] = useState(""), [denTestemunhas, setDenTestemunhas] = useState(""), [denAceitaDevolutiva, setDenAceitaDevolutiva] = useState("NAO"), [denEmailDevolutiva, setDenEmailDevolutiva] = useState(""), [denArquivo, setDenArquivo] = useState(null);
   const [toasts, setToasts] = useState([]);
   const toastSeqRef = useRef(1);
+  const [importModal, setImportModal] = useState({ open: false, resource: "", label: "", empresaId: "", busy: false, err: "" });
   const resourceCacheRef = useRef({
     consultores: { token: "", loaded: false, promise: null },
     consultoriaUsers: { token: "", loaded: false, promise: null },
@@ -1386,12 +1394,14 @@ export default function App() {
       const init = args[1] || {};
       const url = typeof input === "string" ? input : input?.url || "";
       const method = String(init.method || (typeof Request !== "undefined" && input instanceof Request ? input.method : "GET")).toUpperCase();
+      const headers = new Headers(init.headers || (typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined) || {});
+      const skipToast = headers.get("X-Skip-Toast") === "1";
       const isMutation = ["POST", "PATCH", "PUT", "DELETE"].includes(method);
       const isApiRequest = String(url).includes("/api/");
 
       try {
         const res = await originalFetch(...args);
-        if (!res.ok && isApiRequest) {
+        if (!skipToast && !res.ok && isApiRequest) {
           let message = "";
           try {
             const cloned = res.clone();
@@ -1401,7 +1411,7 @@ export default function App() {
               : (await cloned.text());
           } catch { }
           pushToast(res.status >= 500 ? "error" : "warning", res.status >= 500 ? "Erro" : "Atenção", message || `Falha na requisicao (${res.status}).`);
-        } else if (res.ok && isMutation && isApiRequest) {
+        } else if (!skipToast && res.ok && isMutation && isApiRequest) {
           if (isPublicQuestionarioStepMutation(url, method)) {
             pushToast("success", "Informação salva!");
           } else {
@@ -1410,7 +1420,7 @@ export default function App() {
         }
         return res;
       } catch (err) {
-        if (isApiRequest) pushToast("error", "Erro de rede", err?.message || "Nao foi possivel concluir a requisicao.");
+        if (!skipToast && isApiRequest) pushToast("error", "Erro de rede", err?.message || "Nao foi possivel concluir a requisicao.");
         throw err;
       }
     };
@@ -1605,6 +1615,79 @@ export default function App() {
     if (Array.isArray(v) && v[0]) return String(v[0]);
     if (typeof v === "string") return v;
     return data.detail || "Erro na requisicao.";
+  }
+
+  async function downloadImportTemplate(resource, format) {
+    const anchor = document.createElement("a");
+    anchor.href = `/importacao/${resource}_exemplo.${format}`;
+    anchor.download = `${resource}-exemplo.${format}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  async function importCadastroArquivo(resource, empresaId, file, afterLoad) {
+    if (!empresaId) throw new Error("Selecione uma empresa para importar.");
+    if (!file) return;
+    const form = new FormData();
+    form.append("empresa_id", empresaId);
+    form.append("file", file);
+    const r = await fetch(`${API}/${resource}/import/`, {
+      method: "POST",
+      headers: { Authorization: `Token ${token}`, "X-Skip-Toast": "1" },
+      body: form,
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(pErr(data));
+    const errorCount = Array.isArray(data.errors) ? data.errors.length : 0;
+    const message = `${data.created || 0} criados, ${data.updated || 0} atualizados${errorCount ? `, ${errorCount} com erro` : ""}.`;
+    pushToast(errorCount ? "warning" : "success", "Importação concluída", message);
+    if (errorCount) {
+      const firstError = data.errors[0];
+      pushToast("warning", `Linha ${firstError.row}`, typeof firstError.detail === "string" ? firstError.detail : pErr(firstError.detail));
+    }
+    if (resourceCacheRef.current[resource]) {
+      resourceCacheRef.current[resource].loaded = false;
+      resourceCacheRef.current[resource].promise = null;
+    }
+    await afterLoad?.();
+  }
+
+  function openImportModal(resource, label, empresaId) {
+    setImportModal({ open: true, resource, label, empresaId: String(empresaId || ""), busy: false, err: "" });
+  }
+
+  function closeImportModal() {
+    setImportModal({ open: false, resource: "", label: "", empresaId: "", busy: false, err: "" });
+  }
+
+  async function handleImportTemplateDownload(format) {
+    setImportModal((prev) => ({ ...prev, busy: true, err: "" }));
+    try {
+      await downloadImportTemplate(importModal.resource, format);
+    } catch (err) {
+      setImportModal((prev) => ({ ...prev, err: err.message || "Nao foi possivel baixar o modelo." }));
+    } finally {
+      setImportModal((prev) => ({ ...prev, busy: false }));
+    }
+  }
+
+  async function handleImportModalFile(file) {
+    if (!file) return;
+    const loaders = {
+      setores: loadSetores,
+      ghes: loadGhes,
+      cargos: loadCargos,
+    };
+    setImportModal((prev) => ({ ...prev, busy: true, err: "" }));
+    try {
+      await importCadastroArquivo(importModal.resource, importModal.empresaId, file, loaders[importModal.resource]);
+      closeImportModal();
+    } catch (err) {
+      setImportModal((prev) => ({ ...prev, err: err.message || "Nao foi possivel importar o arquivo." }));
+    } finally {
+      setImportModal((prev) => ({ ...prev, busy: false }));
+    }
   }
 
   function fDate(value) {
@@ -2690,7 +2773,7 @@ export default function App() {
     const cache = resourceCacheRef.current.setores;
     if (cache.loaded && cache.token === token) return;
     if (cache.promise && cache.token === token) return cache.promise;
-    setSetorLoad(true); setSetorErr("");
+    setSetorLoad(true); setSetorErr(""); setSelectedSetores([]);
     cache.token = token;
     try {
       cache.promise = (async () => {
@@ -2750,6 +2833,78 @@ export default function App() {
     } catch (err) { setSetorErr(err.message); throw err; }
   }
 
+  async function bulkInactivateSetores(ids) {
+    try {
+      const r = await fetch(`${API}/setores/bulk-inactivate/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("Erro ao inativar setores");
+      setSetores((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, is_active: false } : x));
+      setSelectedSetores([]);
+    } catch (err) { setSetorErr(err.message); }
+  }
+
+  async function bulkDeleteSetores(ids) {
+    try {
+      const r = await fetch(`${API}/setores/bulk-delete/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("Erro ao excluir setores");
+      setSetores((prev) => prev.filter((x) => !ids.includes(x.id)));
+      setSelectedSetores([]);
+    } catch (err) { setSetorErr(err.message); }
+  }
+
+  function getFilteredSetoresForSelection() {
+    const termoEmpresa = setorEmpresaBusca.trim().toLowerCase();
+    const termoNome = setorNomeBusca.trim().toLowerCase();
+    const empresasPorBusca = termoEmpresa
+      ? empresas
+        .filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa))
+        .map((emp) => String(emp.id))
+      : [];
+
+    const filteredByEmpresa = setorEmpresaFiltro
+      ? setores.filter((s) => String(s.empresa) === String(setorEmpresaFiltro))
+      : termoEmpresa
+        ? setores.filter((s) => empresasPorBusca.includes(String(s.empresa)))
+        : setores;
+
+    return termoNome
+      ? filteredByEmpresa.filter((s) => String(s.name || "").toLowerCase().includes(termoNome))
+      : filteredByEmpresa;
+  }
+
+  function getVisibleSetorIds() {
+    const setoresFiltrados = getFilteredSetoresForSelection();
+    const setorPageSize = 10;
+    const setorTotalPages = Math.max(1, Math.ceil(setoresFiltrados.length / setorPageSize));
+    const setorCurrentPage = Math.min(Math.max(1, setorPage), setorTotalPages);
+    const setorPageStart = (setorCurrentPage - 1) * setorPageSize;
+    const setorPageEnd = setorPageStart + setorPageSize;
+
+    return setoresFiltrados.slice(setorPageStart, setorPageEnd).map((s) => s.id);
+  }
+
+  function toggleSelectSetor(id) {
+    setSelectedSetores((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  function handleSelectAllSetores() {
+    const visibleIds = getVisibleSetorIds();
+    setSelectedSetores((prev) => {
+      const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+      return [...new Set([...prev, ...visibleIds])];
+    });
+  }
+
   function openSetorInativarConfirm(item) {
     setSetorInativarModal({ item, saving: false, err: "" });
   }
@@ -2783,7 +2938,7 @@ export default function App() {
     const cache = resourceCacheRef.current.ghes;
     if (cache.loaded && cache.token === token) return;
     if (cache.promise && cache.token === token) return cache.promise;
-    setGheLoad(true); setGheErr("");
+    setGheLoad(true); setGheErr(""); setSelectedGhes([]);
     cache.token = token;
     try {
       cache.promise = (async () => {
@@ -2845,6 +3000,78 @@ export default function App() {
     } catch (err) { setGheErr(err.message); }
   }
 
+  async function bulkInactivateGhes(ids) {
+    try {
+      const r = await fetch(`${API}/ghes/bulk-inactivate/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("Erro ao inativar GHEs");
+      setGhes((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, is_active: false } : x));
+      setSelectedGhes([]);
+    } catch (err) { setGheErr(err.message); }
+  }
+
+  async function bulkDeleteGhes(ids) {
+    try {
+      const r = await fetch(`${API}/ghes/bulk-delete/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("Erro ao excluir GHEs");
+      setGhes((prev) => prev.filter((x) => !ids.includes(x.id)));
+      setSelectedGhes([]);
+    } catch (err) { setGheErr(err.message); }
+  }
+
+  function getFilteredGhesForSelection() {
+    const termoEmpresa = gheEmpresaBusca.trim().toLowerCase();
+    const termoNome = gheNomeBusca.trim().toLowerCase();
+    const empresasPorBusca = termoEmpresa
+      ? empresas
+        .filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa))
+        .map((emp) => String(emp.id))
+      : [];
+
+    const filteredByEmpresa = gheEmpresaFiltro
+      ? ghes.filter((g) => String(g.empresa) === String(gheEmpresaFiltro))
+      : termoEmpresa
+        ? ghes.filter((g) => empresasPorBusca.includes(String(g.empresa)))
+        : ghes;
+
+    return termoNome
+      ? filteredByEmpresa.filter((g) => String(g.name || "").toLowerCase().includes(termoNome))
+      : filteredByEmpresa;
+  }
+
+  function getVisibleGheIds() {
+    const ghesFiltrados = getFilteredGhesForSelection();
+    const ghePageSize = 10;
+    const gheTotalPages = Math.max(1, Math.ceil(ghesFiltrados.length / ghePageSize));
+    const gheCurrentPage = Math.min(Math.max(1, ghePage), gheTotalPages);
+    const ghePageStart = (gheCurrentPage - 1) * ghePageSize;
+    const ghePageEnd = ghePageStart + ghePageSize;
+
+    return ghesFiltrados.slice(ghePageStart, ghePageEnd).map((g) => g.id);
+  }
+
+  function toggleSelectGhe(id) {
+    setSelectedGhes((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  function handleSelectAllGhes() {
+    const visibleIds = getVisibleGheIds();
+    setSelectedGhes((prev) => {
+      const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+      return [...new Set([...prev, ...visibleIds])];
+    });
+  }
+
   function onGheEmpresaBuscaChange(value) {
     setGheEmpresaBusca(value);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
@@ -2865,7 +3092,7 @@ export default function App() {
     const cache = resourceCacheRef.current.cargos;
     if (cache.loaded && cache.token === token) return;
     if (cache.promise && cache.token === token) return cache.promise;
-    setCargoLoad(true); setCargoErr("");
+    setCargoLoad(true); setCargoErr(""); setSelectedCargos([]);
     cache.token = token;
     try {
       cache.promise = (async () => {
@@ -2927,6 +3154,78 @@ export default function App() {
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setCargos((prev) => prev.map((x) => x.id === d.id ? d : x));
     } catch (err) { setCargoErr(err.message); }
+  }
+
+  async function bulkInactivateCargos(ids) {
+    try {
+      const r = await fetch(`${API}/cargos/bulk-inactivate/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("Erro ao inativar cargos");
+      setCargos((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, is_active: false } : x));
+      setSelectedCargos([]);
+    } catch (err) { setCargoErr(err.message); }
+  }
+
+  async function bulkDeleteCargos(ids) {
+    try {
+      const r = await fetch(`${API}/cargos/bulk-delete/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Token ${token}` },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error("Erro ao excluir cargos");
+      setCargos((prev) => prev.filter((x) => !ids.includes(x.id)));
+      setSelectedCargos([]);
+    } catch (err) { setCargoErr(err.message); }
+  }
+
+  function getFilteredCargosForSelection() {
+    const termoEmpresa = cargoEmpresaBusca.trim().toLowerCase();
+    const termoNome = cargoNomeBusca.trim().toLowerCase();
+    const empresasPorBusca = termoEmpresa
+      ? empresas
+        .filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa))
+        .map((emp) => String(emp.id))
+      : [];
+
+    const filteredByEmpresa = cargoEmpresaFiltro
+      ? cargos.filter((cg) => String(cg.empresa) === String(cargoEmpresaFiltro))
+      : termoEmpresa
+        ? cargos.filter((cg) => empresasPorBusca.includes(String(cg.empresa)))
+        : cargos;
+
+    return termoNome
+      ? filteredByEmpresa.filter((cg) => String(cg.name || "").toLowerCase().includes(termoNome))
+      : filteredByEmpresa;
+  }
+
+  function getVisibleCargoIds() {
+    const cargosFiltrados = getFilteredCargosForSelection();
+    const cargoPageSize = 10;
+    const cargoTotalPages = Math.max(1, Math.ceil(cargosFiltrados.length / cargoPageSize));
+    const cargoCurrentPage = Math.min(Math.max(1, cargoPage), cargoTotalPages);
+    const cargoPageStart = (cargoCurrentPage - 1) * cargoPageSize;
+    const cargoPageEnd = cargoPageStart + cargoPageSize;
+
+    return cargosFiltrados.slice(cargoPageStart, cargoPageEnd).map((cg) => cg.id);
+  }
+
+  function toggleSelectCargo(id) {
+    setSelectedCargos((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  function handleSelectAllCargos() {
+    const visibleIds = getVisibleCargoIds();
+    setSelectedCargos((prev) => {
+      const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+      return [...new Set([...prev, ...visibleIds])];
+    });
   }
 
   function onCargoEmpresaBuscaChange(value) {
@@ -4118,6 +4417,7 @@ export default function App() {
     form.append("evaluation_type", eForm.evaluation_type);
     form.append("responsible_name", eForm.responsible_name);
     form.append("responsible_email", eForm.responsible_email);
+    if (eMode === "create") form.append("create_default_structure", eForm.create_default_structure ? "true" : "false");
     form.append("risk_level", eForm.risk_level);
     form.append("employee_count", String(Number(eForm.employee_count || 0)));
     form.append("postal_code", eForm.postal_code || "");
@@ -4557,6 +4857,7 @@ export default function App() {
     );
     if (section === "setor") {
       const termoEmpresa = setorEmpresaBusca.trim().toLowerCase();
+      const termoNome = setorNomeBusca.trim().toLowerCase();
       const setorEmpresaSugestoes = (setorEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
@@ -4567,17 +4868,21 @@ export default function App() {
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
-      const setoresFiltrados = setorEmpresaFiltro
+      const setoresFiltradosBase = setorEmpresaFiltro
         ? setores.filter((s) => String(s.empresa) === String(setorEmpresaFiltro))
         : termoEmpresa
           ? setores.filter((s) => empresasPorBusca.includes(String(s.empresa)))
           : setores;
+      const setoresFiltrados = termoNome
+        ? setoresFiltradosBase.filter((s) => String(s.name || "").toLowerCase().includes(termoNome))
+        : setoresFiltradosBase;
       const setorPageSize = 10;
       const setorTotalPages = Math.max(1, Math.ceil(setoresFiltrados.length / setorPageSize));
       const setorCurrentPage = Math.min(Math.max(1, setorPage), setorTotalPages);
       const setorPageStart = (setorCurrentPage - 1) * setorPageSize;
       const setorPageEnd = setorPageStart + setorPageSize;
       const setoresVisiveis = setoresFiltrados.slice(setorPageStart, setorPageEnd);
+      const allVisibleSetoresSelected = setoresVisiveis.length > 0 && setoresVisiveis.every((s) => selectedSetores.includes(s.id));
       return (
         <section className="mt-4 space-y-3">
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
@@ -4625,16 +4930,56 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="m-0 text-lg font-semibold text-slate-900"></h2>
-            <button
-              disabled={!setorEmpresaFiltro}
-              title={!setorEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
-              onClick={() => openSetor("create")}
-              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Novo setor
-            </button>
+            <div className="w-full sm:max-w-sm">
+              <input
+                placeholder="Buscar setor pelo nome..."
+                value={setorNomeBusca}
+                onChange={(e) => { setSetorNomeBusca(e.target.value); setSetorPage(1); }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={!setorEmpresaFiltro}
+                title={!setorEmpresaFiltro ? "Selecione uma empresa para importar." : ""}
+                onClick={() => openImportModal("setores", "Setor", setorEmpresaFiltro)}
+              >
+                Importar
+              </button>
+              <button
+                disabled={!setorEmpresaFiltro}
+                title={!setorEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+                onClick={() => openSetor("create")}
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Novo setor
+              </button>
+            </div>
           </div>
+
+          {selectedSetores.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-medium text-amber-800">
+                {selectedSetores.length} setor{selectedSetores.length > 1 ? "es" : ""} selecionado{selectedSetores.length > 1 ? "s" : ""}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bulkInactivateSetores(selectedSetores)}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-200"
+                >
+                  Inativar
+                </button>
+                <button
+                  onClick={() => bulkDeleteSetores(selectedSetores)}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-300 bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          )}
 
           {setorLoad && <LoadingSpinner label="Carregando setores..." />}
           {setorErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{setorErr}</p>}
@@ -4647,6 +4992,13 @@ export default function App() {
                   <div className="space-y-3 sm:hidden">
                     {setoresVisiveis.map((s) => (
                       <article key={`setor-card-${s.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                          <input
+                            type="checkbox"
+                            checked={selectedSetores.includes(s.id)}
+                            onChange={() => toggleSelectSetor(s.id)}
+                          />
+                        </div>
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Setor #{s.id}</p>
@@ -4673,6 +5025,13 @@ export default function App() {
                     <table className="w-full min-w-[760px] text-sm">
                       <thead className="bg-slate-50">
                         <tr className="text-left">
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <input
+                              type="checkbox"
+                              onChange={handleSelectAllSetores}
+                              checked={allVisibleSetoresSelected}
+                            />
+                          </th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Setor</th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
@@ -4683,6 +5042,13 @@ export default function App() {
                       <tbody className="divide-y divide-slate-200 bg-white">
                         {setoresVisiveis.map((s) => (
                           <tr key={s.id} className="align-top">
+                            <td className="px-3 py-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedSetores.includes(s.id)}
+                                onChange={() => toggleSelectSetor(s.id)}
+                              />
+                            </td>
                             <td className="px-3 py-3 font-semibold text-slate-700">{s.id}</td>
                             <td className="px-3 py-3 text-slate-700">{s.name}</td>
                             <td className="px-3 py-3 text-slate-600">{s.empresa_name}</td>
@@ -4732,6 +5098,7 @@ export default function App() {
     }
     if (section === "ghe") {
       const termoEmpresa = gheEmpresaBusca.trim().toLowerCase();
+      const termoNome = gheNomeBusca.trim().toLowerCase();
       const gheEmpresaSugestoes = (gheEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
@@ -4742,17 +5109,21 @@ export default function App() {
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
-      const ghesFiltrados = gheEmpresaFiltro
+      const ghesFiltradosBase = gheEmpresaFiltro
         ? ghes.filter((g) => String(g.empresa) === String(gheEmpresaFiltro))
         : termoEmpresa
           ? ghes.filter((g) => empresasPorBusca.includes(String(g.empresa)))
           : ghes;
+      const ghesFiltrados = termoNome
+        ? ghesFiltradosBase.filter((g) => String(g.name || "").toLowerCase().includes(termoNome))
+        : ghesFiltradosBase;
       const ghePageSize = 10;
       const gheTotalPages = Math.max(1, Math.ceil(ghesFiltrados.length / ghePageSize));
       const gheCurrentPage = Math.min(Math.max(1, ghePage), gheTotalPages);
       const ghePageStart = (gheCurrentPage - 1) * ghePageSize;
       const ghePageEnd = ghePageStart + ghePageSize;
       const ghesVisiveis = ghesFiltrados.slice(ghePageStart, ghePageEnd);
+      const allVisibleGhesSelected = ghesVisiveis.length > 0 && ghesVisiveis.every((g) => selectedGhes.includes(g.id));
 
       return (
         <section className="mt-4 space-y-3">
@@ -4801,16 +5172,56 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="m-0 text-lg font-semibold text-slate-900"></h2>
-            <button
-              disabled={!gheEmpresaFiltro}
-              title={!gheEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
-              onClick={() => openGhe("create")}
-              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Novo GHE
-            </button>
+            <div className="w-full sm:max-w-sm">
+              <input
+                placeholder="Buscar GHE pelo nome..."
+                value={gheNomeBusca}
+                onChange={(e) => { setGheNomeBusca(e.target.value); setGhePage(1); }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={!gheEmpresaFiltro}
+                title={!gheEmpresaFiltro ? "Selecione uma empresa para importar." : ""}
+                onClick={() => openImportModal("ghes", "GHE", gheEmpresaFiltro)}
+              >
+                Importar
+              </button>
+              <button
+                disabled={!gheEmpresaFiltro}
+                title={!gheEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+                onClick={() => openGhe("create")}
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Novo GHE
+              </button>
+            </div>
           </div>
+
+          {selectedGhes.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-medium text-amber-800">
+                {selectedGhes.length} GHE{selectedGhes.length > 1 ? 's' : ''} selecionado{selectedGhes.length > 1 ? 's' : ''}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bulkInactivateGhes(selectedGhes)}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-200"
+                >
+                  Inativar
+                </button>
+                <button
+                  onClick={() => bulkDeleteGhes(selectedGhes)}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-300 bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          )}
 
           {gheLoad && <LoadingSpinner label="Carregando GHEs..." />}
           {gheErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{gheErr}</p>}
@@ -4823,6 +5234,13 @@ export default function App() {
                   <div className="space-y-3 sm:hidden">
                     {ghesVisiveis.map((g) => (
                       <article key={`ghe-card-${g.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                          <input
+                            type="checkbox"
+                            checked={selectedGhes.includes(g.id)}
+                            onChange={() => toggleSelectGhe(g.id)}
+                          />
+                        </div>
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">GHE #{g.id}</p>
@@ -4849,6 +5267,13 @@ export default function App() {
                     <table className="w-full min-w-[760px] text-sm">
                       <thead className="bg-slate-50">
                         <tr className="text-left">
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <input
+                              type="checkbox"
+                              onChange={handleSelectAllGhes}
+                              checked={allVisibleGhesSelected}
+                            />
+                          </th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">GHE</th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
@@ -4859,6 +5284,13 @@ export default function App() {
                       <tbody className="divide-y divide-slate-200 bg-white">
                         {ghesVisiveis.map((g) => (
                           <tr key={g.id} className="align-top">
+                            <td className="px-3 py-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedGhes.includes(g.id)}
+                                onChange={() => toggleSelectGhe(g.id)}
+                              />
+                            </td>
                             <td className="px-3 py-3 font-semibold text-slate-700">{g.id}</td>
                             <td className="px-3 py-3 text-slate-700">{g.name}</td>
                             <td className="px-3 py-3 text-slate-600">{g.empresa_name}</td>
@@ -4908,6 +5340,7 @@ export default function App() {
     }
     if (section === "cargos") {
       const termoEmpresa = cargoEmpresaBusca.trim().toLowerCase();
+      const termoNome = cargoNomeBusca.trim().toLowerCase();
       const cargoEmpresaSugestoes = (cargoEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
@@ -4918,17 +5351,21 @@ export default function App() {
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
-      const cargosFiltrados = cargoEmpresaFiltro
+      const cargosFiltradosBase = cargoEmpresaFiltro
         ? cargos.filter((cg) => String(cg.empresa) === String(cargoEmpresaFiltro))
         : termoEmpresa
           ? cargos.filter((cg) => empresasPorBusca.includes(String(cg.empresa)))
           : cargos;
+      const cargosFiltrados = termoNome
+        ? cargosFiltradosBase.filter((cg) => String(cg.name || "").toLowerCase().includes(termoNome))
+        : cargosFiltradosBase;
       const cargoPageSize = 10;
       const cargoTotalPages = Math.max(1, Math.ceil(cargosFiltrados.length / cargoPageSize));
       const cargoCurrentPage = Math.min(Math.max(1, cargoPage), cargoTotalPages);
       const cargoPageStart = (cargoCurrentPage - 1) * cargoPageSize;
       const cargoPageEnd = cargoPageStart + cargoPageSize;
       const cargosVisiveis = cargosFiltrados.slice(cargoPageStart, cargoPageEnd);
+      const allVisibleCargosSelected = cargosVisiveis.length > 0 && cargosVisiveis.every((cg) => selectedCargos.includes(cg.id));
 
       return (
         <section className="mt-4 space-y-3">
@@ -4977,16 +5414,56 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="m-0 text-lg font-semibold text-slate-900"></h2>
-            <button
-              disabled={!cargoEmpresaFiltro}
-              title={!cargoEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
-              onClick={() => openCargo("create")}
-              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Novo cargo
-            </button>
+            <div className="w-full sm:max-w-sm">
+              <input
+                placeholder="Buscar cargo pelo nome..."
+                value={cargoNomeBusca}
+                onChange={(e) => { setCargoNomeBusca(e.target.value); setCargoPage(1); }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={!cargoEmpresaFiltro}
+                title={!cargoEmpresaFiltro ? "Selecione uma empresa para importar." : ""}
+                onClick={() => openImportModal("cargos", "Cargo", cargoEmpresaFiltro)}
+              >
+                Importar
+              </button>
+              <button
+                disabled={!cargoEmpresaFiltro}
+                title={!cargoEmpresaFiltro ? "Selecione uma empresa para continuar." : ""}
+                onClick={() => openCargo("create")}
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Novo cargo
+              </button>
+            </div>
           </div>
+
+          {selectedCargos.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-medium text-amber-800">
+                {selectedCargos.length} cargo{selectedCargos.length > 1 ? "s" : ""} selecionado{selectedCargos.length > 1 ? "s" : ""}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bulkInactivateCargos(selectedCargos)}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-200"
+                >
+                  Inativar
+                </button>
+                <button
+                  onClick={() => bulkDeleteCargos(selectedCargos)}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-300 bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          )}
 
           {cargoLoad && <LoadingSpinner label="Carregando cargos..." />}
           {cargoErr && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{cargoErr}</p>}
@@ -4999,6 +5476,13 @@ export default function App() {
                   <div className="space-y-3 sm:hidden">
                     {cargosVisiveis.map((cg) => (
                       <article key={`cargo-card-${cg.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                          <input
+                            type="checkbox"
+                            checked={selectedCargos.includes(cg.id)}
+                            onChange={() => toggleSelectCargo(cg.id)}
+                          />
+                        </div>
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Cargo #{cg.id}</p>
@@ -5025,6 +5509,13 @@ export default function App() {
                     <table className="w-full min-w-[760px] text-sm">
                       <thead className="bg-slate-50">
                         <tr className="text-left">
+                          <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <input
+                              type="checkbox"
+                              onChange={handleSelectAllCargos}
+                              checked={allVisibleCargosSelected}
+                            />
+                          </th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">ID</th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cargo</th>
                           <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Empresa</th>
@@ -5035,6 +5526,13 @@ export default function App() {
                       <tbody className="divide-y divide-slate-200 bg-white">
                         {cargosVisiveis.map((cg) => (
                           <tr key={cg.id} className="align-top">
+                            <td className="px-3 py-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedCargos.includes(cg.id)}
+                                onChange={() => toggleSelectCargo(cg.id)}
+                              />
+                            </td>
                             <td className="px-3 py-3 font-semibold text-slate-700">{cg.id}</td>
                             <td className="px-3 py-3 text-slate-700">{cg.name}</td>
                             <td className="px-3 py-3 text-slate-600">{cg.empresa_name}</td>
@@ -7739,6 +8237,46 @@ export default function App() {
       {cuModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cuModal.type === "delete" ? "Excluir consultor" : cuModal.type === "edit" ? "Editar consultor" : "Novo consultor"}</h3>{cuModal.type === "delete" ? <><p>Deseja realmente excluir {cuModal.item?.email}?</p>{cuErr && <p className="error">{cuErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCu}>Cancelar</button><button className="danger" onClick={delConsultoriaUser} disabled={cuSaving}>{cuSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveConsultoriaUser} className="login-form"><label>Nome</label><input value={cuName} onChange={(e) => setCuName(e.target.value)} /><label>E-mail</label><input type="email" value={cuEmail} onChange={(e) => setCuEmail(e.target.value)} required /><label>Senha {cuModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={cuPass} onChange={(e) => setCuPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={cuActive} onChange={(e) => setCuActive(e.target.checked)} />Ativo</label>{cuErr && <p className="error">{cuErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCu}>Cancelar</button><button disabled={cuSaving}>{cuSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
       {sysModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sysModal.type === "delete" ? "Excluir conta do sistema" : sysModal.type === "edit" ? "Editar conta do sistema" : "Nova conta do sistema"}</h3>{sysModal.type === "delete" ? <><p>Deseja realmente excluir {sysModal.item?.email}?</p>{sysModalErr && <p className="error">{sysModalErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSysModal}>Cancelar</button><button className="danger" onClick={delSystemAccount} disabled={sysSaving}>{sysSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSystemAccount} className="login-form"><label>Nome</label><input value={sysName} onChange={(e) => setSysName(e.target.value)} placeholder="Nome do usuário" /><label>E-mail</label><input type="email" value={sysEmail} onChange={(e) => setSysEmail(e.target.value)} required /><label>Senha {sysModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={sysPass} onChange={(e) => setSysPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sysActive} onChange={(e) => setSysActive(e.target.checked)} />Ativo</label>{sysModalErr && <p className="error">{sysModalErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSysModal}>Cancelar</button><button disabled={sysSaving}>{sysSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
+      {importModal.open && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Importar {importModal.label}</h3>
+            <p>Use este fluxo para baixar um modelo de preenchimento ou enviar um arquivo CSV/Excel da empresa selecionada.</p>
+            <label>Empresa selecionada</label>
+            <input value={empresas.find((emp) => String(emp.id) === String(importModal.empresaId))?.company_name || ""} disabled readOnly />
+            <div className="info-block neutral">
+              <h3>Como funciona</h3>
+              <p>1. Baixe um exemplo no formato desejado.</p>
+              <p>2. Preencha a planilha seguindo as colunas do modelo.</p>
+              <p>3. Envie um arquivo `.csv` ou `.xlsx` para criar ou atualizar registros.</p>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="secondary import-flow-btn" onClick={() => handleImportTemplateDownload("csv")} disabled={importModal.busy}>CSV modelo</button>
+              <button type="button" className="secondary import-flow-btn" onClick={() => handleImportTemplateDownload("xlsx")} disabled={importModal.busy}>Excel modelo</button>
+            </div>
+            <label>Arquivo para importação</label>
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              disabled={importModal.busy}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                try {
+                  await handleImportModalFile(file);
+                } finally {
+                  e.target.value = "";
+                }
+              }}
+            />
+            <small>Formatos aceitos: CSV e Excel (.xlsx).</small>
+            {importModal.err && <p className="error">{importModal.err}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary import-flow-btn" onClick={closeImportModal} disabled={importModal.busy}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {sModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sModal.type === "delete" ? "Excluir setor" : sModal.type === "edit" ? "Editar setor" : "Novo setor"}</h3>{sModal.type === "delete" ? <><p>Deseja realmente excluir o setor {sModal.item?.name}?</p>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSetor}>Cancelar</button><button className="danger" onClick={delSetor} disabled={sSaving}>{sSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSetor} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(sEmpresa || setorEmpresaFiltro))?.company_name || sModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do setor</label><input value={sNome} onChange={(e) => setSNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={sDesc} onChange={(e) => setSDesc(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sAtivo} onChange={(e) => setSAtivo(e.target.checked)} />Ativo</label>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSetor}>Cancelar</button><button type="submit" disabled={sSaving}>{sSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
       {setorInativarModal.item && (
         <div className="modal-backdrop">
@@ -7993,6 +8531,31 @@ export default function App() {
                 {/* <div><label>Senha do responsável {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div> */}
                 <div><label>Nome do estabelecimento (Obrigatório)</label><input value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
                 <div><label>Tipo de avaliação (Obrigatório)</label><select value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
+                {eMode === "create" && (
+                  <div className="md:col-span-2">
+                    <label>Cadastros iniciais automáticos</label>
+                    <div className="mt-2 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <label className="checkbox-line">
+                        <input
+                          type="radio"
+                          name="create_default_structure"
+                          checked={Boolean(eForm.create_default_structure)}
+                          onChange={() => eChange("create_default_structure", true)}
+                        />
+                        Sim, cadastrar automaticamente SETORES, GHEs e CARGOS básicos
+                      </label>
+                      <label className="checkbox-line">
+                        <input
+                          type="radio"
+                          name="create_default_structure"
+                          checked={!eForm.create_default_structure}
+                          onChange={() => eChange("create_default_structure", false)}
+                        />
+                        Não, criar apenas a empresa
+                      </label>
+                    </div>
+                  </div>
+                )}
                 <div><label>Grau de risco (Obrigatório)</label><select value={eForm.risk_level} onChange={(e) => eChange("risk_level", e.target.value)}><option value="">Selecione</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
                 <div><label>Número de funcionários (Obrigatório)</label><input type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
                 <div>

@@ -1862,6 +1862,15 @@ td {
   background: #334e68;
 }
 
+.import-flow-btn {
+  margin-top: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .toggle-button {
   margin-top: 0;
   width: 100%;

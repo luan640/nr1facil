@@ -250,6 +250,7 @@ class SystemAccountSerializer(serializers.ModelSerializer):
 class EmpresaSerializer(serializers.ModelSerializer):
     responsible_email = serializers.EmailField(write_only=True)
     responsible_password = serializers.CharField(write_only=True, required=False, min_length=6)
+    create_default_structure = serializers.BooleanField(write_only=True, required=False, default=True)
     responsible_user_email = serializers.EmailField(source='responsavel_usuario.email', read_only=True)
     logo_url = serializers.SerializerMethodField(read_only=True)
 
@@ -268,6 +269,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'responsible_name',
             'responsible_email',
             'responsible_password',
+            'create_default_structure',
             'responsible_user_email',
             'risk_level',
             'employee_count',
@@ -337,6 +339,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         responsible_email = validated_data.pop('responsible_email')
         responsible_password = validated_data.pop('responsible_password', None)
+        create_default_structure = validated_data.pop('create_default_structure', True)
         consultor_owner = get_consultoria_owner(request.user)
         with transaction.atomic():
             responsible_user = User.objects.create_user(
@@ -352,12 +355,14 @@ class EmpresaSerializer(serializers.ModelSerializer):
                 responsavel_usuario=responsible_user,
                 **validated_data,
             )
-            seed_empresa_default_structure(empresa)
+            if create_default_structure:
+                seed_empresa_default_structure(empresa)
         return empresa
 
     def update(self, instance, validated_data):
         responsible_email = validated_data.pop('responsible_email', None)
         responsible_password = validated_data.pop('responsible_password', None)
+        validated_data.pop('create_default_structure', None)
 
         for field, value in validated_data.items():
             setattr(instance, field, value)
