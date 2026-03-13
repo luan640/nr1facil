@@ -12,8 +12,22 @@ from .models import CanalDenuncia, CanalDenunciaAtualizacao, Campanha, CampanhaM
 
 
 def get_system_team_owner(user):
-    if user and (user.is_superuser or user.user_type == UserType.ADM):
+    if not user:
+        return None
+    if user.is_superuser or user.user_type == UserType.ADM:
         return User.objects.filter(is_superuser=True, user_type=UserType.ADM).order_by('id').first() or user
+    if user.user_type == UserType.CONSULTOR:
+        return user.get_consultoria_owner() or user
+    return user
+
+
+def get_consultoria_owner(user):
+    if not user:
+        return None
+    if user.user_type == UserType.CONSULTOR:
+        return user.get_consultoria_owner() or user
+    if user.is_superuser or user.user_type == UserType.ADM:
+        return get_system_team_owner(user)
     return user
 
 
@@ -24,12 +38,33 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         email = attrs.get('email')
         password = attrs.get('password')
+        user_by_email = User.objects.filter(email__iexact=email).select_related('consultoria_master').first()
+        if user_by_email and user_by_email.check_password(password):
+            consultoria_owner = user_by_email.get_consultoria_owner() if hasattr(user_by_email, 'get_consultoria_owner') else None
+            owner_inactive = bool(
+                consultoria_owner
+                and consultoria_owner.id != user_by_email.id
+                and not consultoria_owner.is_active
+            )
+            owner_expired = bool(
+                consultoria_owner
+                and consultoria_owner.id != user_by_email.id
+                and consultoria_owner.access_expires_on
+                and consultoria_owner.access_expires_on < timezone.localdate()
+            )
+            if not user_by_email.is_active or owner_inactive:
+                raise serializers.ValidationError('Entre em contato com o suporte.')
+            if (
+                (user_by_email.access_expires_on and user_by_email.access_expires_on < timezone.localdate())
+                or owner_expired
+            ):
+                raise serializers.ValidationError('Acesso expirado. Entre em contato com o suporte.')
 
         user = authenticate(request=self.context.get('request'), email=email, password=password)
         if not user:
             raise serializers.ValidationError('E-mail ou senha invalidos.')
-        if not user.is_active:
-            raise serializers.ValidationError('Usuario inativo.')
+        if hasattr(user, 'has_system_access') and not user.has_system_access():
+            raise serializers.ValidationError('Entre em contato com o suporte.')
         if user.access_expires_on and user.access_expires_on < timezone.localdate():
             raise serializers.ValidationError('Acesso expirado. Entre em contato com o administrador.')
 
@@ -39,10 +74,26 @@ class LoginSerializer(serializers.Serializer):
 
 class ConsultorSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=6)
+    nome_consultoria = serializers.SerializerMethodField(read_only=True)
+    total_usuarios = serializers.SerializerMethodField(read_only=True)
+    total_empresas = serializers.SerializerMethodField(read_only=True)
+    total_campanhas = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'password', 'is_active', 'access_expires_on', 'date_joined']
+        fields = [
+            'id',
+            'email',
+            'full_name',
+            'password',
+            'is_active',
+            'access_expires_on',
+            'date_joined',
+            'nome_consultoria',
+            'total_usuarios',
+            'total_empresas',
+            'total_campanhas',
+        ]
         read_only_fields = ['id', 'date_joined']
 
     def create(self, validated_data):
@@ -50,6 +101,7 @@ class ConsultorSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             email=validated_data['email'],
             password=password,
+            full_name=validated_data.get('full_name', ''),
             user_type=UserType.CONSULTOR,
             is_active=validated_data.get('is_active', True),
             is_staff=False,
@@ -76,6 +128,79 @@ class ConsultorSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance is None and not attrs.get('password'):
             raise serializers.ValidationError({'password': 'Senha e obrigatoria para criar consultor.'})
+        return attrs
+
+    def get_nome_consultoria(self, obj):
+        cfg = getattr(obj, 'consultoria_configuracao', None)
+        if cfg and cfg.nome_consultoria:
+            return cfg.nome_consultoria
+        return obj.full_name or obj.email
+
+    def get_total_usuarios(self, obj):
+        if obj.user_type != UserType.CONSULTOR or obj.consultoria_master_id is not None:
+            return 0
+        return 1 + obj.consultoria_usuarios.count()
+
+    def get_total_empresas(self, obj):
+        if obj.user_type != UserType.CONSULTOR or obj.consultoria_master_id is not None:
+            return 0
+        return obj.empresas_consultoria.count()
+
+    def get_total_campanhas(self, obj):
+        if obj.user_type != UserType.CONSULTOR or obj.consultoria_master_id is not None:
+            return 0
+        return Campanha.objects.filter(empresa__consultor=obj).count()
+
+
+class ConsultoriaUserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, min_length=6)
+    consultoria_owner_id = serializers.IntegerField(source='consultoria_master_id', read_only=True)
+    consultoria_owner_email = serializers.EmailField(source='consultoria_master.email', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'email',
+            'full_name',
+            'password',
+            'is_active',
+            'date_joined',
+            'consultoria_owner_id',
+            'consultoria_owner_email',
+        ]
+        read_only_fields = ['id', 'date_joined', 'consultoria_owner_id', 'consultoria_owner_email']
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', None)
+        request = self.context.get('request')
+        consultoria_owner = get_consultoria_owner(getattr(request, 'user', None))
+        return User.objects.create_user(
+            email=validated_data['email'],
+            password=password,
+            full_name=validated_data.get('full_name', ''),
+            user_type=UserType.CONSULTOR,
+            is_active=validated_data.get('is_active', True),
+            is_staff=False,
+            is_superuser=False,
+            consultoria_master=consultoria_owner,
+        )
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.user_type = UserType.CONSULTOR
+        instance.is_staff = False
+        instance.is_superuser = False
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get('password'):
+            raise serializers.ValidationError({'password': 'Senha e obrigatoria para criar usuario da consultoria.'})
         return attrs
 
 
@@ -126,6 +251,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
     responsible_email = serializers.EmailField(write_only=True)
     responsible_password = serializers.CharField(write_only=True, required=False, min_length=6)
     responsible_user_email = serializers.EmailField(source='responsavel_usuario.email', read_only=True)
+    logo_url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Empresa
@@ -145,6 +271,8 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'responsible_user_email',
             'risk_level',
             'employee_count',
+            'logo',
+            'logo_url',
             'postal_code',
             'state',
             'city',
@@ -156,12 +284,13 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'responsible_user_email']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'responsible_user_email', 'logo_url']
 
     def validate_document_number(self, value):
         return ''.join(char for char in value if char.isdigit())
 
     def validate(self, attrs):
+        request = self.context.get('request')
         document_type = attrs.get('document_type') or getattr(self.instance, 'document_type', None)
         document_number = attrs.get('document_number') or getattr(self.instance, 'document_number', '')
         establishment_type = attrs.get('establishment_type') or getattr(self.instance, 'establishment_type', None)
@@ -179,13 +308,36 @@ class EmpresaSerializer(serializers.ModelSerializer):
         if evaluation_type not in EvaluationType.values:
             raise serializers.ValidationError({'evaluation_type': 'Tipo de avaliacao invalido.'})
 
+        consultoria_owner = get_consultoria_owner(getattr(request, 'user', None))
+        if consultoria_owner and document_number:
+            exists_qs = Empresa.objects.filter(
+                consultor=consultoria_owner,
+                document_number=document_number,
+            )
+            if self.instance:
+                exists_qs = exists_qs.exclude(id=self.instance.id)
+            if exists_qs.exists():
+                raise serializers.ValidationError({
+                    'document_number': 'Ja existe uma empresa com este documento nesta consultoria.'
+                })
+
         return attrs
+
+    def get_logo_url(self, obj):
+        if not getattr(obj, 'logo', None):
+            return ''
+        try:
+            url = obj.logo.url
+        except Exception:
+            return ''
+        request = self.context.get('request')
+        return request.build_absolute_uri(url) if request else url
 
     def create(self, validated_data):
         request = self.context.get('request')
         responsible_email = validated_data.pop('responsible_email')
         responsible_password = validated_data.pop('responsible_password', None)
-        consultor_owner = get_system_team_owner(request.user)
+        consultor_owner = get_consultoria_owner(request.user)
         with transaction.atomic():
             responsible_user = User.objects.create_user(
                 email=responsible_email,
@@ -298,8 +450,8 @@ class SetorSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or request.user.is_superuser or request.user.user_type == UserType.ADM:
             return value
-
-        if value.consultor_id != request.user.id:
+        consultoria_owner = get_consultoria_owner(request.user)
+        if value.consultor_id != getattr(consultoria_owner, 'id', None):
             raise serializers.ValidationError('Empresa nao pertence ao consultor autenticado.')
         return value
 
@@ -342,8 +494,8 @@ class GheSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or request.user.is_superuser or request.user.user_type == UserType.ADM:
             return value
-
-        if value.consultor_id != request.user.id:
+        consultoria_owner = get_consultoria_owner(request.user)
+        if value.consultor_id != getattr(consultoria_owner, 'id', None):
             raise serializers.ValidationError('Empresa nao pertence ao consultor autenticado.')
         return value
 
@@ -399,8 +551,8 @@ class CargoSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or request.user.is_superuser or request.user.user_type == UserType.ADM:
             return value
-
-        if value.consultor_id != request.user.id:
+        consultoria_owner = get_consultoria_owner(request.user)
+        if value.consultor_id != getattr(consultoria_owner, 'id', None):
             raise serializers.ValidationError('Empresa nao pertence ao consultor autenticado.')
         return value
 
@@ -469,8 +621,8 @@ class CampanhaSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or request.user.is_superuser or request.user.user_type == UserType.ADM:
             return value
-
-        if value.consultor_id != request.user.id:
+        consultoria_owner = get_consultoria_owner(request.user)
+        if value.consultor_id != getattr(consultoria_owner, 'id', None):
             raise serializers.ValidationError('Empresa nao pertence ao consultor autenticado.')
         return value
 
@@ -1090,6 +1242,7 @@ class CampanhaRelatorioAnexoSerializer(serializers.ModelSerializer):
 
 
 class CanalDenunciaPublicSerializer(serializers.ModelSerializer):
+    setor_id = serializers.PrimaryKeyRelatedField(source='setor', queryset=Setor.objects.all(), required=False, allow_null=True, write_only=True)
     ghe_id = serializers.PrimaryKeyRelatedField(source='ghe', queryset=Ghe.objects.all(), required=False, allow_null=True, write_only=True)
     cargo_id = serializers.PrimaryKeyRelatedField(source='cargo_funcao', queryset=Cargo.objects.all(), required=False, allow_null=True, write_only=True)
 
@@ -1100,6 +1253,7 @@ class CanalDenunciaPublicSerializer(serializers.ModelSerializer):
             'possui_vinculo',
             'deseja_identificar',
             'contato_identificacao',
+            'setor_id',
             'ghe_id',
             'cargo_id',
             'tipo',
@@ -1134,20 +1288,32 @@ class CanalDenunciaPublicSerializer(serializers.ModelSerializer):
         attrs['testemunhas'] = str(attrs.get('testemunhas') or '').strip()
 
         empresa = self.context.get('empresa')
+        setor = attrs.get('setor')
         ghe = attrs.get('ghe')
         cargo = attrs.get('cargo_funcao')
         if empresa is not None:
-            if ghe and ghe.empresa_id != empresa.id:
-                raise serializers.ValidationError({'ghe_id': 'GHE invalido para esta empresa.'})
+            if empresa.evaluation_type == EvaluationType.SETOR:
+                if setor and setor.empresa_id != empresa.id:
+                    raise serializers.ValidationError({'setor_id': 'Setor invalido para esta empresa.'})
+                attrs['ghe'] = None
+            else:
+                if ghe and ghe.empresa_id != empresa.id:
+                    raise serializers.ValidationError({'ghe_id': 'GHE invalido para esta empresa.'})
+                attrs['setor'] = None
             if cargo and cargo.empresa_id != empresa.id:
                 raise serializers.ValidationError({'cargo_id': 'Funcao invalida para esta empresa.'})
-            if ghe and cargo and not cargo.ghes.filter(id=ghe.id).exists():
-                raise serializers.ValidationError({'cargo_id': 'A funcao selecionada nao pertence ao GHE informado.'})
+            if empresa.evaluation_type == EvaluationType.SETOR:
+                if setor and cargo and not cargo.setores.filter(id=setor.id).exists():
+                    raise serializers.ValidationError({'cargo_id': 'A funcao selecionada nao pertence ao setor informado.'})
+            else:
+                if ghe and cargo and not cargo.ghes.filter(id=ghe.id).exists():
+                    raise serializers.ValidationError({'cargo_id': 'A funcao selecionada nao pertence ao GHE informado.'})
         return attrs
 
 
 class CanalDenunciaListSerializer(serializers.ModelSerializer):
     empresa_name = serializers.CharField(source='empresa.company_name', read_only=True)
+    setor_name = serializers.CharField(source='setor.name', read_only=True)
     ghe_name = serializers.CharField(source='ghe.name', read_only=True)
     cargo_name = serializers.CharField(source='cargo_funcao.name', read_only=True)
     evidencia_url = serializers.SerializerMethodField()
@@ -1164,6 +1330,8 @@ class CanalDenunciaListSerializer(serializers.ModelSerializer):
             'possui_vinculo',
             'deseja_identificar',
             'contato_identificacao',
+            'setor',
+            'setor_name',
             'ghe',
             'ghe_name',
             'cargo_funcao',

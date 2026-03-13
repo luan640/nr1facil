@@ -51,6 +51,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(default=True)
     access_expires_on = models.DateField(blank=True, null=True)
+    consultoria_master = models.ForeignKey(
+        'self',
+        on_delete=models.PROTECT,
+        related_name='consultoria_usuarios',
+        blank=True,
+        null=True,
+    )
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
@@ -69,13 +76,29 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.is_superuser and self.user_type != UserType.ADM:
             self.user_type = UserType.ADM
+        if self.user_type != UserType.CONSULTOR:
+            self.consultoria_master = None
         super().save(*args, **kwargs)
+
+    def get_consultoria_owner(self):
+        if self.user_type != UserType.CONSULTOR:
+            return None
+        return self.consultoria_master or self
+
+    def is_consultoria_owner(self):
+        return self.user_type == UserType.CONSULTOR and self.consultoria_master_id is None
 
     def has_system_access(self):
         if not self.is_active:
             return False
         if self.access_expires_on and self.access_expires_on < timezone.localdate():
             return False
+        consultoria_owner = self.get_consultoria_owner()
+        if consultoria_owner and consultoria_owner.id != self.id:
+            if not consultoria_owner.is_active:
+                return False
+            if consultoria_owner.access_expires_on and consultoria_owner.access_expires_on < timezone.localdate():
+                return False
         return True
 
 
@@ -108,7 +131,7 @@ class Empresa(models.Model):
         related_name='empresa_responsavel',
     )
     document_type = models.CharField(max_length=4, choices=DocumentType.choices)
-    document_number = models.CharField(max_length=20, unique=True)
+    document_number = models.CharField(max_length=20)
     company_name = models.CharField(max_length=255)
     establishment_type = models.CharField(max_length=10, choices=EstablishmentType.choices)
     establishment_custom_name = models.CharField(max_length=120, blank=True)
@@ -120,6 +143,7 @@ class Empresa(models.Model):
     responsible_name = models.CharField(max_length=255)
     risk_level = models.CharField(max_length=20)
     employee_count = models.PositiveIntegerField(default=0)
+    logo = models.FileField(upload_to='empresa_logos/', blank=True, null=True)
     postal_code = models.CharField(max_length=12, blank=True)
     state = models.CharField(max_length=2, blank=True)
     city = models.CharField(max_length=120, blank=True)
@@ -135,6 +159,12 @@ class Empresa(models.Model):
         verbose_name = 'Empresa'
         verbose_name_plural = 'Empresas'
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['consultor', 'document_number'],
+                name='uniq_empresa_documento_por_consultoria',
+            ),
+        ]
 
     def __str__(self):
         return self.company_name
@@ -170,6 +200,7 @@ class CanalDenuncia(models.Model):
     possui_vinculo = models.BooleanField()
     deseja_identificar = models.BooleanField(default=False)
     contato_identificacao = models.CharField(max_length=255, blank=True)
+    setor = models.ForeignKey('Setor', on_delete=models.SET_NULL, null=True, blank=True, related_name='canal_denuncias')
     ghe = models.ForeignKey('Ghe', on_delete=models.SET_NULL, null=True, blank=True, related_name='canal_denuncias')
     cargo_funcao = models.ForeignKey('Cargo', on_delete=models.SET_NULL, null=True, blank=True, related_name='canal_denuncias')
     tipo = models.CharField(max_length=40, choices=Tipo.choices, default=Tipo.OUTROS)

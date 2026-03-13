@@ -19,8 +19,11 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 import os
 import uuid
+import copy
+from pathlib import Path
 import boto3
 import math
+import base64
 from io import BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -59,7 +62,7 @@ from .models import (
     User,
     UserType,
 )
-from .serializers import CanalDenunciaAtualizacaoCreateSerializer, CanalDenunciaListSerializer, CanalDenunciaPublicSerializer, CanalDenunciaStatusUpdateSerializer, CampanhaMedidaPreliminarSerializer, CampanhaPlanoAcaoSerializer, CampanhaQuandoPreliminarSerializer, CampanhaRelatorioAnexoSerializer, CampanhaSerializer, CampanhaStep1RespostaSerializer, CampanhaStep2RespostaSerializer, CampanhaStep3RespostaSerializer, CampanhaStep4RespostaSerializer, CampanhaStep5RespostaSerializer, CampanhaStep6RespostaSerializer, CampanhaStep7RespostaSerializer, CampanhaStep8RespostaSerializer, CampanhaStep9RespostaSerializer, CargoSerializer, ConsultoriaConfiguracaoSerializer, ConsultoriaResponsavelTecnicoSerializer, ConsultorSerializer, EmpresaSerializer, GheSerializer, LoginSerializer, PedidoAjudaAtualizacaoCreateSerializer, PedidoAjudaListSerializer, PedidoAjudaPublicSerializer, PedidoAjudaStatusUpdateSerializer, RegistroHumorPublicSerializer, SetorSerializer, SystemAccountSerializer, get_system_team_owner
+from .serializers import CanalDenunciaAtualizacaoCreateSerializer, CanalDenunciaListSerializer, CanalDenunciaPublicSerializer, CanalDenunciaStatusUpdateSerializer, CampanhaMedidaPreliminarSerializer, CampanhaPlanoAcaoSerializer, CampanhaQuandoPreliminarSerializer, CampanhaRelatorioAnexoSerializer, CampanhaSerializer, CampanhaStep1RespostaSerializer, CampanhaStep2RespostaSerializer, CampanhaStep3RespostaSerializer, CampanhaStep4RespostaSerializer, CampanhaStep5RespostaSerializer, CampanhaStep6RespostaSerializer, CampanhaStep7RespostaSerializer, CampanhaStep8RespostaSerializer, CampanhaStep9RespostaSerializer, CargoSerializer, ConsultoriaConfiguracaoSerializer, ConsultoriaResponsavelTecnicoSerializer, ConsultorSerializer, ConsultoriaUserSerializer, EmpresaSerializer, GheSerializer, LoginSerializer, PedidoAjudaAtualizacaoCreateSerializer, PedidoAjudaListSerializer, PedidoAjudaPublicSerializer, PedidoAjudaStatusUpdateSerializer, RegistroHumorPublicSerializer, SetorSerializer, SystemAccountSerializer, get_consultoria_owner, get_system_team_owner
 
 
 FREQUENCY_SCORE_POSITIVE = {
@@ -76,6 +79,15 @@ FREQUENCY_SCORE_NEGATIVE = {
     FrequencyChoice.FREQUENTEMENTE: 2,
     FrequencyChoice.SEMPRE: 1,
 }
+
+REPORT_LETTERHEAD_TEMPLATE = Path(__file__).resolve().parents[2] / 'TIMBRADO 2026.pdf'
+REPORT_LETTERHEAD_HEADER_TOP = 16.998
+REPORT_LETTERHEAD_HEADER_BOTTOM = 113.984
+REPORT_LETTERHEAD_FOOTER_TOP = 48.993
+REPORT_BODY_TOP_MARGIN = 138.0
+REPORT_BODY_BOTTOM_MARGIN = 57.0
+REPORT_SOURCE_TOP_MARGIN = 18 * mm
+REPORT_SOURCE_BOTTOM_MARGIN = 15 * mm
 
 REPORT_STEP_DEFS = [
     {
@@ -288,12 +300,13 @@ def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=Non
     def _dt_to(d):
         return datetime(d.year, d.month, d.day, 23, 59, 59, 999999, tzinfo=dt_timezone.utc)
 
+    consultoria_owner = get_consultoria_owner(user)
     if user.is_superuser or user.user_type == UserType.ADM:
         empresas_qs = Empresa.objects.all()
         campanhas_qs = Campanha.objects.select_related('empresa').all()
     else:
-        empresas_qs = Empresa.objects.filter(consultor=user)
-        campanhas_qs = Campanha.objects.select_related('empresa').filter(empresa__consultor=user)
+        empresas_qs = Empresa.objects.filter(consultor=consultoria_owner)
+        campanhas_qs = Campanha.objects.select_related('empresa').filter(empresa__consultor=consultoria_owner)
 
     available_empresas = list(empresas_qs.order_by('company_name').values('id', 'company_name'))
     if empresa_id:
@@ -766,14 +779,14 @@ def _draw_pdf_summary_page(c):
 
     for i, text in enumerate(items, start=1):
         c.setFillColor(blue)
-        c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y - 0.6, str(i))
+        # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawRightString(margin_x + 3.5 * mm, y - 0.5, str(i))
 
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica', 9)
-        c.drawString(margin_x + 8 * mm, y - 0.2, text)
+        c.drawString(margin_x + 5.2 * mm, y - 0.2, text)
         y -= 6.5 * mm
 
     c.showPage()
@@ -790,13 +803,13 @@ def _draw_pdf_general_results_page(c, campanha, empresa, report_data):
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
     c.setFillColor(blue)
-    c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y - 0.6, '5')
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '5')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 10)
-    c.drawString(margin_x + 8 * mm, y - 0.5, 'RESULTADOS GERAIS')
+    c.drawString(margin_x + 5.2 * mm, y - 0.5, 'RESULTADOS GERAIS')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -1068,7 +1081,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         c.setFillColor(zone_fill(zkey))
         c.roundRect(x_bar, bar_y, track_w * (pct / 100.0), 5 * mm, 2, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#111827'))
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 9)
         if pct > 10:
             c.drawString(x_bar + 2 * mm, y - 0.2, f'{pct:.1f}% | {zone_label(zone)}')
         c.drawRightString(x_val, y, f'{float(score or 0):.1f}')
@@ -1093,7 +1106,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
             c.rect(0, 0, width, height, stroke=0, fill=1)
             y_local = height - 20 * mm
             c.setFillColor(colors.HexColor('#111827'))
-            c.setFont('Helvetica-Bold', 12)
+            c.setFont('Helvetica-Bold', 9)
             c.drawCentredString(width / 2, y_local, 'Gráfico dos resultados')
             y_local -= 8 * mm
             c.setFont('Helvetica-Bold', 18)
@@ -1159,7 +1172,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
             y -= 9 * mm
             title = f"{step_title} ({ref_label}: {ref_item.get('ref', {}).get('name', '-')})"
             c.setFillColor(colors.HexColor('#111827'))
-            c.setFont('Helvetica-Bold', 14)
+            c.setFont('Helvetica-Bold', 11)
             c.drawCentredString(width / 2, y, title[:90])
             y -= 8 * mm
             draw_legend(y)
@@ -1260,10 +1273,10 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         c.rect(0, 0, width, height, stroke=0, fill=1)
         y = height - 18 * mm
         c.setFillColor(blue)
-        c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y - 0.6, '6')
+        # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '6')
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
         c.drawString(margin_x + 8 * mm, y - 0.5, 'CONCLUSÕES E RECOMENDAÇÕES PRELIMINARES')
@@ -1513,7 +1526,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
             if when_range:
                 # y -= 1 * mm
                 # c.setFillColor(colors.HexColor('#111827'))
-                # c.setFont('Helvetica-Bold', 7)
+                # c.setFont('Helvetica-Bold', 9)
                 # c.drawString(box_x + 2 * mm, y, 'Quando')
                 # y -= 4.5 * mm
 
@@ -1592,10 +1605,10 @@ def _draw_pdf_limitacoes_page(c):
     c.rect(0, 0, width, height, stroke=0, fill=1)
 
     c.setFillColor(blue)
-    c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y - 0.6, '7')
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '7')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'LIMITAÇÕES')
@@ -1615,9 +1628,9 @@ def _draw_pdf_limitacoes_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 9.0
-    body_leading = 12.6
-    text_obj.setFont('Helvetica', body_font)
+    body_font = 1
+    body_leading = 1
+    text_obj.setFont('Helvetica-Bold', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
     max_width = width - (2 * margin_x)
@@ -1661,13 +1674,13 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     c.rect(0, 0, width, height, stroke=0, fill=1)
 
     c.setFillColor(blue)
-    c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y - 0.6, '8')
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
-    c.drawString(margin_x + 8 * mm, y - 0.5, 'RESPONSABILIDADES')
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '8')
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x + 5.2 * mm, y - 0.5, 'RESPONSABILIDADES')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -1763,13 +1776,13 @@ def _draw_pdf_anexos_pages(c, report_data):
         c.rect(0, 0, width, height, stroke=0, fill=1)
         y = height - 18 * mm
         c.setFillColor(blue)
-        c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y - 0.6, '9')
+        # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
-        c.drawString(margin_x + 8 * mm, y - 0.5, 'ANEXOS')
+        c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '9')
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(margin_x + 5.2 * mm, y - 0.5, 'ANEXOS')
         c.setStrokeColor(blue)
         c.setLineWidth(1)
         c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -1867,6 +1880,51 @@ def _get_consultoria_tecnicos_rows(empresa=None, consultoria_cfg=None):
     return [[(t.nome or '-'), (t.formacao or '-'), (t.registro or '-')] for t in tecnicos]
 
 
+def _draw_pdf_empresa_logo(c, empresa, y_top, max_width=70 * mm, max_height=22 * mm, x=None, y=None):
+    logo = getattr(empresa, 'logo', None)
+    if not logo:
+        return 0
+
+    logo_bytes = None
+    try:
+        if hasattr(logo, 'open'):
+            logo.open('rb')
+            logo_bytes = logo.read()
+            logo.close()
+    except Exception:
+        logo_bytes = None
+
+    if not logo_bytes:
+        try:
+            with urlopen(logo.url, timeout=8) as fp:
+                logo_bytes = fp.read()
+        except Exception:
+            return 0
+
+    try:
+        img = ImageReader(BytesIO(logo_bytes))
+        img_w, img_h = img.getSize()
+        if not img_w or not img_h:
+            return 0
+        scale = min(max_width / img_w, max_height / img_h)
+        draw_w = img_w * scale
+        draw_h = img_h * scale
+        x = (A4[0] - draw_w) / 2 if x is None else x
+        y = (y_top - draw_h) if y is None else y
+        c.drawImage(
+            img,
+            x,
+            y,
+            width=draw_w,
+            height=draw_h,
+            preserveAspectRatio=True,
+            mask='auto',
+        )
+        return draw_h + (6 * mm)
+    except Exception:
+        return 0
+
+
 def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_cfg=None):
     width, height = A4
     margin_x = 15 * mm
@@ -1879,10 +1937,10 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
 
     blue = colors.HexColor('#14532d')
     c.setFillColor(blue)
-    c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y - 0.6, '1')
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '1')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'IDENTIFICAÇÃO')
@@ -1890,9 +1948,10 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
     y -= 11 * mm
+    y -= _draw_pdf_empresa_logo(c, empresa, y)
 
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 7)
+    c.setFont('Helvetica-Bold', 9)
     ident_lines = [
         ('Empresa', empresa.company_name or '-'),
         ('CNPJ', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
@@ -1909,7 +1968,7 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
         c.setFont('Helvetica', 7)
         c.drawString(margin_x + 65 * mm, y, str(value))
         y -= 5 * mm
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 9)
 
     y -= 3 * mm
     c.setFillColor(blue)
@@ -1929,7 +1988,7 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     c.rect(table_x, y - row_h, table_w, row_h, stroke=1, fill=1)
     x = table_x
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 7)
+    c.setFont('Helvetica-Bold', 9)
     for i, h in enumerate(headers):
       c.drawString(x + 2 * mm, y - 4.2 * mm, h)
       x += col_w[i]
@@ -1956,6 +2015,175 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     c.showPage()
 
 
+def _draw_pdf_identificacao_page_card(c, campanha, empresa, report_data, consultoria_cfg=None):
+    width, height = A4
+    margin_x = 15 * mm
+    y = height - 18 * mm
+    summary = (report_data.get('overall') or {}).get('summary', {})
+    completed = summary.get('completed_responses', 0)
+
+    c.setFillColor(colors.white)
+    c.rect(0, 0, width, height, stroke=0, fill=1)
+
+    blue = colors.HexColor('#14532d')
+    c.setFillColor(blue)
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '1')
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x + 8 * mm, y - 0.5, 'IDENTIFICAÇÃO')
+    c.setStrokeColor(blue)
+    c.setLineWidth(1)
+    c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
+    y -= 11 * mm
+
+    card_x = margin_x
+    card_w = width - (2 * margin_x)
+    card_h = 64 * mm
+    card_y = y - card_h
+    text_x = card_x + 5 * mm
+    logo_area_w = 56 * mm
+    info_right = card_x + card_w - logo_area_w - 6 * mm
+    row_y = y - 7 * mm
+
+    c.setFillColor(colors.HexColor('#eef2f6'))
+    c.roundRect(card_x, card_y, card_w, card_h, 4, stroke=0, fill=1)
+    c.setStrokeColor(colors.HexColor('#d7dee7'))
+    c.setLineWidth(0.5)
+    c.roundRect(card_x, card_y, card_w, card_h, 4, stroke=1, fill=0)
+    c.setStrokeColor(colors.HexColor('#2f5fb3'))
+    c.setLineWidth(1.4)
+    c.line(card_x + 1.5 * mm, card_y + 3 * mm, card_x + 1.5 * mm, y - 3 * mm)
+
+    card_lines = [
+        ('Cliente:', empresa.company_name or '-'),
+        ('CNPJ:', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('Endereço:', f"{empresa.street or '-'}, {empresa.number or '-'} - {empresa.city or '-'} / {empresa.state or '-'}"),
+    ]
+    for label, value in card_lines:
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawString(text_x, row_y, label)
+        c.setFillColor(colors.HexColor('#4b5563'))
+        c.setFont('Helvetica', 8.5)
+        label_w = c.stringWidth(label, 'Helvetica-Bold', 8.5)
+        value_x = text_x + label_w + 2 * mm
+        value_w = max(info_right - value_x, 30 * mm)
+        value_line = (str(value)[:120]).strip() or '-'
+        while c.stringWidth(value_line, 'Helvetica', 8.5) > value_w and len(value_line) > 4:
+            value_line = value_line[:-1]
+        if value_line != str(value):
+            value_line = value_line[:-3] + '...'
+        c.drawString(value_x, row_y, value_line)
+        row_y -= 6.5 * mm
+
+    meta_items = [
+        ('CNAE', empresa.cnae or '-'),
+        ('Classe de risco', empresa.risk_level or '-'),
+        # ('Setores avaliados', '-'),
+        ('Trab. avaliados', str(completed or 0)),
+        ('Data avaliação', campanha.end_date.strftime('%d/%m/%Y') if campanha.end_date else '-'),
+        # ('Reavaliacao', f"{int(report_data.get('review_recommendation_months') or 3)} meses"),
+    ]
+    meta_top = card_y + 26 * mm
+    c.setStrokeColor(colors.HexColor('#d7dee7'))
+    c.setLineWidth(0.5)
+    c.line(text_x, meta_top + 3 * mm, info_right, meta_top + 3 * mm)
+    meta_col_w = (info_right - text_x - 4 * mm) / 2
+    meta_row_h = 7 * mm
+    for idx, (label, value) in enumerate(meta_items):
+        col = idx % 2
+        row = idx // 2
+        base_x = text_x + (col * (meta_col_w + 4 * mm))
+        base_y = meta_top - (row * meta_row_h)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 7.1)
+        c.drawString(base_x, base_y, label)
+        c.setFillColor(colors.HexColor('#4b5563'))
+        c.setFont('Helvetica', 7.1)
+        meta_val = str(value).strip() or '-'
+        max_meta_w = meta_col_w - 1 * mm
+        while c.stringWidth(meta_val, 'Helvetica', 7.1) > max_meta_w and len(meta_val) > 4:
+            meta_val = meta_val[:-1]
+        if meta_val != str(value):
+            meta_val = meta_val[:-3] + '...'
+        c.drawString(base_x, base_y - 3.1 * mm, meta_val)
+
+    _draw_pdf_empresa_logo(
+        c,
+        empresa,
+        y,
+        max_width=54 * mm,
+        max_height=30 * mm,
+        x=card_x + card_w - 58 * mm,
+        y=card_y + 13 * mm,
+    )
+
+    y = card_y - 8 * mm
+
+    # c.setFillColor(colors.HexColor('#111827'))
+    # c.setFont('Helvetica-Bold', 9)
+    # ident_lines = [
+    #     ('CNAE', empresa.cnae or '-'),
+    #     ('Classe de risco', empresa.risk_level or '-'),
+    #     ('Setores avaliados', '-'),
+    #     ('Numero de trabalhadores avaliados', str(completed or 0)),
+    #     ('Data da avaliação', campanha.end_date.strftime('%d/%m/%Y') if campanha.end_date else '-'),
+    #     # ('Reavaliacao recomendada', f"{int(report_data.get('review_recommendation_months') or 3)} meses"),
+    # ]
+    # for label, value in ident_lines:
+    #     c.drawString(margin_x, y, f'{label}:')
+    #     c.setFont('Helvetica', 7)
+    #     c.drawString(margin_x + 65 * mm, y, str(value))
+    #     y -= 5 * mm
+    #     c.setFont('Helvetica-Bold', 9)
+
+    y -= 3 * mm
+    c.setFillColor(blue)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawString(margin_x, y, '1.1 Responsaveis tecnicos pela ferramenta de avaliacao FRPRT')
+    y -= 8 * mm
+
+    table_x = margin_x
+    table_w = width - (2 * margin_x)
+    col_w = [table_w * 0.38, table_w * 0.42, table_w * 0.20]
+    row_h = 6 * mm
+    headers = ['Nome', 'Formacao', 'Registro']
+    rows = _get_consultoria_tecnicos_rows(empresa=empresa, consultoria_cfg=consultoria_cfg)
+
+    c.setStrokeColor(colors.HexColor('#d1d5db'))
+    c.setFillColor(colors.HexColor('#e5e7eb'))
+    c.rect(table_x, y - row_h, table_w, row_h, stroke=1, fill=1)
+    x = table_x
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    for i, h in enumerate(headers):
+        c.drawString(x + 2 * mm, y - 4.2 * mm, h)
+        x += col_w[i]
+
+    curr_y = y - row_h
+    c.setFont('Helvetica', 6.7)
+    for row in rows:
+        curr_y -= row_h
+        c.setFillColor(colors.white)
+        c.rect(table_x, curr_y, table_w, row_h, stroke=1, fill=1)
+        x = table_x
+        for i, value in enumerate(row):
+            c.setFillColor(colors.HexColor('#111827'))
+            c.drawString(x + 2 * mm, curr_y + 2.0 * mm, value)
+            x += col_w[i]
+
+    x = table_x
+    total_h = row_h * (1 + len(rows))
+    for w_col in col_w[:-1]:
+        x += w_col
+        c.line(x, y, x, y - total_h)
+
+    c.showPage()
+
+
 def _draw_pdf_objetivo_page(c):
     width, height = A4
     margin_x = 15 * mm
@@ -1966,13 +2194,13 @@ def _draw_pdf_objetivo_page(c):
     c.rect(0, 0, width, height, stroke=0, fill=1)
 
     c.setFillColor(blue)
-    c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y - 0.6, '2')
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
-    c.drawString(margin_x + 8 * mm, y - 0.5, 'OBJETIVO')
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '2')
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x + 5.2 * mm, y - 0.5, 'OBJETIVO')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -1992,7 +2220,7 @@ def _draw_pdf_objetivo_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 9.3
+    body_font = 12
     body_leading = 12.9
     text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
@@ -2025,13 +2253,13 @@ def _draw_pdf_metodologia_pages(c):
         c.setFillColor(colors.white)
         c.rect(0, 0, width, height, stroke=0, fill=1)
         c.setFillColor(blue)
-        c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 7)
-        c.drawCentredString(margin_x + 2, y - 0.6, page_num)
+        # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
-        c.drawString(margin_x + 8 * mm, y - 0.5, title)
+        c.drawRightString(margin_x + 3.5 * mm, y - 0.5, page_num)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(margin_x + 5.2 * mm, y - 0.5, title)
         c.setStrokeColor(blue)
         c.setLineWidth(1)
         c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
@@ -2087,7 +2315,7 @@ def _draw_pdf_metodologia_pages(c):
             break
 
     y -= 2 * mm
-    c.setFont('Helvetica-Bold', 9.8)
+    c.setFont('Helvetica-Bold', 12)
     c.setFillColor(colors.HexColor('#111827'))
     c.drawString(margin_x, y, 'Selecionando uma amostra')
     y -= 5 * mm
@@ -2096,7 +2324,7 @@ def _draw_pdf_metodologia_pages(c):
         y = draw_paragraph(y, f'- {line}')
         y -= 1 * mm
     y -= 1 * mm
-    c.setFont('Helvetica-Bold', 9.8)
+    c.setFont('Helvetica-Bold', 12)
     c.drawString(margin_x, y, 'Lista de trabalhadores')
     y -= 5 * mm
     y = draw_paragraph(y, 'Ao selecionar uma amostra de trabalhadores, ou mesmo a totalidade dos colaboradores da organizacao, e fundamental assegurar a disponibilidade de uma lista atualizada dos participantes incluidos na pesquisa. Essa relacao pode ser obtida por meio da folha de pagamento, cadastro de empregados, registros de seguranca ou outras fontes equivalentes. E imprescindivel que a lista utilizada esteja correta e atualizada, a fim de garantir que todos os integrantes da amostra recebam o questionario. Tal cuidado contribui para o aumento da taxa de resposta e para a confiabilidade dos resultados obtidos.')
@@ -2106,7 +2334,7 @@ def _draw_pdf_metodologia_pages(c):
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 9.8)
+    c.setFont('Helvetica-Bold', 12)
     c.drawString(margin_x, y, 'Tamanho mínimo de amostra recomendado')
     y -= 5 * mm
     y = draw_paragraph(y, 'A realização de uma pesquisa envolvendo todos os colaboradores tende a proporcionar um retrato mais fiel da realidade organizacional do que a utilização de uma amostra. Por outro lado, optar pelo tamanho mínimo de amostra recomendado apresenta como benefícios a redução de custos e a diminuição do tempo demandado pela equipe. Os quantitativos mínimos foram definidos de modo a assegurar que os resultados obtidos sejam estatisticamente representativos das percepções do conjunto de trabalhadores da organização.')
@@ -2183,10 +2411,10 @@ def _draw_pdf_importancia_participacao_page(c):
     c.rect(0, 0, width, height, stroke=0, fill=1)
 
     c.setFillColor(blue)
-    c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 7)
-    c.drawCentredString(margin_x + 2, y - 0.6, '4')
+    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '4')
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 8.5)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'IMPORTÂNCIA DA PARTICIPAÇÃO DOS TRABALHADORES')
@@ -2248,6 +2476,61 @@ def _draw_pdf_importancia_participacao_page(c):
     c.showPage()
 
 
+def _apply_pdf_letterhead(pdf_bytes, letterhead_path=REPORT_LETTERHEAD_TEMPLATE):
+    template_path = Path(letterhead_path)
+    if not template_path.exists():
+        return pdf_bytes
+
+    from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+
+    source_reader = PdfReader(BytesIO(pdf_bytes))
+    template_reader = PdfReader(str(template_path))
+    if not template_reader.pages:
+        return pdf_bytes
+
+    template_page = template_reader.pages[0]
+    writer = PdfWriter()
+    template_width = float(template_page.mediabox.width)
+    template_height = float(template_page.mediabox.height)
+    header_lower_y = max(template_height - REPORT_LETTERHEAD_HEADER_BOTTOM, 0)
+    footer_upper_y = min(REPORT_LETTERHEAD_FOOTER_TOP, template_height)
+
+    for source_page in source_reader.pages:
+        width = float(source_page.mediabox.width)
+        height = float(source_page.mediabox.height)
+        target_width = template_width
+        target_height = template_height
+        merged_page = PageObject.create_blank_page(width=target_width, height=target_height)
+
+        source_body_height = max(height - REPORT_SOURCE_TOP_MARGIN - REPORT_SOURCE_BOTTOM_MARGIN, 1)
+        target_body_height = max(target_height - REPORT_BODY_TOP_MARGIN - REPORT_BODY_BOTTOM_MARGIN, 1)
+        body_scale_y = target_body_height / source_body_height
+        page_scale_x = target_width / width
+        body_translate_y = REPORT_BODY_BOTTOM_MARGIN - (REPORT_SOURCE_BOTTOM_MARGIN * body_scale_y)
+        merged_page.merge_transformed_page(
+            source_page,
+            Transformation()
+            .scale(page_scale_x, body_scale_y)
+            .translate(0, body_translate_y),
+        )
+
+        header_overlay = copy.copy(template_page)
+        header_overlay.cropbox.lower_left = (0, header_lower_y)
+        header_overlay.cropbox.upper_right = (template_width, template_height)
+        merged_page.merge_page(header_overlay)
+
+        footer_overlay = copy.copy(template_page)
+        footer_overlay.cropbox.lower_left = (0, 0)
+        footer_overlay.cropbox.upper_right = (template_width, footer_upper_y)
+        merged_page.merge_page(footer_overlay)
+
+        writer.add_page(merged_page)
+
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
 def _build_report_pdf_response(campanha, rel_payload):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -2261,7 +2544,7 @@ def _build_report_pdf_response(campanha, rel_payload):
     )
     _draw_pdf_cover_page(c, campanha, empresa_name)
     _draw_pdf_summary_page(c)
-    _draw_pdf_identificacao_page(c, campanha, campanha.empresa, rel_payload, consultoria_cfg=consultoria_cfg)
+    _draw_pdf_identificacao_page_card(c, campanha, campanha.empresa, rel_payload, consultoria_cfg=consultoria_cfg)
     _draw_pdf_objetivo_page(c)
     _draw_pdf_metodologia_pages(c)
     _draw_pdf_importancia_participacao_page(c)
@@ -2272,7 +2555,7 @@ def _build_report_pdf_response(campanha, rel_payload):
     _draw_pdf_responsabilidades_page(c, consultoria_cfg=consultoria_cfg, campanha=campanha)
     _draw_pdf_anexos_pages(c, rel_payload)
     c.save()
-    pdf = buffer.getvalue()
+    pdf = _apply_pdf_letterhead(buffer.getvalue())
     buffer.close()
     response = HttpResponse(pdf, content_type='application/pdf')
     safe_name = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in campanha.title)[:80] or 'relatorio'
@@ -2302,12 +2585,14 @@ class LoginView(APIView):
                 'token': token.key,
                 'user': {
                     'id': user.id,
-                    'email': user.email,
-                    'full_name': user.full_name,
-                    'user_type': user.user_type,
-                    'is_superuser': user.is_superuser,
-                },
+                'email': user.email,
+                'full_name': user.full_name,
+                'user_type': user.user_type,
+                'is_superuser': user.is_superuser,
+                'is_consultoria_owner': user.is_consultoria_owner() if hasattr(user, 'is_consultoria_owner') else False,
+                'consultoria_owner_id': user.get_consultoria_owner().id if getattr(user, 'get_consultoria_owner', None) and user.get_consultoria_owner() else None,
             },
+        },
             status=status.HTTP_200_OK,
         )
 
@@ -2326,6 +2611,8 @@ class MeView(APIView):
                 'full_name': user.full_name,
                 'user_type': user.user_type,
                 'is_superuser': user.is_superuser,
+                'is_consultoria_owner': user.is_consultoria_owner() if hasattr(user, 'is_consultoria_owner') else False,
+                'consultoria_owner_id': user.get_consultoria_owner().id if getattr(user, 'get_consultoria_owner', None) and user.get_consultoria_owner() else None,
             }
         )
 
@@ -2417,6 +2704,18 @@ class IsConsultorOrAdmUser(BasePermission):
         return user.is_superuser or user.user_type in [UserType.ADM, UserType.CONSULTOR]
 
 
+class IsConsultoriaOwnerOrAdmUser(BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if hasattr(user, 'has_system_access') and not user.has_system_access():
+            return False
+        if user.is_superuser or user.user_type == UserType.ADM:
+            return True
+        return user.user_type == UserType.CONSULTOR and user.is_consultoria_owner()
+
+
 class DashboardOverviewView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
@@ -2443,7 +2742,7 @@ class DashboardOverviewView(APIView):
 
 
 def _consultoria_owner_for_user(user):
-    return get_system_team_owner(user)
+    return get_consultoria_owner(user)
 
 
 class ConsultoriaConfiguracaoView(APIView):
@@ -2538,7 +2837,10 @@ class ConsultorListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsAdmUser]
 
     def get(self, request):
-        consultores = User.objects.filter(user_type=UserType.CONSULTOR).order_by('id')
+        consultores = User.objects.filter(
+            user_type=UserType.CONSULTOR,
+            consultoria_master__isnull=True,
+        ).select_related('consultoria_configuracao').order_by('id')
         serializer = ConsultorSerializer(consultores, many=True)
         return Response(serializer.data)
 
@@ -2554,7 +2856,11 @@ class ConsultorDetailView(APIView):
     permission_classes = [IsAuthenticated, IsAdmUser]
 
     def get_object(self, consultor_id):
-        return User.objects.filter(id=consultor_id, user_type=UserType.CONSULTOR).first()
+        return User.objects.filter(
+            id=consultor_id,
+            user_type=UserType.CONSULTOR,
+            consultoria_master__isnull=True,
+        ).first()
 
     def get(self, request, consultor_id):
         consultor = self.get_object(consultor_id)
@@ -2589,8 +2895,58 @@ class ConsultorDetailView(APIView):
         consultor = self.get_object(consultor_id)
         if not consultor:
             return Response({'detail': 'Consultor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
+        if consultor.consultoria_usuarios.exists() or consultor.empresas_consultoria.exists():
+            return Response({'detail': 'Nao e possivel excluir consultoria com usuarios internos ou empresas vinculadas.'}, status=status.HTTP_400_BAD_REQUEST)
         consultor.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ConsultoriaUserListCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultoriaOwnerOrAdmUser]
+
+    def get_queryset(self, request):
+        consultoria_owner = _consultoria_owner_for_user(request.user)
+        return User.objects.filter(
+            user_type=UserType.CONSULTOR,
+            consultoria_master=consultoria_owner,
+        ).order_by('id')
+
+    def get(self, request):
+        serializer = ConsultoriaUserSerializer(self.get_queryset(request), many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ConsultoriaUserSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        usuario = serializer.save()
+        return Response(ConsultoriaUserSerializer(usuario).data, status=status.HTTP_201_CREATED)
+
+
+class ConsultoriaUserDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultoriaOwnerOrAdmUser]
+
+    def get_object(self, request, user_id):
+        consultoria_owner = _consultoria_owner_for_user(request.user)
+        return User.objects.filter(
+            id=user_id,
+            user_type=UserType.CONSULTOR,
+            consultoria_master=consultoria_owner,
+        ).first()
+
+    def patch(self, request, user_id):
+        usuario = self.get_object(request, user_id)
+        if not usuario:
+            return Response({'detail': 'Usuario da consultoria nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ConsultoriaUserSerializer(usuario, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        usuario = serializer.save()
+        return Response(ConsultoriaUserSerializer(usuario).data)
+
+    def delete(self, request, user_id):
+        usuario = self.get_object(request, user_id)
+        if not usuario:
+            return Response({'detail': 'Usuario da consultoria nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        usuario.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -2638,11 +2994,13 @@ class SystemAccountDetailView(APIView):
 
 class EmpresaListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_queryset(self, request):
+        consultoria_owner = _consultoria_owner_for_user(request.user)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return Empresa.objects.select_related('consultor', 'responsavel_usuario').all()
-        return Empresa.objects.select_related('consultor', 'responsavel_usuario').filter(consultor=request.user)
+        return Empresa.objects.select_related('consultor', 'responsavel_usuario').filter(consultor=consultoria_owner)
 
     def get(self, request):
         queryset = self.get_queryset(request)
@@ -2659,11 +3017,12 @@ class EmpresaListCreateView(APIView):
 def empresa_queryset_for_user(user):
     if user.is_superuser or user.user_type == UserType.ADM:
         return Empresa.objects.select_related('consultor', 'responsavel_usuario').all()
-    return Empresa.objects.select_related('consultor', 'responsavel_usuario').filter(consultor=user)
+    return Empresa.objects.select_related('consultor', 'responsavel_usuario').filter(consultor=_consultoria_owner_for_user(user))
 
 
 class EmpresaDetailView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_object(self, request, empresa_id):
         return empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
@@ -2700,7 +3059,7 @@ class EmpresaInativarView(APIView):
     def post(self, request, empresa_id):
         queryset = Empresa.objects.select_related('consultor').filter(id=empresa_id)
         if not (request.user.is_superuser or request.user.user_type == UserType.ADM):
-            queryset = queryset.filter(consultor=request.user)
+            queryset = queryset.filter(consultor=_consultoria_owner_for_user(request.user))
         empresa = queryset.first()
 
         if not empresa:
@@ -2734,16 +3093,30 @@ class EmpresaCanalDenunciasLinkView(APIView):
             base = 'http://localhost:5173'
         return f'{base}/canal-denuncias/{token}/'
 
+    def _build_qr_data_uri(self, text):
+        try:
+            import qrcode
+        except Exception:
+            return ''
+
+        buffer = BytesIO()
+        img = qrcode.make(text)
+        img.save(buffer, format='PNG')
+        encoded = base64.b64encode(buffer.getvalue()).decode('ascii')
+        return f'data:image/png;base64,{encoded}'
+
     def get(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)
         if not empresa:
             return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         token = self._ensure_token(empresa, regenerate=False)
+        public_url = self._public_url(token)
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
             'token': str(token),
-            'url': self._public_url(token),
+            'url': public_url,
+            'qr_code_data': self._build_qr_data_uri(public_url),
         })
 
     def post(self, request, empresa_id):
@@ -2752,11 +3125,13 @@ class EmpresaCanalDenunciasLinkView(APIView):
             return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         regenerate = bool(request.data.get('regenerate'))
         token = self._ensure_token(empresa, regenerate=regenerate)
+        public_url = self._public_url(token)
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
             'token': str(token),
-            'url': self._public_url(token),
+            'url': public_url,
+            'qr_code_data': self._build_qr_data_uri(public_url),
             'regenerated': regenerate,
         })
 
@@ -3254,17 +3629,20 @@ class CanalDenunciasPublicView(APIView):
         if not empresa:
             return Response({'detail': 'Canal de denúncias não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         ghes = list(Ghe.objects.filter(empresa=empresa, is_active=True).order_by('name').values('id', 'name'))
-        cargos_qs = Cargo.objects.filter(empresa=empresa, is_active=True).prefetch_related('ghes').order_by('name')
+        setores = list(Setor.objects.filter(empresa=empresa, is_active=True).order_by('name').values('id', 'name'))
+        cargos_qs = Cargo.objects.filter(empresa=empresa, is_active=True).prefetch_related('ghes', 'setores').order_by('name')
         cargos = [
-            {'id': c.id, 'name': c.name, 'ghe_ids': [g.id for g in c.ghes.all()]}
+            {'id': c.id, 'name': c.name, 'ghe_ids': [g.id for g in c.ghes.all()], 'setor_ids': [s.id for s in c.setores.all()]}
             for c in cargos_qs
         ]
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
+            'evaluation_type': empresa.evaluation_type,
             'token': str(token),
             'accepts_file': True,
             'max_file_size_mb': 20,
+            'setores': setores,
             'ghes': ghes,
             'cargos': cargos,
         })
@@ -3282,6 +3660,7 @@ class CanalDenunciasPublicView(APIView):
             'possui_vinculo': request.data.get('possui_vinculo'),
             'deseja_identificar': request.data.get('deseja_identificar'),
             'contato_identificacao': request.data.get('contato_identificacao'),
+            'setor_id': request.data.get('setor_id') or None,
             'ghe_id': request.data.get('ghe_id') or None,
             'cargo_id': request.data.get('cargo_id') or None,
             'tipo': request.data.get('tipo'),
@@ -3652,6 +4031,308 @@ def _build_denuncia_pdf_response(denuncia):
     return response
 
 
+def _build_denuncia_documental_pdf_response(denuncia):
+    from datetime import datetime
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    w, h = A4
+    mx = 20 * mm
+
+    black = colors.black
+    dark = colors.HexColor('#202020')
+    gray = colors.HexColor('#5a5a5a')
+    border_col = colors.HexColor('#cfcfcf')
+    bg_light = colors.HexColor('#f8f8f8')
+    status_labels = {'ABERTA': 'ABERTA', 'EM_ANALISE': 'EM ANALISE', 'RESOLVIDA': 'RESOLVIDA'}
+
+    now_str = datetime.now().strftime('%d/%m/%Y %H:%M')
+    created_local = denuncia.created_at.astimezone()
+    date_str = created_local.strftime('%d/%m/%Y as %H:%M')
+    origem_label = {'LINK': 'Link de denuncia', 'TOTEM': 'Totem'}.get(denuncia.origem, denuncia.origem)
+
+    page_num = [0]
+
+    def draw_page_frame():
+        page_num[0] += 1
+        c.setFillColor(colors.white)
+        c.rect(0, 0, w, h, stroke=0, fill=1)
+        c.setStrokeColor(black)
+        c.setLineWidth(0.8)
+        c.line(mx, h - 16 * mm, w - mx, h - 16 * mm)
+        c.setFillColor(black)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(mx, h - 11.5 * mm, 'RELATORIO DOCUMENTAL - CANAL DE DENUNCIAS')
+        c.setFont('Helvetica', 8)
+        c.drawRightString(w - mx, h - 11.5 * mm, f'Pagina {page_num[0]}')
+        c.line(mx, 14 * mm, w - mx, 14 * mm)
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7)
+        c.drawString(mx, 9 * mm, f'Gerado em: {now_str}')
+        c.drawRightString(w - mx, 9 * mm, f'Denuncia #{denuncia.id} | {denuncia.empresa.company_name}')
+
+    def new_page():
+        c.showPage()
+        draw_page_frame()
+        return h - 24 * mm
+
+    def wrap_text(text, font_name, font_size, max_width):
+        paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        all_lines = []
+        for para in paragraphs:
+            if not para.strip():
+                all_lines.append('')
+                continue
+            words = para.split()
+            current = ''
+            for word in words:
+                test = (current + ' ' + word).strip()
+                if c.stringWidth(test, font_name, font_size) <= max_width:
+                    current = test
+                else:
+                    if current:
+                        all_lines.append(current)
+                    current = word
+            if current:
+                all_lines.append(current)
+        return all_lines or ['']
+
+    def draw_section_title(y, title, ul_width_mm=42):
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(mx, y, title)
+        y -= 2 * mm
+        c.setStrokeColor(black)
+        c.setLineWidth(0.8)
+        c.line(mx, y, mx + ul_width_mm * mm, y)
+        return y - 5 * mm
+
+    def draw_text_block(y, lines, font_size=9, lh=5.5):
+        for line in lines:
+            if y < 22 * mm:
+                y = new_page()
+            c.setFillColor(dark)
+            c.setFont('Helvetica', font_size)
+            if line:
+                c.drawString(mx, y, line)
+            y -= lh * mm
+        return y
+
+    def draw_identification_card(y_top):
+        card_w = w - 2 * mx
+        card_h = 34 * mm
+        card_y = y_top - card_h
+        card_x = mx
+        text_x = card_x + 5 * mm
+        logo_w = 42 * mm
+        info_right = card_x + card_w - logo_w - 7 * mm
+        line_y = y_top - 7 * mm
+
+        c.setFillColor(colors.HexColor('#eef2f6'))
+        c.roundRect(card_x, card_y, card_w, card_h, 4, stroke=0, fill=1)
+        c.setStrokeColor(colors.HexColor('#d7dee7'))
+        c.setLineWidth(0.5)
+        c.roundRect(card_x, card_y, card_w, card_h, 4, stroke=1, fill=0)
+        c.setStrokeColor(colors.HexColor('#2f5fb3'))
+        c.setLineWidth(1.4)
+        c.line(card_x + 1.5 * mm, card_y + 3 * mm, card_x + 1.5 * mm, y_top - 3 * mm)
+
+        info_lines = [
+            ('Cliente:', denuncia.empresa.company_name or '-'),
+            ('CNPJ:', (denuncia.empresa.document_number or '-') if getattr(denuncia.empresa, 'document_type', '') == 'CNPJ' else '-'),
+            ('Endereço:', f"{denuncia.empresa.street or '-'}, {denuncia.empresa.number or '-'} - {denuncia.empresa.city or '-'} / {denuncia.empresa.state or '-'}"),
+        ]
+
+        for label, value in info_lines:
+            c.setFillColor(dark)
+            c.setFont('Helvetica-Bold', 8.5)
+            c.drawString(text_x, line_y, label)
+            c.setFillColor(gray)
+            c.setFont('Helvetica', 8.5)
+            available_w = info_right - text_x - c.stringWidth(label, 'Helvetica-Bold', 8.5) - 2 * mm
+            value_lines = wrap_text(str(value), 'Helvetica', 8.5, max(available_w, 30 * mm))
+            first_line = value_lines[0] if value_lines else '-'
+            c.drawString(text_x + c.stringWidth(label, 'Helvetica-Bold', 8.5) + 2 * mm, line_y, first_line)
+            line_y -= 8 * mm
+
+        logo = getattr(denuncia.empresa, 'logo', None)
+        if logo:
+            logo_bytes = None
+            try:
+                if hasattr(logo, 'open'):
+                    logo.open('rb')
+                    logo_bytes = logo.read()
+                    logo.close()
+            except Exception:
+                logo_bytes = None
+            if not logo_bytes:
+                try:
+                    with urlopen(logo.url, timeout=8) as fp:
+                        logo_bytes = fp.read()
+                except Exception:
+                    logo_bytes = None
+            if logo_bytes:
+                try:
+                    img = ImageReader(BytesIO(logo_bytes))
+                    img_w, img_h = img.getSize()
+                    max_w = 50 * mm
+                    max_h = 30 * mm
+                    scale = min(max_w / img_w, max_h / img_h)
+                    draw_w = img_w * scale
+                    draw_h = img_h * scale
+                    img_x = card_x + card_w - draw_w - 5 * mm
+                    img_y = card_y + (card_h - draw_h) / 2
+                    c.drawImage(img, img_x, img_y, width=draw_w, height=draw_h, mask='auto')
+                except Exception:
+                    pass
+
+        return card_y - 6 * mm
+
+    draw_page_frame()
+    y = h - 24 * mm
+
+    c.setFillColor(black)
+    c.setFont('Helvetica-Bold', 14)
+    c.drawString(mx, y, denuncia.empresa.company_name)
+    y -= 6 * mm
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 9)
+    c.drawString(mx, y, 'Canal de denuncias interno - relatorio documental')
+    y -= 10 * mm
+
+    c.setStrokeColor(black)
+    c.setLineWidth(0.8)
+    c.line(mx, y, w - mx, y)
+    y -= 8 * mm
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 16)
+    c.drawString(mx, y, f'Denuncia #{denuncia.id}')
+    c.setFont('Helvetica', 9)
+    c.drawRightString(w - mx, y, f'Situacao atual: {status_labels.get(denuncia.status, denuncia.status)}')
+    y -= 10 * mm
+
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 9)
+    c.drawString(mx, y, f'Registrada em: {date_str} | Origem: {origem_label}')
+    y -= 10 * mm
+
+    y = draw_identification_card(y)
+
+    details_items = [
+        ('Tipo de denuncia', denuncia.get_tipo_display() or 'Outros'),
+        ('GHE', denuncia.ghe.name if denuncia.ghe else '-'),
+        ('Funcao / Cargo', denuncia.cargo_funcao.name if denuncia.cargo_funcao else '-'),
+        ('Vinculo empregaticio', 'Sim' if denuncia.possui_vinculo else 'Nao'),
+        (
+            'Denunciante identificado',
+            ('Sim - ' + denuncia.contato_identificacao)
+            if (denuncia.deseja_identificar and denuncia.contato_identificacao)
+            else ('Sim' if denuncia.deseja_identificar else 'Nao'),
+        ),
+        (
+            'Devolutiva solicitada',
+            ('Sim - ' + denuncia.email_devolutiva)
+            if (denuncia.aceita_devolutiva and denuncia.email_devolutiva)
+            else ('Sim' if denuncia.aceita_devolutiva else 'Nao'),
+        ),
+    ]
+
+    box_rows = (len(details_items) + 1) // 2
+    box_h = box_rows * 10 * mm + 4 * mm
+    c.setFillColor(colors.white)
+    c.rect(mx, y - box_h, w - 2 * mx, box_h, stroke=0, fill=1)
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.5)
+    c.rect(mx, y - box_h, w - 2 * mx, box_h, stroke=1, fill=0)
+
+    col_w = (w - 2 * mx) / 2
+    ry = y - 6 * mm
+    for i, (label, value) in enumerate(details_items):
+        col_x = mx + (col_w if i % 2 == 1 else 0) + 4 * mm
+        cell_y = ry - (i // 2) * 10 * mm
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7)
+        c.drawString(col_x, cell_y + 3.5 * mm, label.upper())
+        c.setFillColor(dark)
+        c.setFont('Helvetica-Bold', 9)
+        max_val_w = col_w - 8 * mm
+        val_str = str(value)
+        while c.stringWidth(val_str, 'Helvetica-Bold', 9) > max_val_w and len(val_str) > 4:
+            val_str = val_str[:-1]
+        if val_str != str(value):
+            val_str = val_str[:-3] + '...'
+        c.drawString(col_x, cell_y, val_str)
+
+    y -= box_h + 8 * mm
+
+    if y < 50 * mm:
+        y = new_page()
+    y = draw_section_title(y, 'Relato', ul_width_mm=18)
+    y = draw_text_block(y, wrap_text(denuncia.relato, 'Helvetica', 9, w - 2 * mx))
+
+    if denuncia.testemunhas and denuncia.testemunhas.strip():
+        y -= 6 * mm
+        if y < 50 * mm:
+            y = new_page()
+        y = draw_section_title(y, 'Testemunhas', ul_width_mm=28)
+        y = draw_text_block(y, wrap_text(denuncia.testemunhas, 'Helvetica', 9, w - 2 * mx))
+
+    atualizacoes = list(denuncia.atualizacoes.order_by('created_at').all())
+    if atualizacoes:
+        y -= 8 * mm
+        if y < 60 * mm:
+            y = new_page()
+        y = draw_section_title(y, f'Historico de atualizacoes ({len(atualizacoes)})', ul_width_mm=58)
+
+        for atu in atualizacoes:
+            atu_local = atu.created_at.astimezone()
+            atu_date = atu_local.strftime('%d/%m/%Y %H:%M')
+            por = getattr(atu.criado_por, 'email', '') if atu.criado_por_id else 'Sistema'
+            text_max_w = w - 2 * mx - 8 * mm
+            atu_lines = wrap_text(atu.texto, 'Helvetica', 9, text_max_w)
+            header_h = 11 * mm
+            body_h = len(atu_lines) * 5.2 * mm + 3 * mm
+            card_h = header_h + body_h
+
+            if y - card_h < 22 * mm:
+                y = new_page()
+
+            card_y = y - card_h
+            c.setFillColor(bg_light)
+            c.rect(mx, card_y, w - 2 * mx, card_h, stroke=0, fill=1)
+            c.setStrokeColor(border_col)
+            c.setLineWidth(0.5)
+            c.rect(mx, card_y, w - 2 * mx, card_h, stroke=1, fill=0)
+
+            sep_y = y - header_h
+            c.line(mx, sep_y, w - mx, sep_y)
+
+            text_x = mx + 4 * mm
+            c.setFillColor(black)
+            c.setFont('Helvetica-Bold', 8.5)
+            c.drawString(text_x, y - 4 * mm, atu_date)
+            c.setFillColor(gray)
+            c.setFont('Helvetica', 7.5)
+            c.drawString(text_x, y - 8.5 * mm, f'Por: {por}')
+
+            ty = sep_y - 4 * mm
+            for line in atu_lines:
+                c.setFillColor(dark)
+                c.setFont('Helvetica', 9)
+                if line:
+                    c.drawString(text_x, ty, line)
+                ty -= 5.2 * mm
+
+            y = card_y - 4 * mm
+
+    c.save()
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename=\"denuncia-{denuncia.id}-auditoria.pdf\"'
+    return response
+
+
 class EmpresaCanalDenunciaPdfView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
@@ -3668,7 +4349,7 @@ class EmpresaCanalDenunciaPdfView(APIView):
         )
         if not denuncia:
             return Response({'detail': 'Denuncia nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
-        return _build_denuncia_pdf_response(denuncia)
+        return _build_denuncia_documental_pdf_response(denuncia)
 
 
 class SetorListCreateView(APIView):
@@ -3677,7 +4358,7 @@ class SetorListCreateView(APIView):
     def get_queryset(self, request):
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return Setor.objects.select_related('empresa').all()
-        return Setor.objects.select_related('empresa').filter(empresa__consultor=request.user)
+        return Setor.objects.select_related('empresa').filter(empresa__consultor=_consultoria_owner_for_user(request.user))
 
     def get(self, request):
         serializer = SetorSerializer(self.get_queryset(request), many=True)
@@ -3697,7 +4378,7 @@ class SetorDetailView(APIView):
         queryset = Setor.objects.select_related('empresa').filter(id=setor_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, setor_id):
         setor = self.get_object(request, setor_id)
@@ -3742,7 +4423,7 @@ class GheListCreateView(APIView):
     def get_queryset(self, request):
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return self._base_queryset().all()
-        return self._base_queryset().filter(empresa__consultor=request.user)
+        return self._base_queryset().filter(empresa__consultor=_consultoria_owner_for_user(request.user))
 
     def get(self, request):
         serializer = GheSerializer(self.get_queryset(request), many=True)
@@ -3764,7 +4445,7 @@ class GheDetailView(APIView):
         ).filter(id=ghe_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, ghe_id):
         ghe = self.get_object(request, ghe_id)
@@ -3810,7 +4491,7 @@ class CargoListCreateView(APIView):
     def get_queryset(self, request):
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return self._base_queryset().all()
-        return self._base_queryset().filter(empresa__consultor=request.user)
+        return self._base_queryset().filter(empresa__consultor=_consultoria_owner_for_user(request.user))
 
     def get(self, request):
         serializer = CargoSerializer(self.get_queryset(request), many=True)
@@ -3833,7 +4514,7 @@ class CargoDetailView(APIView):
         ).filter(id=cargo_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, cargo_id):
         cargo = self.get_object(request, cargo_id)
@@ -3873,7 +4554,7 @@ class CampanhaListCreateView(APIView):
     def get_queryset(self, request):
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return Campanha.objects.select_related('empresa').all()
-        return Campanha.objects.select_related('empresa').filter(empresa__consultor=request.user)
+        return Campanha.objects.select_related('empresa').filter(empresa__consultor=_consultoria_owner_for_user(request.user))
 
     def get(self, request):
         serializer = CampanhaSerializer(self.get_queryset(request), many=True)
@@ -3893,7 +4574,7 @@ class CampanhaDetailView(APIView):
         queryset = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, campanha_id):
         campanha = self.get_object(request, campanha_id)
@@ -3934,7 +4615,7 @@ class CampanhaRelatorioView(APIView):
         queryset = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, campanha_id):
         campanha = self.get_object(request, campanha_id)
@@ -4131,7 +4812,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         c.setLineWidth(0.8)
         c.roundRect(bx, y - box_h, box_w, box_h, 3 * mm, stroke=1, fill=1)
         c.setFillColor(BLUE)
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 9)
         c.drawString(bx + 4 * mm, y - 7 * mm, f'CAMPANHA {i + 1}')
         c.setFillColor(DARK)
         c.setFont('Helvetica-Bold', 8.5)
@@ -4167,7 +4848,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         c.setFillColor(GREEN_H)
         c.rect(MARGIN, y - 7 * mm, width - 2 * MARGIN, 7 * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 9)
         for i, lbl in enumerate(labels):
             c.drawString(col_xs[i] + 2 * mm, y - 5 * mm, lbl)
         return y - 9 * mm
@@ -4306,7 +4987,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
                 c.setFillColor(colors.HexColor('#334155'))
                 c.rect(MARGIN, y - 6 * mm, width - 2 * MARGIN, 6 * mm, stroke=0, fill=1)
                 c.setFillColor(colors.white)
-                c.setFont('Helvetica-Bold', 7)
+                c.setFont('Helvetica-Bold', 9)
                 c.drawString(MARGIN + 2 * mm, y - 4.5 * mm, f'(continuação) {domain_name.upper()}')
                 y -= 9 * mm
                 y = table_header(c, y, ['QUESTÃO', 'Camp. 1 (%)', 'Camp. 2 (%)', 'VAR.'])
@@ -4358,7 +5039,7 @@ class CampanhaComparativoPdfView(APIView):
         qs = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return qs.first()
-        return qs.filter(empresa__consultor=request.user).first()
+        return qs.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request):
         c1_id_raw = (request.query_params.get('camp1_id') or '').strip()
@@ -4388,7 +5069,7 @@ class CampanhaRelatorioPdfView(APIView):
         queryset = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, campanha_id):
         campanha = self.get_object(request, campanha_id)
@@ -4472,7 +5153,7 @@ class CampanhaMedidaPreliminarListCreateView(APIView):
         queryset = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, campanha_id):
         campanha = self.get_campanha(request, campanha_id)
@@ -4497,7 +5178,7 @@ class CampanhaMedidaPreliminarDetailView(APIView):
     def get_object(self, request, campanha_id, medida_id):
         queryset = Campanha.objects.filter(id=campanha_id)
         if not (request.user.is_superuser or request.user.user_type == UserType.ADM):
-            queryset = queryset.filter(empresa__consultor=request.user)
+            queryset = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
         campanha = queryset.first()
         if not campanha:
             return None, None
@@ -4521,7 +5202,7 @@ class CampanhaQuandoPreliminarUpsertView(APIView):
         queryset = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def post(self, request, campanha_id):
         campanha = self.get_campanha(request, campanha_id)
@@ -4551,7 +5232,7 @@ class CampanhaQuandoPreliminarDetailView(APIView):
     def get_object(self, request, campanha_id, quando_id):
         queryset = Campanha.objects.filter(id=campanha_id)
         if not (request.user.is_superuser or request.user.user_type == UserType.ADM):
-            queryset = queryset.filter(empresa__consultor=request.user)
+            queryset = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
         campanha = queryset.first()
         if not campanha:
             return None, None
@@ -4575,7 +5256,7 @@ class CampanhaRelatorioAnexoListCreateView(APIView):
         queryset = Campanha.objects.select_related('empresa').filter(id=campanha_id)
         if request.user.is_superuser or request.user.user_type == UserType.ADM:
             return queryset.first()
-        return queryset.filter(empresa__consultor=request.user).first()
+        return queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
 
     def get(self, request, campanha_id):
         campanha = self.get_campanha(request, campanha_id)
@@ -4615,7 +5296,7 @@ class CampanhaRelatorioAnexoDetailView(APIView):
     def get_object(self, request, campanha_id, anexo_id):
         queryset = Campanha.objects.filter(id=campanha_id)
         if not (request.user.is_superuser or request.user.user_type == UserType.ADM):
-            queryset = queryset.filter(empresa__consultor=request.user)
+            queryset = queryset.filter(empresa__consultor=_consultoria_owner_for_user(request.user))
         campanha = queryset.first()
         if not campanha:
             return None, None

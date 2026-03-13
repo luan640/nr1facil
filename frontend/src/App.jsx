@@ -137,6 +137,7 @@ const I = {
   power: <svg viewBox="0 0 24 24"><path d="M12 3v8M7.8 5.8a9 9 0 101.4-1.1M16.2 4.7a9 9 0 011.4 1.1" /></svg>,
   moreV: <svg viewBox="0 0 24 24"><path d="M12 5h.01M12 12h.01M12 19h.01" /></svg>,
   pdf: <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M10 13h4M10 17h4M10 9h1" /></svg>,
+  print: <svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M6 17H5a2 2 0 01-2-2v-5a2 2 0 012-2h14a2 2 0 012 2v5a2 2 0 01-2 2h-1M7 14h10v7H7zM17 11h.01" /></svg>,
 };
 
 const PLANOS_ACAO = {
@@ -1089,6 +1090,7 @@ export default function App() {
   const isPublicCanalDenuncias = Boolean(denunciaToken) && !isPublicQuestionario;
   const totemPublicToken = getPublicTotemToken();
   const isPublicTotem = Boolean(totemPublicToken) && !isPublicQuestionario && !isPublicCanalDenuncias;
+  const isPublicRoute = isPublicQuestionario || isPublicCanalDenuncias || isPublicTotem;
   const passwordResetParams = getPasswordResetParams();
   const isPasswordReset = Boolean(passwordResetParams.uid && passwordResetParams.token);
 
@@ -1125,11 +1127,14 @@ export default function App() {
   const [sysModal, setSysModal] = useState({ type: "", item: null }), [sysName, setSysName] = useState(""), [sysEmail, setSysEmail] = useState(""), [sysPass, setSysPass] = useState(""), [sysActive, setSysActive] = useState(true), [sysSaving, setSysSaving] = useState(false), [sysModalErr, setSysModalErr] = useState("");
 
   const [consultores, setConsultores] = useState([]), [consErr, setConsErr] = useState(""), [consLoad, setConsLoad] = useState(false);
-  const [cModal, setCModal] = useState({ type: "", item: null }), [cEmail, setCEmail] = useState(""), [cPass, setCPass] = useState(""), [cActive, setCActive] = useState(true), [cErr, setCErr] = useState(""), [cSaving, setCSaving] = useState(false);
+  const [cModal, setCModal] = useState({ type: "", item: null }), [cName, setCName] = useState(""), [cEmail, setCEmail] = useState(""), [cPass, setCPass] = useState(""), [cActive, setCActive] = useState(true), [cAccessExpiresOn, setCAccessExpiresOn] = useState(""), [cErr, setCErr] = useState(""), [cSaving, setCSaving] = useState(false);
+  const [consultoriaUsers, setConsultoriaUsers] = useState([]), [consultoriaUsersLoad, setConsultoriaUsersLoad] = useState(false), [consultoriaUsersErr, setConsultoriaUsersErr] = useState("");
+  const [cuModal, setCuModal] = useState({ type: "", item: null }), [cuName, setCuName] = useState(""), [cuEmail, setCuEmail] = useState(""), [cuPass, setCuPass] = useState(""), [cuActive, setCuActive] = useState(true), [cuErr, setCuErr] = useState(""), [cuSaving, setCuSaving] = useState(false);
 
   const [empresas, setEmpresas] = useState([]), [empErr, setEmpErr] = useState(""), [empLoad, setEmpLoad] = useState(false);
   const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("6"), [empPage, setEmpPage] = useState(1);
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false);
+  const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
@@ -1197,9 +1202,45 @@ export default function App() {
   const [totemPubLoad, setTotemPubLoad] = useState(false), [totemPubErr, setTotemPubErr] = useState(""), [totemPubData, setTotemPubData] = useState(null), [totemConsentAccepted, setTotemConsentAccepted] = useState(false), [totemPubActionMsg, setTotemPubActionMsg] = useState(""), [totemPubScreen, setTotemPubScreen] = useState("menu"), [totemDenSaving, setTotemDenSaving] = useState(false), [totemDenOk, setTotemDenOk] = useState(""), [totemDenErr, setTotemDenErr] = useState("");
   const [totemHumorSelected, setTotemHumorSelected] = useState(""), [totemHumorModal, setTotemHumorModal] = useState(false), [totemHumorGhe, setTotemHumorGhe] = useState(""), [totemHumorSetor, setTotemHumorSetor] = useState(""), [totemHumorSaving, setTotemHumorSaving] = useState(false), [totemHumorOk, setTotemHumorOk] = useState(""), [totemHumorErr, setTotemHumorErr] = useState("");
   const [totemAjudaNome, setTotemAjudaNome] = useState(""), [totemAjudaContato, setTotemAjudaContato] = useState(""), [totemAjudaGhe, setTotemAjudaGhe] = useState(""), [totemAjudaFuncao, setTotemAjudaFuncao] = useState(""), [totemAjudaSaving, setTotemAjudaSaving] = useState(false), [totemAjudaOk, setTotemAjudaOk] = useState(""), [totemAjudaErr, setTotemAjudaErr] = useState("");
-  const [denVinculo, setDenVinculo] = useState(""), [denIdentificar, setDenIdentificar] = useState("NAO"), [denContatoIdentificacao, setDenContatoIdentificacao] = useState(""), [denGhe, setDenGhe] = useState(""), [denCargo, setDenCargo] = useState(""), [denTipo, setDenTipo] = useState(""), [denRelato, setDenRelato] = useState(""), [denTestemunhas, setDenTestemunhas] = useState(""), [denAceitaDevolutiva, setDenAceitaDevolutiva] = useState("NAO"), [denEmailDevolutiva, setDenEmailDevolutiva] = useState(""), [denArquivo, setDenArquivo] = useState(null);
+  const [denVinculo, setDenVinculo] = useState(""), [denIdentificar, setDenIdentificar] = useState("NAO"), [denContatoIdentificacao, setDenContatoIdentificacao] = useState(""), [denSetor, setDenSetor] = useState(""), [denGhe, setDenGhe] = useState(""), [denCargo, setDenCargo] = useState(""), [denTipo, setDenTipo] = useState(""), [denRelato, setDenRelato] = useState(""), [denTestemunhas, setDenTestemunhas] = useState(""), [denAceitaDevolutiva, setDenAceitaDevolutiva] = useState("NAO"), [denEmailDevolutiva, setDenEmailDevolutiva] = useState(""), [denArquivo, setDenArquivo] = useState(null);
   const [toasts, setToasts] = useState([]);
   const toastSeqRef = useRef(1);
+  const resourceCacheRef = useRef({
+    consultores: { token: "", loaded: false, promise: null },
+    consultoriaUsers: { token: "", loaded: false, promise: null },
+    dashboard: { token: "", key: "", loaded: false, promise: null },
+    consultoriaConfig: { token: "", loaded: false, promise: null },
+    systemAccounts: { token: "", loaded: false, promise: null },
+    empresas: { token: "", loaded: false, promise: null },
+    setores: { token: "", loaded: false, promise: null },
+    ghes: { token: "", loaded: false, promise: null },
+    cargos: { token: "", loaded: false, promise: null },
+    campanhas: { token: "", loaded: false, promise: null },
+  });
+
+  function resetResourceCaches() {
+    resourceCacheRef.current = {
+      consultores: { token: "", loaded: false, promise: null },
+      consultoriaUsers: { token: "", loaded: false, promise: null },
+      dashboard: { token: "", key: "", loaded: false, promise: null },
+      consultoriaConfig: { token: "", loaded: false, promise: null },
+      systemAccounts: { token: "", loaded: false, promise: null },
+      empresas: { token: "", loaded: false, promise: null },
+      setores: { token: "", loaded: false, promise: null },
+      ghes: { token: "", loaded: false, promise: null },
+      cargos: { token: "", loaded: false, promise: null },
+      campanhas: { token: "", loaded: false, promise: null },
+    };
+  }
+
+  function invalidateResourceCache(key) {
+    const entry = resourceCacheRef.current[key];
+    if (!entry) return;
+    entry.loaded = false;
+    entry.promise = null;
+    entry.token = "";
+    if (Object.prototype.hasOwnProperty.call(entry, "key")) entry.key = "";
+  }
 
   function pushToast(type, title, message = "") {
     const id = toastSeqRef.current++;
@@ -1211,6 +1252,10 @@ export default function App() {
   function dismissToast(id) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
+
+  useEffect(() => {
+    resetResourceCaches();
+  }, [token]);
 
   function closeDenunciaRowMenu() {
     setDenRowMenuOpenId(null);
@@ -1296,6 +1341,7 @@ export default function App() {
   );
 
   useEffect(() => {
+    if (isPublicRoute) return;
     if (!token) {
       setUser(null);
       localStorage.removeItem(USER_CACHE_KEY);
@@ -1322,7 +1368,7 @@ export default function App() {
           setUser(null);
         }
       });
-  }, [token]);
+  }, [token, isPublicRoute]);
 
   useEffect(() => {
     if (!toasts.length) return;
@@ -1370,23 +1416,24 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => { if (user && isAdm(user) && section === "consultores") loadConsultores(); }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "dashboard") loadDashboardOverview(); }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "configuracoes") loadConsultoriaConfig(); }, [user, section]);
-  useEffect(() => { if (user && isAdm(user) && section === "configuracoes") loadSystemAccounts(); }, [user, section]);
+  useEffect(() => { if (!isPublicRoute && user && isAdm(user) && section === "consultores") loadConsultores(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canManageConsultoriaUsers(user) && section === "acessos") loadConsultoriaUsers(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "dashboard") loadDashboardOverview(dashEmpresa, dashDateFrom, dashDateTo, { force: true }); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "configuracoes") loadConsultoriaConfig(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && isAdm(user) && section === "configuracoes") loadSystemAccounts(); }, [user, section, isPublicRoute]);
   useEffect(() => {
-    if (user && canEmp(user) && !cfgData && !cfgLoad) loadConsultoriaConfig();
-  }, [user]);
-  useEffect(() => { if (user && canEmp(user) && section === "empresas") loadEmpresas(); }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "setor") { loadEmpresas(); loadSetores(); } }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "ghe") { loadEmpresas(); loadSetores(); loadGhes(); } }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "cargos") { loadEmpresas(); loadSetores(); loadGhes(); loadCargos(); } }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "comparar-campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "canal-denuncias") loadEmpresas(); }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "denuncias-empresa") loadEmpresas(); }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "pedidos-ajuda") loadEmpresas(); }, [user, section]);
-  useEffect(() => { if (user && canEmp(user) && section === "totem") loadEmpresas(); }, [user, section]);
+    if (!isPublicRoute && user && canEmp(user) && !cfgData && !cfgLoad) loadConsultoriaConfig();
+  }, [user, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "empresas") loadEmpresas(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "setor") { loadEmpresas(); loadSetores(); } }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "ghe") { loadEmpresas(); loadSetores(); loadGhes(); } }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "cargos") { loadEmpresas(); loadSetores(); loadGhes(); loadCargos(); } }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "comparar-campanhas") { loadEmpresas(); loadCampanhas(); } }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "canal-denuncias") loadEmpresas(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "denuncias-empresa") loadEmpresas(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "pedidos-ajuda") loadEmpresas(); }, [user, section, isPublicRoute]);
+  useEffect(() => { if (!isPublicRoute && user && canEmp(user) && section === "totem") loadEmpresas(); }, [user, section, isPublicRoute]);
   useEffect(() => {
     if (!isPublicQuestionario) return;
     setPubLoad(true); setPubErr(""); setPubOk("");
@@ -1431,6 +1478,7 @@ export default function App() {
         setDenVinculo("");
         setDenIdentificar("NAO");
         setDenContatoIdentificacao("");
+        setDenSetor("");
         setDenGhe("");
         setDenCargo("");
         setDenTipo("");
@@ -1450,6 +1498,7 @@ export default function App() {
     setDenVinculo("");
     setDenIdentificar("NAO");
     setDenContatoIdentificacao("");
+    setDenSetor("");
     setDenGhe("");
     setDenCargo("");
     setDenTipo("");
@@ -1470,7 +1519,8 @@ export default function App() {
 
   const menu = useMemo(() => {
     const m = [{ key: "dashboard", label: "Dashboard", icon: I.dash }];
-    // if (user && isAdm(user)) m.push({ key: "consultores", label: "Consultores", icon: I.con });
+    if (user && isAdm(user)) m.push({ key: "consultores", label: "Consultorias", icon: I.con });
+    if (user && canManageConsultoriaUsers(user)) m.push({ key: "acessos", label: "Consultores", icon: I.con });
     if (user && canEmp(user)) m.push({ key: "empresas", label: "Empresas", icon: I.emp });
     if (user && canEmp(user)) m.push({ key: "campanhas", label: "Campanhas", icon: I.camp });
     if (user && canEmp(user)) m.push({ key: "comparar-campanhas", label: "Comparar campanhas", icon: I.cmp });
@@ -1487,6 +1537,8 @@ export default function App() {
     if (section === "denuncias-empresa") return "Denúncias por empresa";
     if (section === "pedidos-ajuda") return "Pedidos de ajuda";
     if (section === "totem") return "Totem";
+    if (section === "consultores") return "Consultorias";
+    if (section === "acessos") return "Consultores";
     if (section === "configuracoes") return "Configurações";
     if (section === "setor") return "Setor";
     if (section === "ghe") return "GHE";
@@ -1514,6 +1566,13 @@ export default function App() {
 
   function isAdm(u) { return u?.is_superuser || u?.user_type === "ADM"; }
   function canEmp(u) { return isAdm(u) || u?.user_type === "CONSULTOR"; }
+  function canManageConsultoriaUsers(u) { return u?.user_type === "CONSULTOR" && Boolean(u?.is_consultoria_owner); }
+  function userRoleLabel(u) {
+    if (isAdm(u)) return "Super usuário";
+    if (canManageConsultoriaUsers(u)) return "Consultoria";
+    if (u?.user_type === "CONSULTOR") return "Consultor";
+    return "Empresa";
+  }
   function goSection(s) { setSection(s); setSideOpen(false); setSideUserMenuOpen(false); }
 
   useEffect(() => {
@@ -1727,22 +1786,35 @@ export default function App() {
     }
   }
 
-  async function loadDashboardOverview(empresaId = dashEmpresa, dateFrom = dashDateFrom, dateTo = dashDateTo) {
+  async function loadDashboardOverview(empresaId = dashEmpresa, dateFrom = dashDateFrom, dateTo = dashDateTo, options = {}) {
     if (!token) return;
+    const { force = false } = options;
+    const params = new URLSearchParams();
+    if (empresaId) params.set("empresa_id", empresaId);
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const cache = resourceCacheRef.current.dashboard;
+    const requestKey = `${token}|${qs}`;
+    if (!force && cache.loaded && cache.token === token && cache.key === requestKey) return;
+    if (!force && cache.promise && cache.token === token && cache.key === requestKey) return cache.promise;
     setDashLoad(true); setDashErr("");
+    cache.token = token;
+    cache.key = requestKey;
     try {
-      const params = new URLSearchParams();
-      if (empresaId) params.set("empresa_id", empresaId);
-      if (dateFrom) params.set("date_from", dateFrom);
-      if (dateTo) params.set("date_to", dateTo);
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      const r = await fetch(`${API}/dashboard/overview/${qs}`, { headers: { Authorization: `Token ${token}` } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(pErr(d));
-      setDashData(d);
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/dashboard/overview/${qs}`, { headers: { Authorization: `Token ${token}` } });
+        const d = await r.json();
+        if (!r.ok) throw new Error(pErr(d));
+        setDashData(d);
+        cache.loaded = true;
+      })();
+      await cache.promise;
     } catch (err) {
+      cache.loaded = false;
       setDashErr(err.message);
     } finally {
+      cache.promise = null;
       setDashLoad(false);
     }
   }
@@ -1751,6 +1823,7 @@ export default function App() {
     e.preventDefault();
     setDenPubSaving(true); setDenPubErr(""); setDenPubOk("");
     try {
+      const evaluationType = String(denPubData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
       if (!denVinculo) throw new Error("Informe se voce possui vinculo com a empresa.");
       if (denIdentificar === "SIM" && !String(denContatoIdentificacao || "").trim()) throw new Error("Informe e-mail ou WhatsApp para identificacao.");
       if (!denTipo) throw new Error("Selecione o tipo da denuncia.");
@@ -1761,7 +1834,8 @@ export default function App() {
       form.append("possui_vinculo", denVinculo === "SIM" ? "true" : "false");
       form.append("deseja_identificar", denIdentificar === "SIM" ? "true" : "false");
       form.append("contato_identificacao", denIdentificar === "SIM" ? denContatoIdentificacao : "");
-      form.append("ghe_id", denGhe || "");
+      if (evaluationType === "SETOR") form.append("setor_id", denSetor || "");
+      else form.append("ghe_id", denGhe || "");
       form.append("cargo_id", denCargo || "");
       form.append("tipo", denTipo || "");
       form.append("relato", denRelato);
@@ -1776,6 +1850,7 @@ export default function App() {
       setDenVinculo("");
       setDenIdentificar("NAO");
       setDenContatoIdentificacao("");
+      setDenSetor("");
       setDenGhe("");
       setDenCargo("");
       setDenTipo("");
@@ -1825,6 +1900,7 @@ export default function App() {
       setDenVinculo("");
       setDenIdentificar("NAO");
       setDenContatoIdentificacao("");
+      setDenSetor("");
       setDenGhe("");
       setDenCargo("");
       setDenTipo("");
@@ -1900,32 +1976,40 @@ export default function App() {
 
   async function loadConsultoriaConfig() {
     if (!token) return;
+    const cache = resourceCacheRef.current.consultoriaConfig;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setCfgLoad(true); setCfgErr(""); setCfgTecErr("");
+    cache.token = token;
     try {
-      // Evita concorrencia de dois get_or_create simultaneos na mesma configuracao
-      // (pode travar/lockar em bancos locais como SQLite).
-      const cfgResp = await fetch(`${API}/consultoria-configuracao/`, { headers: { Authorization: `Token ${token}` } });
-      const cfgJson = await cfgResp.json();
-      if (!cfgResp.ok) throw new Error(pErr(cfgJson));
+      cache.promise = (async () => {
+        const cfgResp = await fetch(`${API}/consultoria-configuracao/`, { headers: { Authorization: `Token ${token}` } });
+        const cfgJson = await cfgResp.json();
+        if (!cfgResp.ok) throw new Error(pErr(cfgJson));
 
-      const tecResp = await fetch(`${API}/consultoria-configuracao/responsaveis-tecnicos/`, { headers: { Authorization: `Token ${token}` } });
-      const tecJson = await tecResp.json();
-      if (!tecResp.ok) throw new Error(pErr(tecJson));
+        const tecResp = await fetch(`${API}/consultoria-configuracao/responsaveis-tecnicos/`, { headers: { Authorization: `Token ${token}` } });
+        const tecJson = await tecResp.json();
+        if (!tecResp.ok) throw new Error(pErr(tecJson));
 
-      setCfgData(cfgJson);
-      setCfgForm({
-        cnpj: cfgJson.cnpj || "",
-        nome_consultoria: cfgJson.nome_consultoria || "",
-        responsavel_legal: cfgJson.responsavel_legal || "",
-        representante_legal_relatorio: cfgJson.representante_legal_relatorio || "",
-        cidade: cfgJson.cidade || "",
-        uf: cfgJson.uf || "",
-      });
-      setCfgLogoFile(null);
-      setCfgTecs(Array.isArray(tecJson) ? tecJson : []);
+        setCfgData(cfgJson);
+        setCfgForm({
+          cnpj: cfgJson.cnpj || "",
+          nome_consultoria: cfgJson.nome_consultoria || "",
+          responsavel_legal: cfgJson.responsavel_legal || "",
+          representante_legal_relatorio: cfgJson.representante_legal_relatorio || "",
+          cidade: cfgJson.cidade || "",
+          uf: cfgJson.uf || "",
+        });
+        setCfgLogoFile(null);
+        setCfgTecs(Array.isArray(tecJson) ? tecJson : []);
+        cache.loaded = true;
+      })();
+      await cache.promise;
     } catch (err) {
+      cache.loaded = false;
       setCfgErr(err.message);
     } finally {
+      cache.promise = null;
       setCfgLoad(false);
     }
   }
@@ -1959,6 +2043,7 @@ export default function App() {
         uf: d.uf || "",
       });
       setCfgLogoFile(null);
+      resourceCacheRef.current.consultoriaConfig.loaded = true;
     } catch (err) {
       setCfgErr(err.message);
     } finally {
@@ -2418,32 +2503,70 @@ export default function App() {
     localStorage.removeItem(TOKEN_KEY); setToken(""); setUser(null); setEmail(""); setPassword(""); setError("");
     localStorage.removeItem(USER_CACHE_KEY);
     setCfgData(null); setCfgLogoFile(null);
-    setConsultores([]); setEmpresas([]); setCampanhas([]);
+    setConsultores([]); setConsultoriaUsers([]); setEmpresas([]); setCampanhas([]);
   }
 
   async function loadConsultores() {
+    const cache = resourceCacheRef.current.consultores;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setConsLoad(true); setConsErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/consultores/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar consultores.");
-      setConsultores(await r.json());
-    } catch (err) { setConsErr(err.message); } finally { setConsLoad(false); }
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/consultores/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar consultorias.");
+        setConsultores(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setConsErr(err.message); } finally { cache.promise = null; setConsLoad(false); }
+  }
+
+  async function loadConsultoriaUsers() {
+    const cache = resourceCacheRef.current.consultoriaUsers;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
+    setConsultoriaUsersLoad(true); setConsultoriaUsersErr("");
+    cache.token = token;
+    try {
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/consultoria-usuarios/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar consultores da consultoria.");
+        setConsultoriaUsers(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setConsultoriaUsersErr(err.message); } finally { cache.promise = null; setConsultoriaUsersLoad(false); }
   }
 
   async function loadSystemAccounts() {
+    const cache = resourceCacheRef.current.systemAccounts;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setSysAccLoad(true); setSysAccErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/system-accounts/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar contas do sistema.");
-      setSysAccounts(await r.json());
-    } catch (err) { setSysAccErr(err.message); } finally { setSysAccLoad(false); }
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/system-accounts/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar contas do sistema.");
+        setSysAccounts(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setSysAccErr(err.message); } finally { cache.promise = null; setSysAccLoad(false); }
   }
 
   function openC(type, item = null) {
     setCModal({ type, item }); setCErr("");
-    setCEmail(item?.email || ""); setCPass(""); setCActive(item?.is_active ?? true);
+    setCName(item?.full_name || item?.nome_consultoria || ""); setCEmail(item?.email || ""); setCPass(""); setCActive(item?.is_active ?? true); setCAccessExpiresOn(item?.access_expires_on || "");
   }
   function closeC() { setCModal({ type: "", item: null }); setCErr(""); setCSaving(false); }
+  function openCu(type, item = null) {
+    setCuModal({ type, item }); setCuErr("");
+    setCuName(item?.full_name || ""); setCuEmail(item?.email || ""); setCuPass(""); setCuActive(item?.is_active ?? true);
+  }
+  function closeCu() { setCuModal({ type: "", item: null }); setCuErr(""); setCuSaving(false); }
   function openSysModal(type, item = null) {
     setSysModal({ type, item }); setSysModalErr("");
     setSysName(item?.full_name || ""); setSysEmail(item?.email || ""); setSysPass(""); setSysActive(item?.is_active ?? true);
@@ -2454,11 +2577,12 @@ export default function App() {
     e.preventDefault(); setCSaving(true); setCErr("");
     try {
       const isEdit = cModal.type === "edit" && cModal.item;
-      const payload = { email: cEmail, is_active: cActive }; if (cPass) payload.password = cPass;
+      const payload = { full_name: cName, email: cEmail, is_active: cActive, access_expires_on: cAccessExpiresOn || null }; if (cPass) payload.password = cPass;
       if (!isEdit && !cPass) throw new Error("Senha obrigatoria.");
       const r = await fetch(isEdit ? `${API}/consultores/${cModal.item.id}/` : `${API}/consultores/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setConsultores((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [...prev, d]);
+      resourceCacheRef.current.consultores.loaded = true;
       closeC();
     } catch (err) { setCErr(err.message); } finally { setCSaving(false); }
   }
@@ -2468,8 +2592,35 @@ export default function App() {
     try {
       const r = await fetch(`${API}/consultores/${cModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
       if (!r.ok) throw new Error("Nao foi possivel excluir consultor.");
-      setConsultores((prev) => prev.filter((x) => x.id !== cModal.item.id)); closeC();
+      setConsultores((prev) => prev.filter((x) => x.id !== cModal.item.id)); resourceCacheRef.current.consultores.loaded = true; closeC();
     } catch (err) { setCErr(err.message); } finally { setCSaving(false); }
+  }
+
+  async function saveConsultoriaUser(e) {
+    e.preventDefault(); setCuSaving(true); setCuErr("");
+    try {
+      const isEdit = cuModal.type === "edit" && cuModal.item;
+      const payload = { full_name: cuName, email: cuEmail, is_active: cuActive };
+      if (cuPass) payload.password = cuPass;
+      if (!isEdit && !cuPass) throw new Error("Senha obrigatoria.");
+      const r = await fetch(isEdit ? `${API}/consultoria-usuarios/${cuModal.item.id}/` : `${API}/consultoria-usuarios/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
+      const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
+      setConsultoriaUsers((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [...prev, d]);
+      resourceCacheRef.current.consultoriaUsers.loaded = true;
+      closeCu();
+    } catch (err) { setCuErr(err.message); } finally { setCuSaving(false); }
+  }
+
+  async function delConsultoriaUser() {
+    if (!cuModal.item) return; setCuSaving(true); setCuErr("");
+    try {
+      const r = await fetch(`${API}/consultoria-usuarios/${cuModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.detail || "Nao foi possivel excluir acesso da consultoria.");
+      }
+      setConsultoriaUsers((prev) => prev.filter((x) => x.id !== cuModal.item.id)); resourceCacheRef.current.consultoriaUsers.loaded = true; closeCu();
+    } catch (err) { setCuErr(err.message); } finally { setCuSaving(false); }
   }
 
   async function saveSystemAccount(e) {
@@ -2481,6 +2632,7 @@ export default function App() {
       const r = await fetch(isEdit ? `${API}/system-accounts/${sysModal.item.id}/` : `${API}/system-accounts/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setSysAccounts((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [...prev, d]);
+      resourceCacheRef.current.systemAccounts.loaded = true;
       closeSysModal();
     } catch (err) { setSysModalErr(err.message); } finally { setSysSaving(false); }
   }
@@ -2493,26 +2645,62 @@ export default function App() {
         const d = await r.json().catch(() => ({}));
         throw new Error(d?.detail || "Nao foi possivel excluir a conta do sistema.");
       }
-      setSysAccounts((prev) => prev.filter((x) => x.id !== sysModal.item.id)); closeSysModal();
+      setSysAccounts((prev) => prev.filter((x) => x.id !== sysModal.item.id)); resourceCacheRef.current.systemAccounts.loaded = true; closeSysModal();
     } catch (err) { setSysModalErr(err.message); } finally { setSysSaving(false); }
   }
 
   async function loadEmpresas() {
+    const cache = resourceCacheRef.current.empresas;
+    if (cache.loaded && cache.token === token) {
+      setEmpLoad(false);
+      return;
+    }
+    if (cache.promise && cache.token === token) {
+      setEmpLoad(true);
+      try {
+        await cache.promise;
+      } finally {
+        setEmpLoad(false);
+      }
+      return;
+    }
     setEmpLoad(true); setEmpErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/empresas/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar empresas.");
-      setEmpresas(await r.json());
-    } catch (err) { setEmpErr(err.message); } finally { setEmpLoad(false); }
+      cache.promise = (async () => {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+        try {
+          const r = await fetch(`${API}/empresas/`, { headers: { Authorization: `Token ${token}` }, signal: controller.signal });
+          if (!r.ok) throw new Error("Nao foi possivel carregar empresas.");
+          setEmpresas(await r.json());
+          cache.loaded = true;
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      })();
+      await cache.promise;
+    } catch (err) {
+      cache.loaded = false;
+      setEmpErr(err?.name === "AbortError" ? "Tempo esgotado ao carregar empresas." : err.message);
+    } finally { cache.promise = null; setEmpLoad(false); }
   }
 
   async function loadSetores() {
+    const cache = resourceCacheRef.current.setores;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setSetorLoad(true); setSetorErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/setores/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar setores.");
-      setSetores(await r.json());
-    } catch (err) { setSetorErr(err.message); } finally { setSetorLoad(false); }
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/setores/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar setores.");
+        setSetores(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setSetorErr(err.message); } finally { cache.promise = null; setSetorLoad(false); }
   }
 
   function openSetor(type, item = null) {
@@ -2534,6 +2722,7 @@ export default function App() {
       const r = await fetch(isEdit ? `${API}/setores/${sModal.item.id}/` : `${API}/setores/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setSetores((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]);
+      resourceCacheRef.current.setores.loaded = true;
       closeSetor();
     } catch (err) { setSErr(err.message); } finally { setSSaving(false); }
   }
@@ -2544,6 +2733,7 @@ export default function App() {
       const r = await fetch(`${API}/setores/${sModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
       if (!r.ok) throw new Error("Nao foi possivel excluir setor.");
       setSetores((prev) => prev.filter((x) => x.id !== sModal.item.id));
+      resourceCacheRef.current.setores.loaded = true;
       closeSetor();
     } catch (err) { setSErr(err.message); } finally { setSSaving(false); }
   }
@@ -2590,12 +2780,20 @@ export default function App() {
   }
 
   async function loadGhes() {
+    const cache = resourceCacheRef.current.ghes;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setGheLoad(true); setGheErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/ghes/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar GHEs.");
-      setGhes(await r.json());
-    } catch (err) { setGheErr(err.message); } finally { setGheLoad(false); }
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/ghes/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar GHEs.");
+        setGhes(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setGheErr(err.message); } finally { cache.promise = null; setGheLoad(false); }
   }
 
   function openGhe(type, item = null) {
@@ -2619,6 +2817,7 @@ export default function App() {
       const r = await fetch(isEdit ? `${API}/ghes/${gModal.item.id}/` : `${API}/ghes/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setGhes((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]);
+      resourceCacheRef.current.ghes.loaded = true;
       closeGhe();
     } catch (err) { setGErr(err.message); } finally { setGSaving(false); }
   }
@@ -2629,6 +2828,7 @@ export default function App() {
       const r = await fetch(`${API}/ghes/${gModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
       if (!r.ok) throw new Error("Nao foi possivel excluir GHE.");
       setGhes((prev) => prev.filter((x) => x.id !== gModal.item.id));
+      resourceCacheRef.current.ghes.loaded = true;
       closeGhe();
     } catch (err) { setGErr(err.message); } finally { setGSaving(false); }
   }
@@ -2662,12 +2862,20 @@ export default function App() {
   }
 
   async function loadCargos() {
+    const cache = resourceCacheRef.current.cargos;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setCargoLoad(true); setCargoErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/cargos/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar cargos.");
-      setCargos(await r.json());
-    } catch (err) { setCargoErr(err.message); } finally { setCargoLoad(false); }
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/cargos/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar cargos.");
+        setCargos(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setCargoErr(err.message); } finally { cache.promise = null; setCargoLoad(false); }
   }
 
   function openCargo(type, item = null) {
@@ -2693,6 +2901,7 @@ export default function App() {
       const r = await fetch(isEdit ? `${API}/cargos/${cgModal.item.id}/` : `${API}/cargos/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(payload) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setCargos((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]);
+      resourceCacheRef.current.cargos.loaded = true;
       closeCargo();
     } catch (err) { setCgErr(err.message); } finally { setCgSaving(false); }
   }
@@ -2703,6 +2912,7 @@ export default function App() {
       const r = await fetch(`${API}/cargos/${cgModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
       if (!r.ok) throw new Error("Nao foi possivel excluir cargo.");
       setCargos((prev) => prev.filter((x) => x.id !== cgModal.item.id));
+      resourceCacheRef.current.cargos.loaded = true;
       closeCargo();
     } catch (err) { setCgErr(err.message); } finally { setCgSaving(false); }
   }
@@ -2740,12 +2950,20 @@ export default function App() {
   }
 
   async function loadCampanhas() {
+    const cache = resourceCacheRef.current.campanhas;
+    if (cache.loaded && cache.token === token) return;
+    if (cache.promise && cache.token === token) return cache.promise;
     setCampLoad(true); setCampErr("");
+    cache.token = token;
     try {
-      const r = await fetch(`${API}/campanhas/`, { headers: { Authorization: `Token ${token}` } });
-      if (!r.ok) throw new Error("Nao foi possivel carregar campanhas.");
-      setCampanhas(await r.json());
-    } catch (err) { setCampErr(err.message); } finally { setCampLoad(false); }
+      cache.promise = (async () => {
+        const r = await fetch(`${API}/campanhas/`, { headers: { Authorization: `Token ${token}` } });
+        if (!r.ok) throw new Error("Nao foi possivel carregar campanhas.");
+        setCampanhas(await r.json());
+        cache.loaded = true;
+      })();
+      await cache.promise;
+    } catch (err) { cache.loaded = false; setCampErr(err.message); } finally { cache.promise = null; setCampLoad(false); }
   }
 
   async function loadCampanhaRelatorio(campanhaId, refId = "") {
@@ -3065,6 +3283,8 @@ export default function App() {
       if (!r.ok) throw new Error(pErr(d));
       setCampRelatorio((prev) => prev ? ({ ...prev, campaign: { ...(prev.campaign || {}), review_recommendation_months: d.review_recommendation_months } }) : prev);
       setCampanhas((prev) => prev.map((x) => x.id === d.id ? d : x));
+      resourceCacheRef.current.campanhas.loaded = true;
+      invalidateResourceCache("dashboard");
     } catch (err) {
       setCampMeasureErr(err.message);
     } finally {
@@ -3139,6 +3359,109 @@ export default function App() {
     setCpEmpresa(""); setCpTitulo(""); setCpInicio(""); setCpFim(""); setCpStatus("ATIVO");
   }
 
+  function printCampanhaQr(item) {
+    if (!item?.qr_code_data || !item?.public_url) {
+      setCampErr("QR Code indisponivel para impressao.");
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      setCampErr("Nao foi possivel abrir a janela de impressao.");
+      return;
+    }
+    const safeTitle = String(item.title || "Questionario").replace(/[<>&"]/g, "");
+    const safeCompany = String(item.empresa_name || "").replace(/[<>&"]/g, "");
+    const safeUrl = String(item.public_url || "").replace(/[<>&"]/g, "");
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>QR Code - ${safeTitle}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 32px; color: #0f172a; }
+            .sheet { max-width: 760px; margin: 0 auto; text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 28px; }
+            p { margin: 0 0 12px; line-height: 1.5; }
+            .meta { color: #475569; font-size: 14px; }
+            .qr { margin: 28px auto 20px; display: inline-flex; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; background: #fff; }
+            .qr img { width: 280px; height: 280px; object-fit: contain; }
+            .url { margin-top: 12px; font-size: 13px; word-break: break-all; color: #334155; }
+          </style>
+        </head>
+        <body>
+          <main class="sheet">
+            <h1>${safeTitle}</h1>
+            ${safeCompany ? `<p class="meta">${safeCompany}</p>` : ""}
+            <p>Escaneie o QR Code para acessar o questionario da campanha.</p>
+            <div class="qr">
+              <img src="${item.qr_code_data}" alt="QR Code da campanha ${safeTitle}" />
+            </div>
+            <p class="url">${safeUrl}</p>
+          </main>
+          <script>
+            window.addEventListener("load", () => {
+              window.print();
+              window.setTimeout(() => window.close(), 200);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  function printDenunciaQr(item) {
+    if (!item?.qr_code_data || !item?.url) {
+      setDenErr("QR Code indisponivel para impressao.");
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      setDenErr("Nao foi possivel abrir a janela de impressao.");
+      return;
+    }
+    const safeCompany = String(item.empresa_name || "Canal de denuncias").replace(/[<>&"]/g, "");
+    const safeUrl = String(item.url || "").replace(/[<>&"]/g, "");
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>QR Code - Canal de denuncias</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 32px; color: #0f172a; }
+            .sheet { max-width: 760px; margin: 0 auto; text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 28px; }
+            p { margin: 0 0 12px; line-height: 1.5; }
+            .meta { color: #475569; font-size: 14px; }
+            .qr { margin: 28px auto 20px; display: inline-flex; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; background: #fff; }
+            .qr img { width: 280px; height: 280px; object-fit: contain; }
+            .url { margin-top: 12px; font-size: 13px; word-break: break-all; color: #334155; }
+          </style>
+        </head>
+        <body>
+          <main class="sheet">
+            <h1>Canal de denuncias</h1>
+            <p class="meta">${safeCompany}</p>
+            <p>Escaneie o QR Code para acessar o canal de denuncias da empresa.</p>
+            <div class="qr">
+              <img src="${item.qr_code_data}" alt="QR Code do canal de denuncias" />
+            </div>
+            <p class="url">${safeUrl}</p>
+          </main>
+          <script>
+            window.addEventListener("load", () => {
+              window.print();
+              window.setTimeout(() => window.close(), 200);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   async function saveCampanha(e) {
     e.preventDefault(); setCpSaving(true); setCpErr("");
     try {
@@ -3161,6 +3484,8 @@ export default function App() {
       });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setCampanhas((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]);
+      resourceCacheRef.current.campanhas.loaded = true;
+      invalidateResourceCache("dashboard");
       closeCampanha();
     } catch (err) { setCpErr(err.message); } finally { setCpSaving(false); }
   }
@@ -3171,6 +3496,8 @@ export default function App() {
       const r = await fetch(`${API}/campanhas/${cpModal.item.id}/`, { method: "DELETE", headers: { Authorization: `Token ${token}` } });
       if (!r.ok) throw new Error("Nao foi possivel excluir campanha.");
       setCampanhas((prev) => prev.filter((x) => x.id !== cpModal.item.id));
+      resourceCacheRef.current.campanhas.loaded = true;
+      invalidateResourceCache("dashboard");
       closeCampanha();
     } catch (err) { setCpErr(err.message); } finally { setCpSaving(false); }
   }
@@ -3187,6 +3514,8 @@ export default function App() {
       });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setCampanhas((prev) => prev.map((x) => x.id === d.id ? d : x));
+      resourceCacheRef.current.campanhas.loaded = true;
+      invalidateResourceCache("dashboard");
     } catch (err) { setCampErr(err.message); }
     finally { setCampStatusLoadingId(null); }
   }
@@ -3683,12 +4012,12 @@ export default function App() {
     }
   }
 
-  function openEmpresaCreate() { setEMode("create"); setEEdit(null); setEForm(INIT_EMPRESA); setEStep(1); setEErr(""); setEModalOpen(true); }
+  function openEmpresaCreate() { setEMode("create"); setEEdit(null); setEForm(INIT_EMPRESA); setELogoFile(null); setEStep(1); setEErr(""); setEModalOpen(true); }
   function openEmpresaEdit(x) {
-    setEMode("edit"); setEEdit(x); setEStep(1); setEErr(""); setEModalOpen(true);
+    setEMode("edit"); setEEdit(x); setELogoFile(null); setEStep(1); setEErr(""); setEModalOpen(true);
     setEForm({ ...INIT_EMPRESA, document_type: x.document_type, establishment_type: x.establishment_type, establishment_custom_name: x.establishment_custom_name || "", company_name: x.company_name || "", cnae: x.cnae || "", document_number: x.document_number || "", responsible_name: x.responsible_name || "", responsible_email: x.responsible_user_email || "", responsible_password: "", establishment_name: x.establishment_name || "", evaluation_type: x.evaluation_type || "SETOR", risk_level: x.risk_level || "", employee_count: String(x.employee_count ?? ""), postal_code: x.postal_code || "", state: x.state || "", city: x.city || "", neighborhood: x.neighborhood || "", street: x.street || "", number: x.number || "", complement: x.complement || "", is_active: Boolean(x.is_active) });
   }
-  function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setECepErr(""); setECepLoading(false); setESaving(false); setEInactivate(null); setEActing(false); setEForm(INIT_EMPRESA); }
+  function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setECepErr(""); setECepLoading(false); setESaving(false); setEInactivate(null); setEActing(false); setELogoFile(null); setEForm(INIT_EMPRESA); }
   function eChange(k, v) {
     if (k === "postal_code") {
       const cep = String(v || "").replace(/\D/g, "").slice(0, 8);
@@ -3778,13 +4107,34 @@ export default function App() {
   async function saveEmpresa(e) {
     e.preventDefault(); const msg = checkStep(3); if (msg) return setEErr(msg);
     setESaving(true); setEErr("");
-    const p = { document_type: eForm.document_type, document_number: eForm.document_number, company_name: eForm.company_name, cnae: eForm.cnae, establishment_type: eForm.establishment_type, establishment_custom_name: eForm.establishment_custom_name, establishment_name: eForm.establishment_name, evaluation_type: eForm.evaluation_type, responsible_name: eForm.responsible_name, responsible_email: eForm.responsible_email, risk_level: eForm.risk_level, employee_count: Number(eForm.employee_count || 0), postal_code: eForm.postal_code, state: eForm.state, city: eForm.city, neighborhood: eForm.neighborhood, street: eForm.street, number: eForm.number, complement: eForm.complement, is_active: eForm.is_active };
-    if (eForm.responsible_password.trim()) p.responsible_password = eForm.responsible_password.trim();
+    const form = new FormData();
+    form.append("document_type", eForm.document_type);
+    form.append("document_number", eForm.document_number);
+    form.append("company_name", eForm.company_name);
+    form.append("cnae", eForm.cnae || "");
+    form.append("establishment_type", eForm.establishment_type);
+    form.append("establishment_custom_name", eForm.establishment_custom_name || "");
+    form.append("establishment_name", eForm.establishment_name);
+    form.append("evaluation_type", eForm.evaluation_type);
+    form.append("responsible_name", eForm.responsible_name);
+    form.append("responsible_email", eForm.responsible_email);
+    form.append("risk_level", eForm.risk_level);
+    form.append("employee_count", String(Number(eForm.employee_count || 0)));
+    form.append("postal_code", eForm.postal_code || "");
+    form.append("state", eForm.state || "");
+    form.append("city", eForm.city || "");
+    form.append("neighborhood", eForm.neighborhood || "");
+    form.append("street", eForm.street || "");
+    form.append("number", eForm.number || "");
+    form.append("complement", eForm.complement || "");
+    form.append("is_active", eForm.is_active ? "true" : "false");
+    if (eForm.responsible_password.trim()) form.append("responsible_password", eForm.responsible_password.trim());
+    if (eLogoFile) form.append("logo", eLogoFile);
     try {
       const isEdit = eMode === "edit" && eEdit;
-      const r = await fetch(isEdit ? `${API}/empresas/${eEdit.id}/` : `${API}/empresas/`, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify(p) });
+      const r = await fetch(isEdit ? `${API}/empresas/${eEdit.id}/` : `${API}/empresas/`, { method: isEdit ? "PATCH" : "POST", headers: { Authorization: `Token ${token}` }, body: form });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
-      setEmpresas((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]); closeEmpresa();
+      setEmpresas((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]); resourceCacheRef.current.empresas.loaded = true; invalidateResourceCache("dashboard"); closeEmpresa();
     } catch (err) { setEErr(err.message); } finally { setESaving(false); }
   }
 
@@ -3793,7 +4143,7 @@ export default function App() {
     try {
       const r = await fetch(`${API}/empresas/${eInactivate.id}/inativar/`, { method: "POST", headers: { Authorization: `Token ${token}` } });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
-      setEmpresas((prev) => prev.map((x) => x.id === d.id ? d : x)); setEInactivate(null);
+      setEmpresas((prev) => prev.map((x) => x.id === d.id ? d : x)); resourceCacheRef.current.empresas.loaded = true; invalidateResourceCache("dashboard"); setEInactivate(null);
     } catch (err) { setEErr(err.message); } finally { setEActing(false); }
   }
 
@@ -3802,6 +4152,8 @@ export default function App() {
       const r = await fetch(`${API}/empresas/${x.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify({ is_active: true, responsible_email: x.responsible_user_email }) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setEmpresas((prev) => prev.map((i) => i.id === d.id ? d : i));
+      resourceCacheRef.current.empresas.loaded = true;
+      invalidateResourceCache("dashboard");
     } catch (err) { setEmpErr(err.message); }
   }
 
@@ -3848,7 +4200,7 @@ export default function App() {
         dashErr={dashErr}
         loadDashboardOverview={loadDashboardOverview}
         userName={(user.full_name || user.email || "Usuario").slice(0, 22)}
-        userRoleLabel={isAdm(user) ? "Administrador" : user?.user_type === "CONSULTOR" ? "Consultor" : "Empresa"}
+        userRoleLabel={userRoleLabel(user)}
         goSection={goSection}
         fmtPct={fmtPct}
         reportZoneClass={reportZoneClass}
@@ -3856,9 +4208,16 @@ export default function App() {
     }
     if (section === "consultores" && isAdm(user)) return (
       <section className="admin-panel">
-        <div className="admin-header"><h2>Consultores</h2><button onClick={() => openC("create")}>Novo consultor</button></div>
+        <div className="admin-header"><h2>Consultorias</h2><button onClick={() => openC("create")}>Nova consultoria</button></div>
         {consLoad && <LoadingSpinner label="Carregando consultores..." />}{consErr && <p className="error">{consErr}</p>}
-        {!consLoad && <div className="table-wrap"><table><thead><tr><th>ID</th><th>E-mail</th><th>Status</th><th>Acoes</th></tr></thead><tbody>{consultores.length === 0 ? <tr><td colSpan={4}>Nenhum consultor cadastrado.</td></tr> : consultores.map((c) => <tr key={c.id}><td>{c.id}</td><td>{c.email}</td><td>{c.is_active ? "Ativo" : "Inativo"}</td><td className="actions"><button onClick={() => openC("edit", c)}>Editar</button><button className="danger" onClick={() => openC("delete", c)}>Excluir</button></td></tr>)}</tbody></table></div>}
+        {!consLoad && <div className="table-wrap"><table><thead><tr><th>ID</th><th>Consultoria</th><th>E-mail</th><th>Validade</th><th>Usuários</th><th>Empresas</th><th>Campanhas</th><th>Status</th><th>Acoes</th></tr></thead><tbody>{consultores.length === 0 ? <tr><td colSpan={9}>Nenhuma consultoria cadastrada.</td></tr> : consultores.map((c) => <tr key={c.id}><td>{c.id}</td><td>{c.nome_consultoria || c.full_name || "-"}</td><td>{c.email}</td><td>{c.access_expires_on ? fDate(c.access_expires_on) : "Sem limite"}</td><td>{c.total_usuarios ?? 0}</td><td>{c.total_empresas ?? 0}</td><td>{c.total_campanhas ?? 0}</td><td>{c.is_active ? "Ativo" : "Inativo"}</td><td className="actions"><button onClick={() => openC("edit", c)}>Editar</button><button className="danger" onClick={() => openC("delete", c)}>Excluir</button></td></tr>)}</tbody></table></div>}
+      </section>
+    );
+    if (section === "acessos" && canManageConsultoriaUsers(user)) return (
+      <section className="admin-panel">
+        <div className="admin-header"><h2>Consultores da consultoria</h2><button onClick={() => openCu("create")}>Novo consultor</button></div>
+        {consultoriaUsersLoad && <LoadingSpinner label="Carregando consultores..." />}{consultoriaUsersErr && <p className="error">{consultoriaUsersErr}</p>}
+        {!consultoriaUsersLoad && <div className="table-wrap"><table><thead><tr><th>ID</th><th>Nome</th><th>E-mail</th><th>Status</th><th>Acoes</th></tr></thead><tbody>{consultoriaUsers.length === 0 ? <tr><td colSpan={5}>Nenhum consultor cadastrado.</td></tr> : consultoriaUsers.map((item) => <tr key={item.id}><td>{item.id}</td><td>{item.full_name || "-"}</td><td>{item.email}</td><td>{item.is_active ? "Ativo" : "Inativo"}</td><td className="actions"><button onClick={() => openCu("edit", item)}>Editar</button><button className="danger" onClick={() => openCu("delete", item)}>Excluir</button></td></tr>)}</tbody></table></div>}
       </section>
     );
     if (section === "configuracoes" && canEmp(user)) return (
@@ -5405,6 +5764,7 @@ export default function App() {
                             <button className="campanha-icon-btn" title="Relatorio" aria-label="Abrir relatorio" onClick={() => openCampanhaRelatorio(cp)}>{I.rpt}</button>
                           )}
                           <button className="campanha-icon-btn" title="Ver link/QR" aria-label="Abrir link e QR" onClick={() => openCampanha("qr", cp)}>{I.link}</button>
+                          <button className="campanha-icon-btn" title="Imprimir QR Code" aria-label="Imprimir QR Code do questionario" onClick={() => printCampanhaQr(cp)}>{I.print}</button>
                           <button className="campanha-icon-btn" title="Copiar link publico" aria-label="Copiar link publico" onClick={async () => { try { await copyText(cp.public_url); } catch (err) { setCampErr(err.message); } }}>{I.copy}</button>
                           <button className="campanha-icon-btn" title="Editar campanha" aria-label="Editar campanha" onClick={() => openCampanha("edit", cp)}>{I.edit}</button>
                           <button className="campanha-icon-btn danger" title="Excluir campanha" aria-label="Excluir campanha" onClick={() => openCampanha("delete", cp)}>{I.del}</button>
@@ -5808,6 +6168,9 @@ export default function App() {
               <div className="empresas-toolbar">
                 <input value={denLinkData.url} readOnly />
                 <div className="empresas-pagination-actions">
+                  <button type="button" className="secondary" onClick={() => printDenunciaQr(denLinkData)}>
+                    Imprimir QR
+                  </button>
                   <button type="button" className="secondary" onClick={async () => { try { await copyText(denLinkData.url); } catch (err) { setDenErr(err.message); } }}>
                     Copiar
                   </button>
@@ -6734,9 +7097,14 @@ export default function App() {
   }
 
   if (isPublicCanalDenuncias) {
-    const denGhes = denPubData?.ghes || [];
+    const denEvaluationType = String(denPubData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
+    const denRefLabel = denEvaluationType === "SETOR" ? "Setor" : "GHE";
+    const denRefs = denEvaluationType === "SETOR" ? (denPubData?.setores || []) : (denPubData?.ghes || []);
     const denCargos = denPubData?.cargos || [];
-    const denCargosFiltrados = denGhe ? denCargos.filter((c) => (c.ghe_ids || []).includes(Number(denGhe))) : [];
+    const denRefValue = denEvaluationType === "SETOR" ? denSetor : denGhe;
+    const denCargosFiltrados = denRefValue
+      ? denCargos.filter((c) => (denEvaluationType === "SETOR" ? (c.setor_ids || []).includes(Number(denRefValue)) : (c.ghe_ids || []).includes(Number(denRefValue))))
+      : [];
     return (
       <main className="app-shell public-shell">
         {toastViewport}
@@ -6782,17 +7150,22 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>GHE</label>
-                <select value={denGhe} onChange={(e) => { setDenGhe(e.target.value); setDenCargo(""); }}>
-                  <option value="">Selecione um GHE (opcional)</option>
-                  {denGhes.map((g) => <option key={`den-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
+                <label>{denRefLabel}</label>
+                <select value={denRefValue} onChange={(e) => {
+                  const value = e.target.value;
+                  if (denEvaluationType === "SETOR") setDenSetor(value);
+                  else setDenGhe(value);
+                  setDenCargo("");
+                }}>
+                  <option value="">{`Selecione ${denRefLabel === "Setor" ? "um setor" : "um GHE"} (opcional)`}</option>
+                  {denRefs.map((item) => <option key={`den-ref-${item.id}`} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
 
               <div className="denuncia-question">
                 <label>Funcao</label>
-                <select value={denCargo} onChange={(e) => setDenCargo(e.target.value)} disabled={!denGhe}>
-                  <option value="">{denGhe ? "Selecione uma funcao" : "Selecione um GHE primeiro"}</option>
+                <select value={denCargo} onChange={(e) => setDenCargo(e.target.value)} disabled={!denRefValue}>
+                  <option value="">{denRefValue ? "Selecione uma funcao" : `Selecione ${denRefLabel === "Setor" ? "um setor" : "um GHE"} primeiro`}</option>
                   {denCargosFiltrados.map((c) => <option key={`den-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
@@ -7321,7 +7694,7 @@ export default function App() {
                 </button>
                 <div className="sidebar-user-meta">
                   <strong>{(user.full_name || user.email || "Usuario").slice(0, 26)}</strong>
-                  <span>{isAdm(user) ? "Administrador" : user?.user_type === "CONSULTOR" ? "Consultor" : "Empresa"}</span>
+                  <span>{userRoleLabel(user)}</span>
                 </div>
                 <button type="button" className="sidebar-user-status-btn" aria-label="Menu do usuário" onClick={() => setSideUserMenuOpen((v) => !v)}>
                   <span className="sidebar-user-status-dot" aria-hidden="true" />
@@ -7362,7 +7735,8 @@ export default function App() {
         </div>
       )}
 
-      {cModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cModal.type === "delete" ? "Excluir consultor" : cModal.type === "edit" ? "Editar consultor" : "Novo consultor"}</h3>{cModal.type === "delete" ? <><p>Deseja realmente excluir {cModal.item?.email}?</p>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeC}>Cancelar</button><button className="danger" onClick={delConsultor} disabled={cSaving}>{cSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveConsultor} className="login-form"><label>E-mail</label><input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} required /><label>Senha {cModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={cPass} onChange={(e) => setCPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={cActive} onChange={(e) => setCActive(e.target.checked)} />Ativo</label>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeC}>Cancelar</button><button disabled={cSaving}>{cSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+      {cModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cModal.type === "delete" ? "Excluir consultoria" : cModal.type === "edit" ? "Editar consultoria" : "Nova consultoria"}</h3>{cModal.type === "delete" ? <><p>Deseja realmente excluir {cModal.item?.nome_consultoria || cModal.item?.full_name || cModal.item?.email}?</p>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeC}>Cancelar</button><button className="danger" onClick={delConsultor} disabled={cSaving}>{cSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveConsultor} className="login-form"><label>Nome da consultoria</label><input value={cName} onChange={(e) => setCName(e.target.value)} /><label>E-mail</label><input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} required /><label>Senha {cModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={cPass} onChange={(e) => setCPass(e.target.value)} /><label>Data limite de acesso</label><input type="date" value={cAccessExpiresOn} onChange={(e) => setCAccessExpiresOn(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={cActive} onChange={(e) => setCActive(e.target.checked)} />Ativo</label>{cErr && <p className="error">{cErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeC}>Cancelar</button><button disabled={cSaving}>{cSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
+      {cuModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{cuModal.type === "delete" ? "Excluir consultor" : cuModal.type === "edit" ? "Editar consultor" : "Novo consultor"}</h3>{cuModal.type === "delete" ? <><p>Deseja realmente excluir {cuModal.item?.email}?</p>{cuErr && <p className="error">{cuErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeCu}>Cancelar</button><button className="danger" onClick={delConsultoriaUser} disabled={cuSaving}>{cuSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveConsultoriaUser} className="login-form"><label>Nome</label><input value={cuName} onChange={(e) => setCuName(e.target.value)} /><label>E-mail</label><input type="email" value={cuEmail} onChange={(e) => setCuEmail(e.target.value)} required /><label>Senha {cuModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={cuPass} onChange={(e) => setCuPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={cuActive} onChange={(e) => setCuActive(e.target.checked)} />Ativo</label>{cuErr && <p className="error">{cuErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeCu}>Cancelar</button><button disabled={cuSaving}>{cuSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
       {sysModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sysModal.type === "delete" ? "Excluir conta do sistema" : sysModal.type === "edit" ? "Editar conta do sistema" : "Nova conta do sistema"}</h3>{sysModal.type === "delete" ? <><p>Deseja realmente excluir {sysModal.item?.email}?</p>{sysModalErr && <p className="error">{sysModalErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSysModal}>Cancelar</button><button className="danger" onClick={delSystemAccount} disabled={sysSaving}>{sysSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSystemAccount} className="login-form"><label>Nome</label><input value={sysName} onChange={(e) => setSysName(e.target.value)} placeholder="Nome do usuário" /><label>E-mail</label><input type="email" value={sysEmail} onChange={(e) => setSysEmail(e.target.value)} required /><label>Senha {sysModal.type === "edit" ? "(opcional)" : ""}</label><input type="password" value={sysPass} onChange={(e) => setSysPass(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sysActive} onChange={(e) => setSysActive(e.target.checked)} />Ativo</label>{sysModalErr && <p className="error">{sysModalErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSysModal}>Cancelar</button><button disabled={sysSaving}>{sysSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
 
       {sModal.type && <div className="modal-backdrop"><div className="modal-card"><h3>{sModal.type === "delete" ? "Excluir setor" : sModal.type === "edit" ? "Editar setor" : "Novo setor"}</h3>{sModal.type === "delete" ? <><p>Deseja realmente excluir o setor {sModal.item?.name}?</p>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button className="secondary" onClick={closeSetor}>Cancelar</button><button className="danger" onClick={delSetor} disabled={sSaving}>{sSaving ? "Excluindo..." : "Excluir"}</button></div></> : <form onSubmit={saveSetor} className="login-form"><label>Empresa selecionada</label><input value={empresas.find((emp) => String(emp.id) === String(sEmpresa || setorEmpresaFiltro))?.company_name || sModal.item?.empresa_name || ""} disabled readOnly /><label>Nome do setor</label><input value={sNome} onChange={(e) => setSNome(e.target.value)} required /><label>Descricao (opcional)</label><input value={sDesc} onChange={(e) => setSDesc(e.target.value)} /><label className="checkbox-line"><input type="checkbox" checked={sAtivo} onChange={(e) => setSAtivo(e.target.checked)} />Ativo</label>{sErr && <p className="error">{sErr}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={closeSetor}>Cancelar</button><button type="submit" disabled={sSaving}>{sSaving ? "Salvando..." : "Salvar"}</button></div></form>}</div></div>}
@@ -7473,6 +7847,15 @@ export default function App() {
                 {cpErr && <p className="error">{cpErr}</p>}
                 <div className="modal-actions">
                   <button type="button" className="secondary" onClick={closeCampanha}>Fechar</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCpErr("");
+                      printCampanhaQr(cpModal.item);
+                    }}
+                  >
+                    Imprimir QR
+                  </button>
                   <button
                     type="button"
                     onClick={async () => {
@@ -7593,6 +7976,16 @@ export default function App() {
 
               {eStep === 3 && <div className="wizard-grid">
                 <div><label>Nome da empresa (Obrigatório)</label><input value={eForm.company_name} onChange={(e) => eChange("company_name", e.target.value)} /></div>
+                <div>
+                  <label>Logo da empresa (Opcional)</label>
+                  <input type="file" accept="image/*" onChange={(e) => setELogoFile(e.target.files?.[0] || null)} />
+                  {eLogoFile && <small>Arquivo selecionado: {eLogoFile.name}</small>}
+                  {!eLogoFile && eEdit?.logo_url && (
+                    <div style={{ marginTop: 8 }}>
+                      <img src={eEdit.logo_url} alt="Logo da empresa" style={{ maxHeight: 72, maxWidth: "100%", objectFit: "contain", display: "block" }} />
+                    </div>
+                  )}
+                </div>
                 <div><label>CNAE (Opcional)</label><input value={eForm.cnae} onChange={(e) => eChange("cnae", e.target.value)} placeholder="Ex.: 47.11-3-02" /></div>
                 <div><label>{eForm.document_type} (Obrigatório)</label><input value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
                 <div><label>Nome do responsável (Obrigatório)</label><input value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>

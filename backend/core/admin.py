@@ -7,12 +7,12 @@ from .models import Campanha, CampanhaMedidaPreliminar, CampanhaQuandoPreliminar
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     ordering = ['email']
-    list_display = ['email', 'full_name', 'user_type', 'is_staff', 'is_superuser', 'is_active']
+    list_display = ['email', 'full_name', 'user_type', 'consultoria_master', 'is_staff', 'is_superuser', 'is_active']
     search_fields = ['email', 'full_name']
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Dados pessoais', {'fields': ('full_name', 'user_type')}),
+        ('Dados pessoais', {'fields': ('full_name', 'user_type', 'consultoria_master', 'access_expires_on')}),
         ('Permissoes', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Datas importantes', {'fields': ('last_login',)}),
     )
@@ -22,7 +22,7 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 'classes': ('wide',),
-                'fields': ('email', 'full_name', 'user_type', 'password1', 'password2', 'is_staff', 'is_superuser'),
+                'fields': ('email', 'full_name', 'user_type', 'consultoria_master', 'access_expires_on', 'password1', 'password2', 'is_staff', 'is_superuser'),
             },
         ),
     )
