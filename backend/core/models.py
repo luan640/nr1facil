@@ -760,6 +760,13 @@ class PedidoAjuda(models.Model):
     )
     nome = models.CharField(max_length=255)
     contato = models.CharField(max_length=255, blank=True)
+    setor = models.ForeignKey(
+        Setor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_ajuda',
+    )
     ghe = models.ForeignKey(
         Ghe,
         on_delete=models.SET_NULL,

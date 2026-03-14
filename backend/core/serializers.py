@@ -1412,7 +1412,7 @@ class RegistroHumorPublicSerializer(serializers.ModelSerializer):
 class PedidoAjudaPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = PedidoAjuda
-        fields = ['nome', 'contato', 'ghe', 'funcao']
+        fields = ['nome', 'contato', 'setor', 'ghe', 'funcao']
 
     def validate_nome(self, value):
         if not value or not value.strip():
@@ -1421,13 +1421,17 @@ class PedidoAjudaPublicSerializer(serializers.ModelSerializer):
 
 
 class PedidoAjudaListSerializer(serializers.ModelSerializer):
+    setor_name = serializers.SerializerMethodField()
     ghe_name = serializers.SerializerMethodField()
     funcao_name = serializers.SerializerMethodField()
     atualizacoes = serializers.SerializerMethodField()
 
     class Meta:
         model = PedidoAjuda
-        fields = ['id', 'nome', 'contato', 'ghe', 'ghe_name', 'funcao', 'funcao_name', 'status', 'atualizacoes', 'created_at']
+        fields = ['id', 'nome', 'contato', 'setor', 'setor_name', 'ghe', 'ghe_name', 'funcao', 'funcao_name', 'status', 'atualizacoes', 'created_at']
+
+    def get_setor_name(self, obj):
+        return obj.setor.name if obj.setor else None
 
     def get_ghe_name(self, obj):
         return obj.ghe.name if obj.ghe else None

@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+.global-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  background: rgba(4, 87, 104, 0.12);
+  overflow: hidden;
+}
+.global-progress-bar-inner {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: #045768;
+  animation: global-progress 1.4s infinite ease-in-out;
+}
+@keyframes global-progress {
+  0%   { left: -60%; width: 60%; }
+  100% { left: 110%; width: 60%; }
+}
+
 :root {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: #102a43;
@@ -592,52 +614,228 @@ svg {
   max-width: 860px;
 }
 
-.totem-public-card {
-  max-width: 920px;
+/* ═══════════════════════════════════════════════════════════════════
+   TOTEM — Layout tablet-first, redesign completo
+═══════════════════════════════════════════════════════════════════ */
+
+/* Shell */
+.totem-shell {
+  min-height: 100vh;
+  background: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.totem-consent-card {
-  border: 1px solid #d6e0ee;
-  background: #f8fbff;
-  border-radius: 14px;
-  padding: 16px;
-  display: grid;
+/* Header */
+.totem-header {
+  background: #045768;
+  padding: 0 32px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 2px 12px rgba(4, 87, 104, 0.3);
+  flex-shrink: 0;
+}
+
+.totem-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.totem-header-logo-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 10px;
+  padding: 5px 10px;
+  height: 48px;
+  min-width: 48px;
+}
+
+.totem-header-logo {
+  height: 36px;
+  max-width: 130px;
+  object-fit: contain;
+  display: block;
+}
+
+.totem-header-logo-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.totem-header-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.totem-header-consultoria {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.totem-header-empresa {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.totem-header-badge {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+/* Body */
+.totem-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  overflow-y: auto;
+}
+
+.totem-loading-state,
+.totem-error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+/* ── Tela de Consentimento ───────────────────────────────────────── */
+.totem-consent-screen {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.totem-consent-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.totem-consent-logo {
+  height: 70px;
+  max-width: 220px;
+  object-fit: contain;
+}
+
+.totem-consent-logo-fallback {
+  width: 70px;
+  height: 70px;
+  border-radius: 18px;
+  background: #045768;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.totem-consent-welcome {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.totem-consent-empresa-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #045768;
+  background: #e6f4f6;
+  border: 1px solid #b3dde3;
+  border-radius: 20px;
+  padding: 4px 16px;
+}
+
+.totem-consent-box {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px 32px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.totem-consent-box-header {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.totem-consent-card h2 {
+.totem-consent-icon {
+  font-size: 1.5rem;
+}
+
+.totem-consent-box h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: #0f172a;
 }
 
-.totem-consent-card p {
+.totem-consent-box p {
   margin: 0;
   color: #475569;
-  line-height: 1.45;
+  font-size: 0.94rem;
+  line-height: 1.55;
 }
 
-.totem-resp-tecnico-block {
+/* Responsáveis técnicos */
+.totem-rt-grid {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 4px;
 }
 
-.totem-resp-tecnico-item {
+.totem-rt-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  gap: 2px;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border: 1px solid #bae6fd;
-  border-radius: 10px;
-  padding: 14px 20px;
-  text-align: center;
+  border-radius: 12px;
+  padding: 14px 18px;
 }
 
-.totem-resp-tecnico-label {
-  font-size: 0.72rem;
+.totem-rt-label {
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -645,24 +843,448 @@ svg {
   margin-bottom: 4px;
 }
 
-.totem-resp-tecnico-nome {
-  font-size: 1rem;
+.totem-rt-nome {
+  font-size: 0.97rem;
   font-weight: 700;
   color: #0c4a6e;
-  line-height: 1.3;
 }
 
-.totem-resp-tecnico-formacao {
-  font-size: 0.88rem;
+.totem-rt-formacao {
+  font-size: 0.85rem;
   color: #0369a1;
   font-weight: 500;
 }
 
-.totem-resp-tecnico-registro {
-  font-size: 0.82rem;
+.totem-rt-registro {
+  font-size: 0.8rem;
   color: #64748b;
+}
+
+/* ── Menu Principal ──────────────────────────────────────────────── */
+.totem-menu-screen {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.totem-menu-greeting {
+  text-align: center;
+}
+
+.totem-menu-greeting h2 {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.totem-menu-greeting p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.97rem;
+}
+
+.totem-menu-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.totem-action-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  width: 100%;
+}
+
+.totem-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+}
+
+.totem-card-denuncia { border-left: 5px solid #dc2626; }
+.totem-card-denuncia:hover { border-color: #dc2626; }
+
+.totem-card-humor { border-left: 5px solid #2563eb; }
+.totem-card-humor:hover { border-color: #2563eb; }
+
+.totem-card-ajuda { border-left: 5px solid #059669; }
+.totem-card-ajuda:hover { border-color: #059669; }
+
+.totem-action-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.totem-action-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.totem-action-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.totem-action-desc {
+  font-size: 0.88rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.totem-action-arrow {
+  font-size: 1.8rem;
+  color: #94a3b8;
+  font-weight: 300;
+  flex-shrink: 0;
+}
+
+/* ── Formulários ─────────────────────────────────────────────────── */
+.totem-form-screen {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.totem-form-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+}
+
+.totem-form-intro-denuncia {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.totem-form-intro-ajuda {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.totem-form-intro-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.totem-form-intro strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+.totem-form-intro p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.totem-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.totem-field label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.totem-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.totem-input,
+.totem-select,
+.totem-textarea {
+  width: 100%;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background: #f8fafc;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.totem-input:focus,
+.totem-select:focus,
+.totem-textarea:focus {
+  outline: none;
+  border-color: #045768;
+  box-shadow: 0 0 0 3px rgba(4,87,104,0.12);
+  background: #ffffff;
+}
+
+.totem-textarea {
+  resize: vertical;
+  min-height: 90px;
+  font-family: inherit;
+}
+
+.totem-optional {
   font-weight: 400;
-  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 0.82em;
+}
+
+.totem-radio-group {
+  display: flex;
+  gap: 12px;
+}
+
+.totem-radio-opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #334155;
+  background: #f8fafc;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.totem-radio-opt:has(input:checked) {
+  border-color: #045768;
+  background: #e6f4f6;
+  color: #045768;
+  font-weight: 700;
+}
+
+.totem-radio-opt input[type="radio"] {
+  accent-color: #045768;
+}
+
+/* ── Humor Grid ──────────────────────────────────────────────────── */
+.totem-humor-header {
+  text-align: center;
+}
+
+.totem-humor-header h2 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.totem-humor-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.totem-humor-grid-new {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.totem-humor-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 8px;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.totem-humor-tile:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37,99,235,0.10);
+}
+
+.totem-humor-tile.selected {
+  border-color: #2563eb;
+  background: #dbeafe;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+
+.totem-humor-tile-emoji {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.totem-humor-tile-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+}
+
+.totem-humor-tile.selected .totem-humor-tile-label {
+  color: #1d4ed8;
+}
+
+/* ── Botões ──────────────────────────────────────────────────────── */
+.totem-btn-primary {
+  padding: 14px 28px;
+  background: #045768;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.97rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+
+.totem-btn-primary:hover {
+  background: #036070;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(4,87,104,0.25);
+}
+
+.totem-btn-primary:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.totem-btn-secondary {
+  padding: 13px 24px;
+  background: transparent;
+  color: #475569;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.totem-btn-secondary:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.totem-btn-back {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  text-align: center;
+  transition: color 0.15s;
+}
+
+.totem-btn-back:hover { color: #0f172a; }
+
+.totem-form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────── */
+.totem-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.totem-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 20px 60px rgba(15,23,42,0.25);
+  overflow: hidden;
+}
+
+.totem-modal-header {
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.totem-modal-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.totem-modal-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.totem-modal-body {
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.totem-modal-actions {
+  padding: 16px 28px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .totem-header { padding: 0 16px; height: 64px; }
+  .totem-body { padding: 20px 16px; }
+  .totem-consent-welcome { font-size: 1.35rem; }
+  .totem-consent-box { padding: 20px 18px; }
+  .totem-form-screen { padding: 22px 18px; }
+  .totem-field-row { grid-template-columns: 1fr; }
+  .totem-humor-grid-new { grid-template-columns: repeat(2, 1fr); }
+  .totem-action-card { padding: 16px 18px; gap: 14px; }
+  .totem-action-icon { font-size: 1.7rem; }
+  .totem-menu-greeting h2 { font-size: 1.25rem; }
 }
 
 /* ── Toggle button ────────────────────────────────────────────────── */
@@ -1334,7 +1956,7 @@ button:disabled {
 }
 
 .sidebar-brand-text {
-  font-size: 1.02rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #045768;
   letter-spacing: 0.01em;

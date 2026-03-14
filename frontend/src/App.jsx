@@ -381,9 +381,9 @@ function ReportDomainsRadar({ domains = [], fmtPct, fmtScore }) {
   const items = (domains || []).map((d, idx) => ({
     key: d?.key || `domain-${idx}`,
     domain: String(d?.domain || d?.label || `Domínio ${idx + 1}`),
-    percent: Math.max(0, Math.min(100, Number(d?.percent || 0))),
-    avg_score: Number(d?.avg_score || 0),
-    zoneKey: String(d?.zone?.key || "red").toLowerCase(),
+    percent: Math.max(0, Math.min(100, Number(d?.display_percent ?? d?.percent ?? 0))),
+    avg_score: Number(d?.display_avg_score ?? d?.avg_score ?? 0),
+    zoneKey: String(d?.display_zone?.key || d?.zone?.key || "red").toLowerCase(),
   }));
 
   if (!items.length) {
@@ -711,7 +711,7 @@ function DashboardOverviewModern({
           />
           {dashEmpresaMenuOpen && canFilter && (
             <div className="dashboard-topbar-menu">
-              <button type="button" className="dashboard-topbar-menu-item" onMouseDown={(ev) => ev.preventDefault()} onClick={() => { setDashEmpresaMenuOpen(false); onDashboardEmpresaChange(""); }}>
+              <button type="button" className="dashboard-topbar-menu-item" onMouseDown={(ev) => ev.preventDefault()} onClick={() => { setDashEmpresaMenuOpen(false); onDashboardEmpresaBuscaChange(""); }}>
                 <span>Todas as empresas</span>
               </button>
               {dashEmpresaSugestoes.length === 0 ? (
@@ -728,9 +728,9 @@ function DashboardOverviewModern({
         </div>
 
         <div className="dashboard-topbar-actions">
-          <button type="button" className="dashboard-ghost-btn" onClick={() => loadDashboardOverview()}>
+          {/* <button type="button" className="dashboard-ghost-btn" onClick={() => loadDashboardOverview()}>
             Atualizar
-          </button>
+          </button> */}
           {(dashDateFrom || dashDateTo) && (
             <button type="button" className="dashboard-ghost-btn" onClick={() => onDashboardDateChange("", "")}>
               Limpar período
@@ -1133,7 +1133,7 @@ export default function App() {
   const [cuModal, setCuModal] = useState({ type: "", item: null }), [cuName, setCuName] = useState(""), [cuEmail, setCuEmail] = useState(""), [cuPass, setCuPass] = useState(""), [cuActive, setCuActive] = useState(true), [cuErr, setCuErr] = useState(""), [cuSaving, setCuSaving] = useState(false);
 
   const [empresas, setEmpresas] = useState([]), [empErr, setEmpErr] = useState(""), [empLoad, setEmpLoad] = useState(false);
-  const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("6"), [empPage, setEmpPage] = useState(1);
+  const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("9"), [empPage, setEmpPage] = useState(1);
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false);
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
@@ -1211,7 +1211,7 @@ export default function App() {
   const [denPubLoad, setDenPubLoad] = useState(false), [denPubErr, setDenPubErr] = useState(""), [denPubData, setDenPubData] = useState(null), [denPubSaving, setDenPubSaving] = useState(false), [denPubOk, setDenPubOk] = useState("");
   const [totemPubLoad, setTotemPubLoad] = useState(false), [totemPubErr, setTotemPubErr] = useState(""), [totemPubData, setTotemPubData] = useState(null), [totemConsentAccepted, setTotemConsentAccepted] = useState(false), [totemPubActionMsg, setTotemPubActionMsg] = useState(""), [totemPubScreen, setTotemPubScreen] = useState("menu"), [totemDenSaving, setTotemDenSaving] = useState(false), [totemDenOk, setTotemDenOk] = useState(""), [totemDenErr, setTotemDenErr] = useState("");
   const [totemHumorSelected, setTotemHumorSelected] = useState(""), [totemHumorModal, setTotemHumorModal] = useState(false), [totemHumorGhe, setTotemHumorGhe] = useState(""), [totemHumorSetor, setTotemHumorSetor] = useState(""), [totemHumorSaving, setTotemHumorSaving] = useState(false), [totemHumorOk, setTotemHumorOk] = useState(""), [totemHumorErr, setTotemHumorErr] = useState("");
-  const [totemAjudaNome, setTotemAjudaNome] = useState(""), [totemAjudaContato, setTotemAjudaContato] = useState(""), [totemAjudaGhe, setTotemAjudaGhe] = useState(""), [totemAjudaFuncao, setTotemAjudaFuncao] = useState(""), [totemAjudaSaving, setTotemAjudaSaving] = useState(false), [totemAjudaOk, setTotemAjudaOk] = useState(""), [totemAjudaErr, setTotemAjudaErr] = useState("");
+  const [totemAjudaNome, setTotemAjudaNome] = useState(""), [totemAjudaContato, setTotemAjudaContato] = useState(""), [totemAjudaSetor, setTotemAjudaSetor] = useState(""), [totemAjudaGhe, setTotemAjudaGhe] = useState(""), [totemAjudaFuncao, setTotemAjudaFuncao] = useState(""), [totemAjudaSaving, setTotemAjudaSaving] = useState(false), [totemAjudaOk, setTotemAjudaOk] = useState(""), [totemAjudaErr, setTotemAjudaErr] = useState("");
   const [denVinculo, setDenVinculo] = useState(""), [denIdentificar, setDenIdentificar] = useState("NAO"), [denContatoIdentificacao, setDenContatoIdentificacao] = useState(""), [denSetor, setDenSetor] = useState(""), [denGhe, setDenGhe] = useState(""), [denCargo, setDenCargo] = useState(""), [denTipo, setDenTipo] = useState(""), [denRelato, setDenRelato] = useState(""), [denTestemunhas, setDenTestemunhas] = useState(""), [denAceitaDevolutiva, setDenAceitaDevolutiva] = useState("NAO"), [denEmailDevolutiva, setDenEmailDevolutiva] = useState(""), [denArquivo, setDenArquivo] = useState(null);
   const [toasts, setToasts] = useState([]);
   const toastSeqRef = useRef(1);
@@ -1779,6 +1779,14 @@ export default function App() {
     return "Ação corretiva imediata recomendada.";
   }
 
+  function reportVisualMetrics(item) {
+    return {
+      percent: Math.max(0, Math.min(100, Number(item?.display_percent ?? item?.percent ?? 0))),
+      score: Number(item?.display_avg_score ?? item?.avg_score ?? 0),
+      zone: item?.display_zone || item?.zone || { key: "red", label: "" },
+    };
+  }
+
   function questionarioBlockName(step) {
     const key = String(step?.key || "").toLowerCase();
     const num = Number(step?.step || String(key).replace(/\D/g, ""));
@@ -1893,6 +1901,11 @@ export default function App() {
         const d = await r.json();
         if (!r.ok) throw new Error(pErr(d));
         setDashData(d);
+        if (!empresaId && d.selected_empresa_id) {
+          const sel = (d.empresas || []).find((e) => String(e.id) === String(d.selected_empresa_id));
+          setDashEmpresa(String(d.selected_empresa_id));
+          setDashEmpresaBusca(sel?.name || "");
+        }
         cache.loaded = true;
       })();
       await cache.promise;
@@ -1912,8 +1925,8 @@ export default function App() {
       const evaluationType = String(denPubData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
       if (!denVinculo) throw new Error("Informe se voce possui vinculo com a empresa.");
       if (denIdentificar === "SIM" && !String(denContatoIdentificacao || "").trim()) throw new Error("Informe e-mail ou WhatsApp para identificacao.");
-      if (!denTipo) throw new Error("Selecione o tipo da denuncia.");
-      if (!denRelato.trim()) throw new Error("Descreva a denuncia.");
+      if (!denTipo) throw new Error("Selecione o tipo da denúncia.");
+      if (!denRelato.trim()) throw new Error("Descreva a denúncia.");
       if (denAceitaDevolutiva === "SIM" && !String(denEmailDevolutiva || "").trim()) throw new Error("Informe o e-mail para devolutiva.");
       if (denArquivo && denArquivo.size > 20 * 1024 * 1024) throw new Error("O arquivo excede 20MB.");
       const form = new FormData();
@@ -1967,7 +1980,9 @@ export default function App() {
         possui_vinculo: denVinculo === "SIM",
         deseja_identificar: denIdentificar === "SIM",
         contato_identificacao: denIdentificar === "SIM" ? denContatoIdentificacao : "",
-        ghe_id: denGhe || null,
+        ...(String(totemPubData?.evaluation_type || "").toUpperCase() === "SETOR"
+          ? { setor_id: denSetor || null }
+          : { ghe_id: denGhe || null }),
         cargo_id: denCargo || null,
         tipo: denTipo || null,
         relato: denRelato,
@@ -2046,12 +2061,18 @@ export default function App() {
       const res = await fetch(`${API}/totem/public/${totemToken}/ajuda/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: totemAjudaNome, contato: totemAjudaContato, ghe: totemAjudaGhe ? Number(totemAjudaGhe) : null, funcao: totemAjudaFuncao ? Number(totemAjudaFuncao) : null }),
+        body: JSON.stringify({
+          nome: totemAjudaNome,
+          contato: totemAjudaContato,
+          setor: String(totemPubData?.evaluation_type || "").toUpperCase() === "SETOR" && totemAjudaSetor ? Number(totemAjudaSetor) : null,
+          ghe: String(totemPubData?.evaluation_type || "").toUpperCase() !== "SETOR" && totemAjudaGhe ? Number(totemAjudaGhe) : null,
+          funcao: totemAjudaFuncao ? Number(totemAjudaFuncao) : null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.detail || "Erro ao enviar pedido.");
       setTotemAjudaOk("Pedido enviado! Entraremos em contato em breve.");
-      setTotemAjudaNome(""); setTotemAjudaContato(""); setTotemAjudaGhe(""); setTotemAjudaFuncao("");
+      setTotemAjudaNome(""); setTotemAjudaContato(""); setTotemAjudaSetor(""); setTotemAjudaGhe(""); setTotemAjudaFuncao("");
       setTimeout(() => { setTotemAjudaOk(""); setTotemPubScreen("menu"); setTotemConsentAccepted(false); }, 2000);
     } catch (err) {
       setTotemAjudaErr(err.message);
@@ -2242,12 +2263,12 @@ export default function App() {
 
   function onDashboardEmpresaChange(value) {
     setDashEmpresa(value);
-    loadDashboardOverview(value, dashDateFrom, dashDateTo);
+    loadDashboardOverview(value, dashDateFrom, dashDateTo, { force: true });
   }
   function onDashboardEmpresaBuscaChange(value) {
     setDashEmpresaBusca(value);
     if (!value.trim()) {
-      onDashboardEmpresaChange("");
+      onDashboardEmpresaChange("all");
     }
   }
   function selectDashEmpresaBuscaOption(emp) {
@@ -2259,7 +2280,7 @@ export default function App() {
   function onDashboardDateChange(from, to) {
     setDashDateFrom(from);
     setDashDateTo(to);
-    loadDashboardOverview(dashEmpresa, from, to);
+    loadDashboardOverview(dashEmpresa, from, to, { force: true });
   }
 
   function setPublicStep2Answer(key, value) {
@@ -5694,39 +5715,45 @@ export default function App() {
         return { step, items };
       }).filter((x) => x.items.length > 0);
 
-      const renderStepAnalysis = (step, keyPrefix, title) => (
-        <div key={`${keyPrefix}-${step.key}`} className="report-card step-analysis-card">
-          <div className="report-step-title">
-            <div>
-              {title && <small>{title}</small>}
-              <h3>{step.domain.toUpperCase()}</h3>
-            </div>
-          </div>
-          <div className="report-subcard-summary">
-            <span className="report-subcard-summary-label">Media geral</span>
-            <div className="report-step-summary">
-              <div className="report-progress compact">
-                <span className={`report-progress-fill ${reportZoneClass(step.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(step.percent || 0)))}%` }} />
+      const renderStepAnalysis = (step, keyPrefix, title) => {
+        const stepVisual = reportVisualMetrics(step);
+        return (
+          <div key={`${keyPrefix}-${step.key}`} className="report-card step-analysis-card">
+            <div className="report-step-title">
+              <div>
+                {title && <small>{title}</small>}
+                <h3>{step.domain.toUpperCase()}</h3>
               </div>
-              <span>{fmtPct(step.percent)} | {fmtScore(step.avg_score)} / 5 | {reportZoneLabel(step.zone)}</span>
             </div>
-          </div>
-          <p className="report-step-legend">
-            {step.response_count || 0} respostas | {step.orientation === "negative" ? "domínio com perguntas negativas" : step.orientation === "mixed" ? "domínio com perguntas mistas" : "domínio com perguntas positivas"}
-          </p>
-          <div className="report-question-list">
-            {(step.questions || []).map((q, idx) => (
-              <div key={`${keyPrefix}-${step.key}-q-${idx}`} className="report-question-row">
-                <div className="report-question-text">{q.question}</div>
-                <div className="report-progress">
-                  <span className={`report-progress-fill ${reportZoneClass(q.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(q.percent || 0)))}%` }} />
+            <div className="report-subcard-summary">
+              <span className="report-subcard-summary-label">Média geral</span>
+              <div className="report-step-summary">
+                <div className="report-progress compact">
+                  <span className={`report-progress-fill ${reportZoneClass(stepVisual.zone)}`} style={{ width: `${stepVisual.percent}%` }} />
                 </div>
-                <div className="report-domain-values">{fmtPct(q.percent)} | {fmtScore(q.avg_score)} / 5 | {reportZoneLabel(q.zone)}</div>
+                <span>{fmtPct(stepVisual.percent)} | {fmtScore(stepVisual.score)} / 5 | {reportZoneLabel(stepVisual.zone)}</span>
               </div>
-            ))}
+            </div>
+            <p className="report-step-legend">
+              {step.response_count || 0} respostas | {step.orientation === "negative" ? "domínio com perguntas negativas" : step.orientation === "mixed" ? "domínio com perguntas mistas" : "domínio com perguntas positivas"}
+            </p>
+            <div className="report-question-list">
+              {(step.questions || []).map((q, idx) => {
+                const qVisual = reportVisualMetrics(q);
+                return (
+                  <div key={`${keyPrefix}-${step.key}-q-${idx}`} className="report-question-row">
+                    <div className="report-question-text">{q.question}</div>
+                    <div className="report-progress">
+                      <span className={`report-progress-fill ${reportZoneClass(qVisual.zone)}`} style={{ width: `${qVisual.percent}%` }} />
+                    </div>
+                    <div className="report-domain-values">{fmtPct(qVisual.percent)} | {fmtScore(qVisual.score)} / 5 | {reportZoneLabel(qVisual.zone)}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      );
+        );
+      };
 
       return (
         <section className="admin-panel report-panel">
@@ -5812,34 +5839,44 @@ export default function App() {
                         <h4>Resultado por {filtros.ref_label || "Setor/GHE"}</h4>
                         {refsForStep.map(({ item, step: refStep }) => (
                           <div key={`ref-step-${item.ref?.id}-${step.key}`} className="report-subcard">
-                            <div className="report-subcard-header">
-                              <strong>{item.ref?.name || "-"}</strong>
-                            </div>
-                            <div className="report-subcard-summary">
-                              <span className="report-subcard-summary-label">
-                                Média por {String(filtros.ref_label || "Setor/GHE").toLowerCase()}
-                              </span>
-                              <div className="report-step-summary">
-                                <div className="report-progress compact">
-                                  <span
-                                    className={`report-progress-fill ${reportZoneClass(refStep.zone)}`}
-                                    style={{ width: `${Math.max(0, Math.min(100, Number(refStep.percent || 0)))}%` }}
-                                  />
-                                </div>
-                                <span>{fmtPct(refStep.percent)} | {fmtScore(refStep.avg_score)} / 5 | {reportZoneLabel(refStep.zone)}</span>
-                              </div>
-                            </div>
-                            <div className="report-question-list">
-                              {(refStep.questions || []).map((q, idx) => (
-                                <div key={`ref-${item.ref?.id}-${step.key}-q-${idx}`} className="report-question-row">
-                                  <div className="report-question-text">{q.question}</div>
-                                  <div className="report-progress">
-                                    <span className={`report-progress-fill ${reportZoneClass(q.zone)}`} style={{ width: `${Math.max(0, Math.min(100, Number(q.percent || 0)))}%` }} />
+                            {(() => {
+                              const refVisual = reportVisualMetrics(refStep);
+                              return (
+                                <>
+                                  <div className="report-subcard-header">
+                                    <strong>{item.ref?.name || "-"}</strong>
                                   </div>
-                                  <div className="report-domain-values">{fmtPct(q.percent)} | {fmtScore(q.avg_score)} / 5 | {reportZoneLabel(q.zone)}</div>
-                                </div>
-                              ))}
-                            </div>
+                                  <div className="report-subcard-summary">
+                                    <span className="report-subcard-summary-label">
+                                      Média por {String(filtros.ref_label || "Setor/GHE").toLowerCase()}
+                                    </span>
+                                    <div className="report-step-summary">
+                                      <div className="report-progress compact">
+                                        <span
+                                          className={`report-progress-fill ${reportZoneClass(refVisual.zone)}`}
+                                          style={{ width: `${refVisual.percent}%` }}
+                                        />
+                                      </div>
+                                      <span>{fmtPct(refVisual.percent)} | {fmtScore(refVisual.score)} / 5 | {reportZoneLabel(refVisual.zone)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="report-question-list">
+                                    {(refStep.questions || []).map((q, idx) => {
+                                      const qVisual = reportVisualMetrics(q);
+                                      return (
+                                        <div key={`ref-${item.ref?.id}-${step.key}-q-${idx}`} className="report-question-row">
+                                          <div className="report-question-text">{q.question}</div>
+                                          <div className="report-progress">
+                                            <span className={`report-progress-fill ${reportZoneClass(qVisual.zone)}`} style={{ width: `${qVisual.percent}%` }} />
+                                          </div>
+                                          <div className="report-domain-values">{fmtPct(qVisual.percent)} | {fmtScore(qVisual.score)} / 5 | {reportZoneLabel(qVisual.zone)}</div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         ))}
                   </div>
@@ -7357,298 +7394,348 @@ export default function App() {
     const totemGhes = totemPubData?.ghes || [];
     const totemSetores = totemPubData?.setores || [];
     const totemCargos = totemPubData?.cargos || [];
-    const totemCargosFiltrados = denGhe ? totemCargos.filter((c) => (c.ghe_ids || []).includes(Number(denGhe))) : [];
+    const totemDenEvalType = String(totemPubData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
+    const totemDenRefs = totemDenEvalType === "SETOR" ? totemSetores : totemGhes;
+    const totemDenRefValue = totemDenEvalType === "SETOR" ? denSetor : denGhe;
+    const totemCargosFiltrados = totemDenRefValue
+      ? totemCargos.filter((c) => totemDenEvalType === "SETOR"
+          ? (c.setor_ids || []).includes(Number(totemDenRefValue))
+          : (c.ghe_ids || []).includes(Number(totemDenRefValue)))
+      : [];
     const selectedHumorGheData = totemGhes.find((g) => String(g.id) === String(totemHumorGhe));
     const totemSetoresFiltrados = selectedHumorGheData
       ? totemSetores.filter((s) => (selectedHumorGheData.setor_ids || []).includes(s.id))
       : [];
-    const totemAjudaCargosFiltrados = totemAjudaGhe
-      ? totemCargos.filter((c) => (c.ghe_ids || []).includes(Number(totemAjudaGhe)))
+    const totemAjudaEvalType = String(totemPubData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
+    const totemAjudaRefValue = totemAjudaEvalType === "SETOR" ? totemAjudaSetor : totemAjudaGhe;
+    const totemAjudaCargosFiltrados = totemAjudaRefValue
+      ? totemCargos.filter((c) => totemAjudaEvalType === "SETOR"
+          ? (c.setor_ids || []).includes(Number(totemAjudaRefValue))
+          : (c.ghe_ids || []).includes(Number(totemAjudaRefValue)))
       : [];
     return (
-      <main className="app-shell public-shell">
+      <main className="totem-shell">
         {toastViewport}
-        <section className="card public-card totem-public-card">
-          <h1>Totem de Atendimento</h1>
-          <p className="subtitle">
-            {totemPubData?.empresa_name ? `Empresa: ${totemPubData.empresa_name}` : "Canal publico de atendimento"}
-          </p>
 
-          {totemPubLoad && <LoadingSpinner label="Carregando totem..." />}
-          {totemPubErr && <p className="error">{totemPubErr}</p>}
+        {/* ── Header ── */}
+        <header className="totem-header">
+          <div className="totem-header-brand">
+            {totemPubData?.consultoria_logo_url ? (
+              <div className="totem-header-logo-wrapper">
+                <img src={totemPubData.consultoria_logo_url} alt="Logo" className="totem-header-logo" />
+              </div>
+            ) : (
+              <div className="totem-header-logo-placeholder">
+                <span>{(totemPubData?.consultoria_nome || "C").charAt(0)}</span>
+              </div>
+            )}
+            <div className="totem-header-texts">
+              {totemPubData?.consultoria_nome && <span className="totem-header-consultoria">{totemPubData.consultoria_nome}</span>}
+              <span className="totem-header-empresa">{totemPubData?.empresa_name || "Canal de Atendimento"}</span>
+            </div>
+          </div>
+          {totemConsentAccepted && totemPubScreen !== "menu" && (
+            <div className="totem-header-badge">
+              {totemPubScreen === "denuncia" ? "Canal de Denúncias" : totemPubScreen === "humor" ? "Registro de Humor" : totemPubScreen === "ajuda" ? "Pedido de Ajuda" : ""}
+            </div>
+          )}
+        </header>
 
+        {/* ── Body ── */}
+        <div className="totem-body">
+
+          {totemPubLoad && (
+            <div className="totem-loading-state"><LoadingSpinner label="Carregando..." /></div>
+          )}
+          {totemPubErr && (
+            <div className="totem-error-state"><p className="error">{totemPubErr}</p></div>
+          )}
+
+          {/* Tela de Consentimento */}
           {!totemPubLoad && totemPubData && !totemConsentAccepted && (
-            <div className="totem-consent-card">
-              <h2>Termo de consentimento</h2>
-              <p>
-                Ao prosseguir, você concorda em utilizar este totem para registrar informações de forma responsável. Seus dados
-                serão tratados com confidencialidade, conforme a finalidade do atendimento.
-              </p>
-              <p>
-                Caso escolha seguir com uma denúncia ou pedido de ajuda, as informações enviadas poderão ser analisadas pela equipe
-                responsavel da empresa.
-              </p>
-              {totemPubData.responsaveis_tecnicos?.length > 0 && (
-                <div className="totem-resp-tecnico-block">
-                  {totemPubData.responsaveis_tecnicos.map((rt, i) => (
-                    <div key={i} className="totem-resp-tecnico-item">
-                      <span className="totem-resp-tecnico-label">Responsável técnico</span>
-                      <span className="totem-resp-tecnico-nome">{rt.nome}</span>
-                      <span className="totem-resp-tecnico-formacao">{rt.formacao}</span>
-                      <span className="totem-resp-tecnico-registro">{rt.registro}</span>
-                    </div>
-                  ))}
+            <div className="totem-consent-screen">
+              <div className="totem-consent-hero">
+                {totemPubData.consultoria_logo_url ? (
+                  <img src={totemPubData.consultoria_logo_url} alt="Logo" className="totem-consent-logo" />
+                ) : (
+                  <div className="totem-consent-logo-fallback">
+                    <span>{(totemPubData.consultoria_nome || "NR").charAt(0)}</span>
+                  </div>
+                )}
+                <h1 className="totem-consent-welcome">Bem-vindo ao<br />Canal de Atendimento</h1>
+                <p className="totem-consent-empresa-name">{totemPubData.empresa_name}</p>
+              </div>
+
+              <div className="totem-consent-box">
+                <div className="totem-consent-box-header">
+                  <span className="totem-consent-icon">🔒</span>
+                  <h2>Termo de Consentimento</h2>
                 </div>
-              )}
-              <div className="totem-actions-row">
-                <button type="button" onClick={() => { setTotemConsentAccepted(true); setTotemPubActionMsg(""); }}>
-                  Aceito
+                <p>Ao prosseguir, você concorda em utilizar este totem para registrar informações de forma responsável. Seus dados serão tratados com total confidencialidade.</p>
+                <p>Caso escolha seguir com uma denúncia ou pedido de ajuda, as informações enviadas poderão ser analisadas pela equipe responsável da empresa.</p>
+
+                {totemPubData.responsaveis_tecnicos?.length > 0 && (
+                  <div className="totem-rt-grid">
+                    {totemPubData.responsaveis_tecnicos.map((rt, i) => (
+                      <div key={i} className="totem-rt-card">
+                        <span className="totem-rt-label">Responsável Técnico</span>
+                        <span className="totem-rt-nome">{rt.nome}</span>
+                        {rt.formacao && <span className="totem-rt-formacao">{rt.formacao}</span>}
+                        {rt.registro && <span className="totem-rt-registro">Reg.: {rt.registro}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button type="button" className="totem-btn-primary" onClick={() => { setTotemConsentAccepted(true); setTotemPubActionMsg(""); }}>
+                  Li e aceito os termos →
                 </button>
               </div>
             </div>
           )}
 
+          {/* Menu Principal */}
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "menu" && (
-            <div className="totem-menu-grid">
-              <button type="button" className="totem-menu-btn" onClick={() => { setTotemPubScreen("denuncia"); setTotemPubActionMsg(""); setTotemDenErr(""); setTotemDenOk(""); }}>
-                <span className="totem-menu-title">Fazer denúncia</span>
-                <span className="totem-menu-desc">Registrar uma denúncia com sigilo.</span>
-              </button>
-              <button type="button" className="totem-menu-btn" onClick={() => { setTotemPubScreen("humor"); setTotemHumorSelected(""); setTotemHumorGhe(""); setTotemHumorSetor(""); setTotemHumorOk(""); setTotemHumorErr(""); }}>
-                <span className="totem-menu-title">Registrar humor</span>
-                <span className="totem-menu-desc">Informar como você está se sentindo hoje.</span>
-              </button>
-              <button type="button" className="totem-menu-btn" onClick={() => { setTotemPubScreen("ajuda"); setTotemAjudaNome(""); setTotemAjudaContato(""); setTotemAjudaGhe(""); setTotemAjudaFuncao(""); setTotemAjudaOk(""); setTotemAjudaErr(""); }}>
-                <span className="totem-menu-title">Pedido de ajuda</span>
-                <span className="totem-menu-desc">Solicitar apoio ou acolhimento.</span>
+            <div className="totem-menu-screen">
+              <div className="totem-menu-greeting">
+                <h2>Como posso ajudar você hoje?</h2>
+                <p>Selecione uma das opções abaixo para prosseguir</p>
+              </div>
+
+              <div className="totem-menu-cards">
+                <button type="button" className="totem-action-card totem-card-denuncia" onClick={() => { setTotemPubScreen("denuncia"); setTotemPubActionMsg(""); setTotemDenErr(""); setTotemDenOk(""); }}>
+                  <div className="totem-action-icon">🚨</div>
+                  <div className="totem-action-content">
+                    <span className="totem-action-title">Fazer Denúncia</span>
+                    <span className="totem-action-desc">Registre uma denúncia com total sigilo e segurança.</span>
+                  </div>
+                  <div className="totem-action-arrow">›</div>
+                </button>
+
+                <button type="button" className="totem-action-card totem-card-humor" onClick={() => { setTotemPubScreen("humor"); setTotemHumorSelected(""); setTotemHumorGhe(""); setTotemHumorSetor(""); setTotemHumorOk(""); setTotemHumorErr(""); }}>
+                  <div className="totem-action-icon">😊</div>
+                  <div className="totem-action-content">
+                    <span className="totem-action-title">Registrar Humor</span>
+                    <span className="totem-action-desc">Informe como você está se sentindo hoje.</span>
+                  </div>
+                  <div className="totem-action-arrow">›</div>
+                </button>
+
+                <button type="button" className="totem-action-card totem-card-ajuda" onClick={() => { setTotemPubScreen("ajuda"); setTotemAjudaNome(""); setTotemAjudaContato(""); setTotemAjudaGhe(""); setTotemAjudaFuncao(""); setTotemAjudaOk(""); setTotemAjudaErr(""); }}>
+                  <div className="totem-action-icon">🤝</div>
+                  <div className="totem-action-content">
+                    <span className="totem-action-title">Pedido de Ajuda</span>
+                    <span className="totem-action-desc">Solicite apoio ou acolhimento da equipe responsável.</span>
+                  </div>
+                  <div className="totem-action-arrow">›</div>
+                </button>
+              </div>
+
+              <button type="button" className="totem-btn-back" onClick={() => { setTotemConsentAccepted(false); setTotemPubActionMsg(""); setTotemPubScreen("menu"); }}>
+                ← Voltar ao início
               </button>
             </div>
           )}
 
+          {/* Formulário de Denúncia */}
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "denuncia" && (
-            <form onSubmit={submitDenunciaTotemPublica} className="denuncia-form totem-denuncia-form">
-              <div className="denuncia-intro-box">
-                <div className="denuncia-intro-title">Denúncia pelo Totem</div>
-                <p>
-                  Preencha as informações abaixo para registrar sua denúncia para <strong>{totemPubData.empresa_name}</strong>.
-                </p>
-              </div>
-
-              <div className="denuncia-question">
-                <label>1. Você possui vínculo com a empresa {totemPubData.empresa_name}?</label>
-                <div className="denuncia-radio-row">
-                  <label className="checkbox-line"><input type="radio" name="totem-den-vinculo" checked={denVinculo === "SIM"} onChange={() => setDenVinculo("SIM")} />Sim</label>
-                  <label className="checkbox-line"><input type="radio" name="totem-den-vinculo" checked={denVinculo === "NAO"} onChange={() => setDenVinculo("NAO")} />Nao</label>
+            <form onSubmit={submitDenunciaTotemPublica} className="totem-form-screen">
+              <div className="totem-form-intro totem-form-intro-denuncia">
+                <span className="totem-form-intro-icon">🔒</span>
+                <div>
+                  <strong>Denúncia Confidencial</strong>
+                  <p>Suas informações são protegidas e tratadas com total sigilo.</p>
                 </div>
               </div>
 
-              <div className="denuncia-question">
-                <label>2. Você gostaria de se identificar? Lembre-se que essa informação e opcional!</label>
-                <div className="denuncia-radio-row">
-                  <label className="checkbox-line"><input type="radio" name="totem-den-identificar" checked={denIdentificar === "SIM"} onChange={() => setDenIdentificar("SIM")} />Sim</label>
-                  <label className="checkbox-line"><input type="radio" name="totem-den-identificar" checked={denIdentificar === "NAO"} onChange={() => { setDenIdentificar("NAO"); setDenContatoIdentificacao(""); }} />Nao</label>
+              <div className="totem-field">
+                <label>Você possui vínculo com a empresa <strong>{totemPubData.empresa_name}</strong>?</label>
+                <div className="totem-radio-group">
+                  <label className="totem-radio-opt"><input type="radio" name="totem-den-vinculo" checked={denVinculo === "SIM"} onChange={() => setDenVinculo("SIM")} /><span>Sim</span></label>
+                  <label className="totem-radio-opt"><input type="radio" name="totem-den-vinculo" checked={denVinculo === "NAO"} onChange={() => setDenVinculo("NAO")} /><span>Não</span></label>
+                </div>
+              </div>
+
+              <div className="totem-field">
+                <label>Gostaria de se identificar? <span className="totem-optional">(opcional)</span></label>
+                <div className="totem-radio-group">
+                  <label className="totem-radio-opt"><input type="radio" name="totem-den-identificar" checked={denIdentificar === "SIM"} onChange={() => setDenIdentificar("SIM")} /><span>Sim</span></label>
+                  <label className="totem-radio-opt"><input type="radio" name="totem-den-identificar" checked={denIdentificar === "NAO"} onChange={() => { setDenIdentificar("NAO"); setDenContatoIdentificacao(""); }} /><span>Não</span></label>
                 </div>
                 {denIdentificar === "SIM" && (
-                  <input
-                    type="text"
-                    placeholder="Informe seu e-mail ou WhatsApp"
-                    value={denContatoIdentificacao}
-                    onChange={(e) => setDenContatoIdentificacao(e.target.value)}
-                  />
+                  <input type="text" className="totem-input" placeholder="Informe seu e-mail ou WhatsApp" value={denContatoIdentificacao} onChange={(e) => setDenContatoIdentificacao(e.target.value)} />
                 )}
               </div>
 
-              <div className="denuncia-question">
-                <label>GHE</label>
-                <select value={denGhe} onChange={(e) => { setDenGhe(e.target.value); setDenCargo(""); }}>
-                  <option value="">Selecione um GHE (opcional)</option>
-                  {totemGhes.map((g) => <option key={`totem-den-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
-                </select>
+              <div className="totem-field-row">
+                <div className="totem-field">
+                  <label>{totemDenEvalType === "SETOR" ? "Setor" : "GHE"} <span className="totem-optional">(opcional)</span></label>
+                  <select className="totem-select" value={totemDenRefValue} onChange={(e) => { totemDenEvalType === "SETOR" ? setDenSetor(e.target.value) : setDenGhe(e.target.value); setDenCargo(""); }}>
+                    <option value="">Selecione {totemDenEvalType === "SETOR" ? "um Setor" : "um GHE"}</option>
+                    {totemDenRefs.map((r) => <option key={`totem-den-ref-${r.id}`} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+                <div className="totem-field">
+                  <label>Função <span className="totem-optional">(opcional)</span></label>
+                  <select className="totem-select" value={denCargo} onChange={(e) => setDenCargo(e.target.value)} disabled={!totemDenRefValue}>
+                    <option value="">{totemDenRefValue ? "Selecione uma função" : `Selecione ${totemDenEvalType === "SETOR" ? "um Setor" : "um GHE"} primeiro`}</option>
+                    {totemCargosFiltrados.map((c) => <option key={`totem-den-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
               </div>
 
-              <div className="denuncia-question">
-                <label>Função</label>
-                <select value={denCargo} onChange={(e) => setDenCargo(e.target.value)} disabled={!denGhe}>
-                  <option value="">{denGhe ? "Selecione uma função" : "Selecione um GHE primeiro"}</option>
-                  {totemCargosFiltrados.map((c) => <option key={`totem-den-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div className="denuncia-question">
-                <label>Tipo da denuncia</label>
-                <select value={denTipo} onChange={(e) => setDenTipo(e.target.value)} required>
+              <div className="totem-field">
+                <label>Tipo da denúncia <span style={{color:"#dc2626"}}>*</span></label>
+                <select className="totem-select" value={denTipo} onChange={(e) => setDenTipo(e.target.value)} required>
                   <option value="">Selecione o tipo</option>
                   {DENUNCIA_TIPOS.map(([value, label]) => <option key={`totem-den-tipo-${value}`} value={value}>{label}</option>)}
                 </select>
               </div>
 
-              <div className="denuncia-question">
-                <label>3. Relate aqui a sua denúncia com todas as informações disponíveis.</label>
-                <textarea
-                  className="text-area denuncia-textarea"
-                  placeholder="Descreva em detalhes o que aconteceu..."
-                  value={denRelato}
-                  onChange={(e) => setDenRelato(e.target.value)}
-                  required
-                />
+              <div className="totem-field">
+                <label>Relate a denúncia <span style={{color:"#dc2626"}}>*</span></label>
+                <textarea className="totem-textarea" placeholder="Descreva em detalhes o que aconteceu..." value={denRelato} onChange={(e) => setDenRelato(e.target.value)} required rows={4} />
               </div>
 
-              <div className="denuncia-question">
-                <label>5. Existem testemunhas?</label>
-                <textarea
-                  className="text-area"
-                  placeholder="Informe nomes, cargos ou formas de contato, se estiverem disponíveis."
-                  value={denTestemunhas}
-                  onChange={(e) => setDenTestemunhas(e.target.value)}
-                />
+              <div className="totem-field">
+                <label>Existem testemunhas? <span className="totem-optional">(opcional)</span></label>
+                <textarea className="totem-textarea" placeholder="Informe nomes, cargos ou formas de contato." value={denTestemunhas} onChange={(e) => setDenTestemunhas(e.target.value)} rows={2} />
               </div>
 
-              <div className="denuncia-question">
-                <label>6. Você aceita receber uma devolutiva para a denúncia realizada? Se sim, insira o seu e-mail:</label>
-                <div className="denuncia-radio-row">
-                  <label className="checkbox-line"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "SIM"} onChange={() => setDenAceitaDevolutiva("SIM")} />Sim</label>
-                  <label className="checkbox-line"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} />Nao</label>
+              <div className="totem-field">
+                <label>Deseja receber devolutiva? <span className="totem-optional">(opcional)</span></label>
+                <div className="totem-radio-group">
+                  <label className="totem-radio-opt"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "SIM"} onChange={() => setDenAceitaDevolutiva("SIM")} /><span>Sim</span></label>
+                  <label className="totem-radio-opt"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} /><span>Não</span></label>
                 </div>
-                <input
-                  type="email"
-                  placeholder="seuemail@exemplo.com"
-                  value={denEmailDevolutiva}
-                  onChange={(e) => setDenEmailDevolutiva(e.target.value)}
-                  disabled={denAceitaDevolutiva !== "SIM"}
-                />
+                {denAceitaDevolutiva === "SIM" && (
+                  <input type="email" className="totem-input" placeholder="seuemail@exemplo.com" value={denEmailDevolutiva} onChange={(e) => setDenEmailDevolutiva(e.target.value)} />
+                )}
               </div>
 
               {totemDenOk && <p className="ok-message">{totemDenOk}</p>}
               {totemDenErr && <p className="error">{totemDenErr}</p>}
 
-              <div className="totem-actions-row totem-actions-row-split totem-denuncia-actions">
-                <button type="button" className="secondary" onClick={() => { setTotemPubScreen("menu"); setTotemPubActionMsg(""); setTotemDenErr(""); }}>
-                  Voltar
-                </button>
-                <button type="submit" disabled={totemDenSaving}>
-                  {totemDenSaving ? "Enviando..." : "Enviar"}
-                </button>
+              <div className="totem-form-actions">
+                <button type="button" className="totem-btn-secondary" onClick={() => { setTotemPubScreen("menu"); setTotemPubActionMsg(""); setTotemDenErr(""); }}>← Voltar</button>
+                <button type="submit" className="totem-btn-primary" disabled={totemDenSaving}>{totemDenSaving ? "Enviando..." : "Enviar Denúncia"}</button>
               </div>
             </form>
           )}
 
-          {!!totemPubActionMsg && <p className="muted">{totemPubActionMsg}</p>}
-
+          {/* Registro de Humor */}
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "humor" && (
-            <div className="totem-humor-screen">
-              <h2 className="totem-humor-title">Como você está se sentindo?</h2>
-              <p className="totem-humor-subtitle">Selecione a opção que melhor descreve seu humor hoje.</p>
-              <div className="totem-humor-grid">
+            <div className="totem-form-screen">
+              <div className="totem-humor-header">
+                <h2>Como você está se sentindo?</h2>
+                <p>Selecione a opção que melhor descreve seu humor hoje</p>
+              </div>
+              <div className="totem-humor-grid-new">
                 {HUMOR_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    className={`totem-humor-card${totemHumorSelected === opt.key ? " selected" : ""}`}
-                    onClick={() => setTotemHumorSelected(opt.key)}
-                  >
-                    <span className="totem-humor-emoji">{opt.emoji}</span>
-                    <span className="totem-humor-label">{opt.label}</span>
+                  <button key={opt.key} type="button" className={`totem-humor-tile${totemHumorSelected === opt.key ? " selected" : ""}`} onClick={() => setTotemHumorSelected(opt.key)}>
+                    <span className="totem-humor-tile-emoji">{opt.emoji}</span>
+                    <span className="totem-humor-tile-label">{opt.label}</span>
                   </button>
                 ))}
               </div>
-              <div className="totem-actions-row totem-actions-row-split">
-                <button type="button" className="secondary" onClick={() => { setTotemPubScreen("menu"); setTotemHumorSelected(""); }}>
-                  Voltar
-                </button>
-                <button type="button" onClick={() => setTotemHumorModal(true)} disabled={!totemHumorSelected}>
-                  Seguir
-                </button>
+              <div className="totem-form-actions">
+                <button type="button" className="totem-btn-secondary" onClick={() => { setTotemPubScreen("menu"); setTotemHumorSelected(""); }}>← Voltar</button>
+                <button type="button" className="totem-btn-primary" onClick={() => setTotemHumorModal(true)} disabled={!totemHumorSelected}>Confirmar →</button>
               </div>
             </div>
           )}
 
+          {/* Pedido de Ajuda */}
           {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "ajuda" && (
-            <form onSubmit={submitTotemAjuda} className="denuncia-form totem-denuncia-form">
-              <div className="totem-ajuda-atencao">
-                <span className="totem-ajuda-atencao-icon">🤝</span>
-                <p>Não se preocupe, entraremos em contato com você.</p>
+            <form onSubmit={submitTotemAjuda} className="totem-form-screen">
+              <div className="totem-form-intro totem-form-intro-ajuda">
+                <span className="totem-form-intro-icon">🤝</span>
+                <div>
+                  <strong>Você não está sozinho</strong>
+                  <p>Nossa equipe entrará em contato com você em breve.</p>
+                </div>
               </div>
-              <div className="denuncia-question">
-                <label>Nome <span style={{color:"#e53e3e"}}>*</span></label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Seu nome completo"
-                  value={totemAjudaNome}
-                  onChange={(e) => setTotemAjudaNome(e.target.value)}
-                />
+
+              <div className="totem-field-row">
+                <div className="totem-field">
+                  <label>Nome completo <span style={{color:"#dc2626"}}>*</span></label>
+                  <input type="text" className="totem-input" required placeholder="Seu nome completo" value={totemAjudaNome} onChange={(e) => setTotemAjudaNome(e.target.value)} />
+                </div>
+                <div className="totem-field">
+                  <label>E-mail ou telefone <span className="totem-optional">(opcional)</span></label>
+                  <input type="text" className="totem-input" placeholder="exemplo@email.com ou (11) 99999-9999" value={totemAjudaContato} onChange={(e) => setTotemAjudaContato(e.target.value)} />
+                </div>
               </div>
-              <div className="denuncia-question">
-                <label>E-mail ou telefone <span className="muted" style={{fontWeight:400,fontSize:"0.85em"}}>(opcional)</span></label>
-                <input
-                  type="text"
-                  placeholder="exemplo@email.com ou (11) 99999-9999"
-                  value={totemAjudaContato}
-                  onChange={(e) => setTotemAjudaContato(e.target.value)}
-                />
+
+              <div className="totem-field-row">
+                <div className="totem-field">
+                  <label>{totemAjudaEvalType === "SETOR" ? "Setor" : "GHE"} <span className="totem-optional">(opcional)</span></label>
+                  {totemAjudaEvalType === "SETOR" ? (
+                    <select className="totem-select" value={totemAjudaSetor} onChange={(e) => { setTotemAjudaSetor(e.target.value); setTotemAjudaFuncao(""); }}>
+                      <option value="">Selecione um Setor</option>
+                      {totemSetores.map((s) => <option key={`ajuda-setor-${s.id}`} value={s.id}>{s.name}</option>)}
+                    </select>
+                  ) : (
+                    <select className="totem-select" value={totemAjudaGhe} onChange={(e) => { setTotemAjudaGhe(e.target.value); setTotemAjudaFuncao(""); }}>
+                      <option value="">Selecione um GHE</option>
+                      {totemGhes.map((g) => <option key={`ajuda-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
+                    </select>
+                  )}
+                </div>
+                <div className="totem-field">
+                  <label>Função <span className="totem-optional">(opcional)</span></label>
+                  <select className="totem-select" value={totemAjudaFuncao} onChange={(e) => setTotemAjudaFuncao(e.target.value)} disabled={!totemAjudaRefValue}>
+                    <option value="">{totemAjudaRefValue ? (totemAjudaCargosFiltrados.length > 0 ? "Selecione uma função" : "Nenhuma função vinculada") : `Selecione um ${totemAjudaEvalType === "SETOR" ? "Setor" : "GHE"} primeiro`}</option>
+                    {totemAjudaCargosFiltrados.map((c) => <option key={`ajuda-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="denuncia-question">
-                <label>GHE <span className="muted" style={{fontWeight:400,fontSize:"0.85em"}}>(opcional)</span></label>
-                <select value={totemAjudaGhe} onChange={(e) => { setTotemAjudaGhe(e.target.value); setTotemAjudaFuncao(""); }}>
-                  <option value="">Selecione um GHE</option>
-                  {totemGhes.map((g) => <option key={`ajuda-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
-                </select>
-              </div>
-              <div className="denuncia-question">
-                <label>Função <span className="muted" style={{fontWeight:400,fontSize:"0.85em"}}>(opcional)</span></label>
-                <select value={totemAjudaFuncao} onChange={(e) => setTotemAjudaFuncao(e.target.value)} disabled={!totemAjudaGhe}>
-                  <option value="">{totemAjudaGhe ? (totemAjudaCargosFiltrados.length > 0 ? "Selecione uma funcao" : "Nenhuma funcao vinculada") : "Selecione um GHE primeiro"}</option>
-                  {totemAjudaCargosFiltrados.map((c) => <option key={`ajuda-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
+
               {totemAjudaErr && <p className="error">{totemAjudaErr}</p>}
               {totemAjudaOk && <p className="ok-message">{totemAjudaOk}</p>}
-              <div className="totem-actions-row totem-actions-row-split">
-                <button type="button" className="secondary" onClick={() => setTotemPubScreen("menu")} disabled={totemAjudaSaving}>Voltar</button>
-                <button type="submit" disabled={totemAjudaSaving}>{totemAjudaSaving ? "Enviando..." : "Enviar"}</button>
+
+              <div className="totem-form-actions">
+                <button type="button" className="totem-btn-secondary" onClick={() => setTotemPubScreen("menu")} disabled={totemAjudaSaving}>← Voltar</button>
+                <button type="submit" className="totem-btn-primary" disabled={totemAjudaSaving}>{totemAjudaSaving ? "Enviando..." : "Enviar Pedido"}</button>
               </div>
             </form>
           )}
 
-          {totemHumorModal && (
-            <div className="totem-humor-overlay" onClick={() => { if (!totemHumorSaving) setTotemHumorModal(false); }}>
-              <div className="totem-humor-modal" onClick={(e) => e.stopPropagation()}>
-                <div className="totem-humor-modal-header">
-                  <h3>Identificação</h3>
-                  <p>Informe seu GHE e Setor para registrar o humor.</p>
-                </div>
-                <div className="totem-humor-modal-form">
-                  <label>GHE</label>
-                  <select value={totemHumorGhe} onChange={(e) => { setTotemHumorGhe(e.target.value); setTotemHumorSetor(""); }}>
-                    <option value="">Selecione um GHE (opcional)</option>
+        </div>{/* /totem-body */}
+
+        {/* Modal de GHE/Setor para humor */}
+        {totemHumorModal && (
+          <div className="totem-modal-overlay" onClick={() => { if (!totemHumorSaving) setTotemHumorModal(false); }}>
+            <div className="totem-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="totem-modal-header">
+                <h3>Identificação</h3>
+                <p>Informe seu GHE e Setor para registrar o humor.</p>
+              </div>
+              <div className="totem-modal-body">
+                <div className="totem-field">
+                  <label>GHE <span className="totem-optional">(opcional)</span></label>
+                  <select className="totem-select" value={totemHumorGhe} onChange={(e) => { setTotemHumorGhe(e.target.value); setTotemHumorSetor(""); }}>
+                    <option value="">Selecione um GHE</option>
                     {totemGhes.map((g) => <option key={`humor-ghe-${g.id}`} value={g.id}>{g.name}</option>)}
                   </select>
-                  <label>Setor</label>
-                  <select value={totemHumorSetor} onChange={(e) => setTotemHumorSetor(e.target.value)} disabled={!totemHumorGhe}>
-                    <option value="">{totemHumorGhe ? (totemSetoresFiltrados.length > 0 ? "Selecione um setor (opcional)" : "Nenhum setor vinculado") : "Selecione um GHE primeiro"}</option>
+                </div>
+                <div className="totem-field">
+                  <label>Setor <span className="totem-optional">(opcional)</span></label>
+                  <select className="totem-select" value={totemHumorSetor} onChange={(e) => setTotemHumorSetor(e.target.value)} disabled={!totemHumorGhe}>
+                    <option value="">{totemHumorGhe ? (totemSetoresFiltrados.length > 0 ? "Selecione um setor" : "Nenhum setor vinculado") : "Selecione um GHE primeiro"}</option>
                     {totemSetoresFiltrados.map((s) => <option key={`humor-setor-${s.id}`} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
-                {totemHumorErr && <p className="error">{totemHumorErr}</p>}
-                {totemHumorOk && <p className="ok-message">{totemHumorOk}</p>}
-                <div className="totem-humor-modal-actions">
-                  <button type="button" className="secondary" onClick={() => setTotemHumorModal(false)} disabled={totemHumorSaving}>Cancelar</button>
-                  <button type="button" onClick={submitTotemHumor} disabled={totemHumorSaving}>
-                    {totemHumorSaving ? "Registrando..." : "Confirmar"}
-                  </button>
-                </div>
+              </div>
+              {totemHumorErr && <p className="error" style={{padding:"0 24px"}}>{totemHumorErr}</p>}
+              {totemHumorOk && <p className="ok-message" style={{padding:"0 24px"}}>{totemHumorOk}</p>}
+              <div className="totem-modal-actions">
+                <button type="button" className="totem-btn-secondary" onClick={() => setTotemHumorModal(false)} disabled={totemHumorSaving}>Cancelar</button>
+                <button type="button" className="totem-btn-primary" onClick={submitTotemHumor} disabled={totemHumorSaving}>{totemHumorSaving ? "Registrando..." : "Confirmar"}</button>
               </div>
             </div>
-          )}
-
-          {!totemPubLoad && totemPubData && totemConsentAccepted && totemPubScreen === "menu" && (
-            <div className="totem-actions-row totem-actions-row-left">
-              <button type="button" className="secondary" onClick={() => { setTotemConsentAccepted(false); setTotemPubActionMsg(""); setTotemPubScreen("menu"); }}>
-                Voltar
-              </button>
-            </div>
-          )}
-        </section>
+          </div>
+        )}
       </main>
     );
   }
@@ -7686,7 +7773,7 @@ export default function App() {
                 <label>1. Você possui vínculo com a empresa {denPubData.empresa_name}?</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="den-vinculo" checked={denVinculo === "SIM"} onChange={() => setDenVinculo("SIM")} />Sim</label>
-                  <label className="checkbox-line"><input type="radio" name="den-vinculo" checked={denVinculo === "NAO"} onChange={() => setDenVinculo("NAO")} />Nao</label>
+                  <label className="checkbox-line"><input type="radio" name="den-vinculo" checked={denVinculo === "NAO"} onChange={() => setDenVinculo("NAO")} />Não</label>
                 </div>
               </div>
 
@@ -7720,15 +7807,15 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>Funcao</label>
+                <label>Função</label>
                 <select value={denCargo} onChange={(e) => setDenCargo(e.target.value)} disabled={!denRefValue}>
-                  <option value="">{denRefValue ? "Selecione uma funcao" : `Selecione ${denRefLabel === "Setor" ? "um setor" : "um GHE"} primeiro`}</option>
+                  <option value="">{denRefValue ? "Selecione uma função" : `Selecione ${denRefLabel === "Setor" ? "um setor" : "um GHE"} primeiro`}</option>
                   {denCargosFiltrados.map((c) => <option key={`den-cargo-${c.id}`} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
               <div className="denuncia-question">
-                <label>Tipo da denuncia</label>
+                <label>Tipo da denúncia</label>
                 <select value={denTipo} onChange={(e) => setDenTipo(e.target.value)} required>
                   <option value="">Selecione o tipo</option>
                   {DENUNCIA_TIPOS.map(([value, label]) => <option key={`den-tipo-${value}`} value={value}>{label}</option>)}
@@ -7736,7 +7823,7 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>3. Relate aqui a sua denuncia com todas as informacoes disponiveis.</label>
+                <label>3. Relate aqui a sua denúncia com todas as informações disponíveis.</label>
                 <textarea
                   className="text-area denuncia-textarea"
                   placeholder="Descreva em detalhes o que aconteceu..."
@@ -7747,7 +7834,7 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>4. Voce possui evidencias? Anexe no campo abaixo um arquivo contendo as evidencias.</label>
+                <label>4. Voce possui evidências? Anexe no campo abaixo um arquivo contendo as evidencias.</label>
                 <div className="denuncia-file-row">
                   <label className="secondary file-upload-btn">
                     Selecionar arquivo
@@ -7759,7 +7846,7 @@ export default function App() {
                   </label>
                   <span className="denuncia-file-name">{denArquivo ? denArquivo.name : "Nenhum arquivo selecionado"}</span>
                 </div>
-                <small className="denuncia-file-help">Tamanho maximo do arquivo: 20 MB.</small>
+                <small className="denuncia-file-help">Tamanho máximo do arquivo: 20 MB.</small>
               </div>
 
               <div className="denuncia-question">
@@ -7776,7 +7863,7 @@ export default function App() {
                 <label>6. Voce aceita receber uma devolutiva para a denuncia realizada? Se sim, insira o seu e-mail:</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="den-devolutiva" checked={denAceitaDevolutiva === "SIM"} onChange={() => setDenAceitaDevolutiva("SIM")} />Sim</label>
-                  <label className="checkbox-line"><input type="radio" name="den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} />Nao</label>
+                  <label className="checkbox-line"><input type="radio" name="den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} />Não</label>
                 </div>
                 <input
                   type="email"
@@ -8123,7 +8210,7 @@ export default function App() {
               {pubStep === 10 && (
                 <div className="public-finish">
                   <p className="ok-message">{pubOk || "Questionário enviado com sucesso."}</p>
-                  <button type="button" className="secondary" onClick={restartPublicQuestionario}>Recomeçãr questionário</button>
+                  <button type="button" className="secondary" onClick={restartPublicQuestionario}>Recomeçar questionário</button>
                 </div>
               )}
             </>
@@ -8133,8 +8220,11 @@ export default function App() {
     );
   }
 
+  const globalLoading = loading || dashLoad || empLoad || setorLoad || gheLoad || cargoLoad || campLoad || consLoad || cfgLoad || sysAccLoad || consultoriaUsersLoad || ajudaListLoad || denLoad || denListLoad;
+
   return (
     <main className={`app-shell ${user ? "app-shell-auth" : ""}`}>
+      {globalLoading && <div className="global-progress-bar"><div className="global-progress-bar-inner" /></div>}
       {isPasswordReset ? (
         <div className="login-page">
           <div className="login-panel-left">
@@ -8887,13 +8977,13 @@ export default function App() {
               <div className="info-block">
                 <h3>Dados gerais</h3>
                 <p><strong>Status:</strong> {denViewModal.status === "EM_ANALISE" ? "Em analise" : denViewModal.status === "RESOLVIDA" ? "Resolvida" : "Aberta"}</p>
-                <p><strong>Vínculo com a empresa:</strong> {denViewModal.possui_vinculo ? "Sim" : "Nao"}</p>
-                <p><strong>Deseja se identificar:</strong> {denViewModal.deseja_identificar ? "Sim" : "Nao"}</p>
+                <p><strong>Vínculo com a empresa:</strong> {denViewModal.possui_vinculo ? "Sim" : "Não"}</p>
+                <p><strong>Deseja se identificar:</strong> {denViewModal.deseja_identificar ? "Sim" : "Não"}</p>
                 {denViewModal.contato_identificacao && <p><strong>Contato:</strong> {denViewModal.contato_identificacao}</p>}
                 <p><strong>Tipo da denúncia:</strong> {denViewModal.tipo_label || "-"}</p>
                 <p><strong>{denViewRefLabel}:</strong> {denViewRefValue}</p>
                 <p><strong>Função:</strong> {denViewModal.cargo_name || "-"}</p>
-                <p><strong>Aceita devolutiva:</strong> {denViewModal.aceita_devolutiva ? "Sim" : "Nao"}</p>
+                <p><strong>Aceita devolutiva:</strong> {denViewModal.aceita_devolutiva ? "Sim" : "Não"}</p>
                 {denViewModal.email_devolutiva && <p><strong>E-mail devolutiva:</strong> {denViewModal.email_devolutiva}</p>}
               </div>
               <div className="info-block">

@@ -88,6 +88,7 @@ FREQUENCY_SCORE_NEGATIVE = {
 }
 
 REPORT_LETTERHEAD_TEMPLATE = Path(__file__).resolve().parents[2] / 'TIMBRADO 2026.pdf'
+REPORT_RISK_MATRIX_IMAGE = Path(__file__).resolve().parents[2] / 'matriz_riscos.png'
 REPORT_LETTERHEAD_HEADER_TOP = 16.998
 REPORT_LETTERHEAD_HEADER_BOTTOM = 113.984
 REPORT_LETTERHEAD_FOOTER_TOP = 48.993
@@ -313,23 +314,44 @@ def _report_zone(percent):
     return {'key': 'green', 'label': 'Bom'}
 
 
+def _report_display_zone(percent, polarity='positive'):
+    polarity = str(polarity or 'positive').lower()
+    if polarity == 'negative':
+        if percent < 40:
+            return {'key': 'green', 'label': 'Bom'}
+        if percent < 75:
+            return {'key': 'yellow', 'label': 'Atencao'}
+        return {'key': 'red', 'label': 'Ruim'}
+    return _report_zone(percent)
+
+
 def _build_step_report(step_def, step1_ids):
     rows = list(step_def['model'].objects.filter(step1_id__in=step1_ids).values(*step_def['question_fields']))
     response_count = len(rows)
     question_reports = []
     domain_score_sum = 0.0
     domain_weight_sum = 0.0
+    display_score_sum = 0.0
+    display_weight_sum = 0.0
 
     for idx, field in enumerate(step_def['question_fields']):
         meta = _question_scoring_meta(step_def['key'], field, step_def.get('orientation', 'positive'))
         score_map = FREQUENCY_SCORE_NEGATIVE if meta['polarity'] == 'negative' else FREQUENCY_SCORE_POSITIVE
+        display_score_map = FREQUENCY_SCORE_POSITIVE
         scores = [score_map.get(row.get(field), 0) for row in rows if row.get(field) in score_map]
+        display_scores = [display_score_map.get(row.get(field), 0) for row in rows if row.get(field) in display_score_map]
         avg_score = (sum(scores) / len(scores)) if scores else 0.0
+        display_avg_score = (sum(display_scores) / len(display_scores)) if display_scores else 0.0
         percent = (avg_score / 5.0) * 100.0 if avg_score else 0.0
+        display_percent = (display_avg_score / 5.0) * 100.0 if display_avg_score else 0.0
         zone = _report_zone(percent)
+        display_zone = _report_display_zone(display_percent, meta['polarity'])
         if scores:
             domain_score_sum += avg_score * meta['weight']
             domain_weight_sum += meta['weight']
+        if display_scores:
+            display_score_sum += display_avg_score * meta['weight']
+            display_weight_sum += meta['weight']
         question_reports.append(
             {
                 'question': step_def['questions'][idx],
@@ -338,20 +360,30 @@ def _build_step_report(step_def, step1_ids):
                 'avg_score': round(avg_score, 2),
                 'percent': round(percent, 1),
                 'zone': zone,
+                'display_avg_score': round(display_avg_score, 2),
+                'display_percent': round(display_percent, 1),
+                'display_zone': display_zone,
+                'polarity': meta['polarity'],
             }
         )
 
     domain_avg = (domain_score_sum / domain_weight_sum) if domain_weight_sum else 0.0
+    display_domain_avg = (display_score_sum / display_weight_sum) if display_weight_sum else 0.0
     domain_percent = (domain_avg / 5.0) * 100.0 if domain_avg else 0.0
+    display_domain_percent = (display_domain_avg / 5.0) * 100.0 if display_domain_avg else 0.0
+    step_orientation = _step_scoring_orientation(step_def)
     return {
         'step': step_def['step'],
         'key': step_def['key'],
         'domain': step_def['domain'],
-        'orientation': _step_scoring_orientation(step_def),
+        'orientation': step_orientation,
         'response_count': response_count,
         'avg_score': round(domain_avg, 2),
         'percent': round(domain_percent, 1),
         'zone': _report_zone(domain_percent),
+        'display_avg_score': round(display_domain_avg, 2),
+        'display_percent': round(display_domain_percent, 1),
+        'display_zone': _report_display_zone(display_domain_percent, step_orientation if step_orientation in ('positive', 'negative') else 'positive'),
         'questions': question_reports,
     }
 
@@ -368,6 +400,9 @@ def _build_report_bundle(campanha, empresa, step1_qs):
             'avg_score': item['avg_score'],
             'percent': item['percent'],
             'zone': item['zone'],
+            'display_avg_score': item.get('display_avg_score', item['avg_score']),
+            'display_percent': item.get('display_percent', item['percent']),
+            'display_zone': item.get('display_zone', item['zone']),
         }
         for item in step_reports
     ]
@@ -403,7 +438,7 @@ def _build_report_bundle(campanha, empresa, step1_qs):
     }
 
 
-def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=None):
+def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=None, all_companies=False):
     from datetime import datetime, timezone as dt_timezone
     def _dt_from(d):
         return datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=dt_timezone.utc)
@@ -419,25 +454,32 @@ def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=Non
         campanhas_qs = Campanha.objects.select_related('empresa').filter(empresa__consultor=consultoria_owner)
 
     available_empresas = list(empresas_qs.order_by('company_name').values('id', 'company_name'))
+    if not all_companies and empresa_id is None and available_empresas:
+        empresa_id = min(e['id'] for e in available_empresas)
     if empresa_id:
         campanhas_qs = campanhas_qs.filter(empresa_id=empresa_id)
         empresas_qs = empresas_qs.filter(id=empresa_id)
 
     campanhas = list(campanhas_qs)
     campanha_ids = [c.id for c in campanhas]
-    total_empresas = empresas_qs.count()
-    total_employee_capacity = sum(int(e.employee_count or 0) for e in empresas_qs.only('employee_count'))
+    # Load empresas once to avoid re-evaluating the queryset multiple times
+    empresas_data = list(empresas_qs.values('id', 'employee_count'))
+    total_empresas = len(empresas_data)
+    total_employee_capacity = sum(int(e['employee_count'] or 0) for e in empresas_data)
+    empresa_ids = [e['id'] for e in empresas_data]
     step1_qs = CampanhaRespostaStep1.objects.filter(campanha_id__in=campanha_ids, is_completed=True) if campanha_ids else CampanhaRespostaStep1.objects.none()
     if date_from:
         step1_qs = step1_qs.filter(created_at__gte=_dt_from(date_from))
     if date_to:
         step1_qs = step1_qs.filter(created_at__lte=_dt_to(date_to))
-    completed_count = step1_qs.count()
+    # Load step1 data once to avoid re-evaluating the queryset multiple times
+    step1_data = list(step1_qs.values('id', 'created_at'))
+    completed_count = len(step1_data)
     questionarios_em_aberto = sum(1 for c in campanhas if c.status == CampaignStatus.ATIVO)
     relatorios_salvos = sum(1 for c in campanhas if c.status == CampaignStatus.ENCERRADO)
     comentarios_count = CampanhaRespostaStep9.objects.filter(step1__campanha_id__in=campanha_ids).exclude(comment='').count() if campanha_ids else 0
 
-    step1_ids = list(step1_qs.values_list('id', flat=True))
+    step1_ids = [row['id'] for row in step1_data]
     domain_reports = [_build_step_report(step_def, step1_ids) for step_def in REPORT_STEP_DEFS]
 
     from datetime import date
@@ -452,14 +494,13 @@ def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=Non
         months.append((year, month))
 
     trend_counts = {f'{y:04d}-{m:02d}': 0 for y, m in months}
-    for row in step1_qs.values_list('created_at', flat=True):
-        key = row.strftime('%Y-%m')
+    for row in step1_data:
+        key = row['created_at'].strftime('%Y-%m')
         if key in trend_counts:
             trend_counts[key] += 1
     trend = [{'label': f'{m:02d}/{y}', 'value': trend_counts[f'{y:04d}-{m:02d}']} for y, m in months]
 
     # ── Canal de Denúncias & Totem stats ──────────────────────────────
-    empresa_ids = list(empresas_qs.values_list('id', flat=True))
 
     den_qs = CanalDenuncia.objects.filter(empresa_id__in=empresa_ids) if empresa_ids else CanalDenuncia.objects.none()
     if date_from:
@@ -883,6 +924,8 @@ def _draw_pdf_summary_page(c):
         'CONCLUSÕES E RECOMENDAÇÕES PRELIMINARES',
         'LIMITAÇÕES',
         'RESPONSABILIDADES',
+        'CLASSIFICAÇÃO E AVALIAÇÃO DOS RISCOS',
+        'INVENTÁRIO DE RISCOS OCUPACIONAIS PARA O PGR',
         'ANEXOS',
     ]
     blue = colors.HexColor('#14532d')
@@ -1154,6 +1197,37 @@ def _draw_pdf_domain_detail_pages(c, report_data):
             c.drawString(x, y, text)
             x += c.stringWidth(text, 'Helvetica', 7) + 8 * mm
 
+    def draw_polarity_legend(y, orientation='positive'):
+        if str(orientation or 'positive').lower() == 'negative':
+            items = [
+                (colors.HexColor('#22c55e'), 'NUNCA - BOM'),
+                (colors.HexColor('#facc15'), 'AS VEZES - ATENCAO'),
+                (colors.HexColor('#ef4444'), 'SEMPRE - RUIM'),
+            ]
+        else:
+            items = [
+                (colors.HexColor('#ef4444'), 'NUNCA - RUIM'),
+                (colors.HexColor('#facc15'), 'AS VEZES - ATENCAO'),
+                (colors.HexColor('#22c55e'), 'SEMPRE - BOM'),
+            ]
+        c.setFont('Helvetica', 7)
+        box_w = 3.4 * mm
+        box_gap = 5 * mm
+        item_gap = 8 * mm
+        total_w = 0
+        for idx, (_, text) in enumerate(items):
+            total_w += box_w + box_gap + c.stringWidth(text, 'Helvetica', 7)
+            if idx < len(items) - 1:
+                total_w += item_gap
+        x = (width - total_w) / 2
+        for box_color, text in items:
+            c.setFillColor(box_color)
+            c.roundRect(x, y - 2.2, box_w, box_w, 0.6, stroke=0, fill=1)
+            x += box_gap
+            c.setFillColor(colors.HexColor('#6b7280'))
+            c.drawString(x, y, text)
+            x += c.stringWidth(text, 'Helvetica', 7) + item_gap
+
     def bar_row(y, label, percent, score, zone, x_label, x_bar, x_val, track_w, label_font=7):
         def wrap_label(text, max_w):
             text = str(text or '').strip()
@@ -1235,7 +1309,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         c.setFont('Helvetica-Bold', 8)
         c.setFillColor(colors.HexColor('#111827'))
         c.drawString(margin_x + 10 * mm, y, 'Média Geral')
-        bar_row(y, '', step.get('percent', 0), step.get('avg_score', 0), step.get('zone', {}), x_bar, x_bar, x_val, track_w)
+        bar_row(y, '', step.get('display_percent', step.get('percent', 0)), step.get('display_avg_score', step.get('avg_score', 0)), step.get('display_zone', step.get('zone', {})), x_bar, x_bar, x_val, track_w)
         y -= 11 * mm
         c.setStrokeColor(colors.HexColor('#e5e7eb'))
         c.line(margin_x, y, width - margin_x, y)
@@ -1254,7 +1328,7 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         for ref_item, ref_step in step_refs:
             y = ensure_space(y, 28)
             label = ref_item.get('ref', {}).get('name', '-')
-            bar_row(y, label, ref_step.get('percent', 0), ref_step.get('avg_score', 0), ref_step.get('zone', {}), margin_x + 10 * mm, x_bar, x_val, track_w)
+            bar_row(y, label, ref_step.get('display_percent', ref_step.get('percent', 0)), ref_step.get('display_avg_score', ref_step.get('avg_score', 0)), ref_step.get('display_zone', ref_step.get('zone', {})), margin_x + 10 * mm, x_bar, x_val, track_w)
             y -= 9 * mm
 
         y -= 3 * mm
@@ -1265,12 +1339,12 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         c.setFillColor(colors.HexColor('#111827'))
         c.drawCentredString(width / 2, y, f"{step_title} (Análise Geral)")
         y -= 8 * mm
-        draw_legend(y)
+        draw_polarity_legend(y, step.get('orientation', 'positive'))
         y -= 8 * mm
 
         for q in (step.get('questions') or []):
             y = ensure_space(y, 24)
-            row_h = bar_row(y, q.get('question', ''), q.get('percent', 0), q.get('avg_score', 0), q.get('zone', {}), q_x_label, q_x_bar, q_x_val, q_track_w, label_font=7.4)
+            row_h = bar_row(y, q.get('question', ''), q.get('display_percent', q.get('percent', 0)), q.get('display_avg_score', q.get('avg_score', 0)), q.get('display_zone', q.get('zone', {})), q_x_label, q_x_bar, q_x_val, q_track_w, label_font=7.4)
             y -= row_h
 
         # Per-ref analyses continue in the same step flow; only break page for overflow
@@ -1285,11 +1359,11 @@ def _draw_pdf_domain_detail_pages(c, report_data):
             c.setFont('Helvetica-Bold', 11)
             c.drawCentredString(width / 2, y, title[:90])
             y -= 8 * mm
-            draw_legend(y)
+            draw_polarity_legend(y, step.get('orientation', 'positive'))
             y -= 8 * mm
             for q in (ref_step.get('questions') or []):
                 y = ensure_space(y, 24)
-                row_h = bar_row(y, q.get('question', ''), q.get('percent', 0), q.get('avg_score', 0), q.get('zone', {}), q_x_label, q_x_bar, q_x_val, q_track_w, label_font=7.4)
+                row_h = bar_row(y, q.get('question', ''), q.get('display_percent', q.get('percent', 0)), q.get('display_avg_score', q.get('avg_score', 0)), q.get('display_zone', q.get('zone', {})), q_x_label, q_x_bar, q_x_val, q_track_w, label_font=7.4)
                 y -= row_h
 
         c.showPage()
@@ -1738,8 +1812,8 @@ def _draw_pdf_limitacoes_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 1
-    body_leading = 1
+    body_font = 9
+    body_leading = 12.5
     text_obj.setFont('Helvetica-Bold', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
@@ -1875,6 +1949,615 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     c.showPage()
 
 
+def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
+    width, height = A4
+    margin_x = 15 * mm
+    y = height - 18 * mm
+    blue = colors.HexColor('#14532d')
+    def new_page():
+        c.setFillColor(colors.white)
+        c.rect(0, 0, width, height, stroke=0, fill=1)
+        y_local = height - 18 * mm
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawRightString(margin_x + 3.5 * mm, y_local - 0.5, '9')
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(margin_x + 5.2 * mm, y_local - 0.5, 'CLASSIFICACAO E AVALIACAO DOS RISCOS')
+        c.setStrokeColor(blue)
+        c.setLineWidth(1)
+        c.line(margin_x, y_local - 4 * mm, width - margin_x, y_local - 4 * mm)
+        return y_local - 11 * mm
+
+    def wrap_text(text, font='Helvetica', size=8.3, max_width=None):
+        if max_width is None:
+            max_width = width - (2 * margin_x)
+        words = str(text or '').split()
+        if not words:
+            return ['-']
+        lines = []
+        line = ''
+        for word in words:
+            test = f'{line} {word}'.strip()
+            if c.stringWidth(test, font, size) <= max_width:
+                line = test
+            else:
+                if line:
+                    lines.append(line)
+                line = word
+        if line:
+            lines.append(line)
+        return lines or ['-']
+
+    def draw_paragraph(y_pos, text, font='Helvetica', size=8.3, leading=10.5):
+        lines = wrap_text(text, font=font, size=size, max_width=width - (2 * margin_x))
+        c.setFont(font, size)
+        c.setFillColor(colors.HexColor('#111827'))
+        for idx, line in enumerate(lines):
+            c.drawString(margin_x, y_pos - (idx * leading), line)
+        return y_pos - (len(lines) * leading)
+
+    def draw_cell_text(x, top_y, cell_w, cell_h, text, font='Helvetica', size=7.8, align='center', pad=0):
+        baseline_y = top_y - (cell_h / 2.0) - (size * 0.32)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont(font, size)
+        if align == 'left':
+            c.drawString(x + pad, baseline_y, text)
+        else:
+            c.drawCentredString(x + (cell_w / 2.0), baseline_y, text)
+
+    def pastel_risk_fill(order_index):
+        palette = [
+            colors.HexColor('#fee2e2'),
+            colors.HexColor('#ffedd5'),
+            colors.HexColor('#fef9c3'),
+            colors.HexColor('#dcfce7'),
+            colors.HexColor('#e0f2fe'),
+        ]
+        try:
+            idx = max(0, min(len(palette) - 1, int(order_index)))
+        except Exception:
+            idx = 0
+        return palette[idx]
+
+    y = new_page()
+    paragraphs = [
+        'A identificacao e avaliacao dos fatores de risco psicossociais foram realizadas por meio de Avaliacao Ergonomica Preliminar (AEP) baseada na ferramenta Stress Indicator Tool (SIT), metodologia internacionalmente validada pelo Health and Safety Executive - HSE (Reino Unido) e adaptada as exigencias das Normas Regulamentadoras brasileiras, especificamente NR-01 (Gerenciamento de Riscos Ocupacionais - GRO) e NR-17 (Ergonomia).',
+        'A ferramenta contempla a analise estruturada de dominios organizacionais relacionados ao ambiente de trabalho, sendo eles: Demandas de Trabalho, Controle sobre o Trabalho, Apoio da Gestao, Suporte dos Colegas, Relacionamentos Interpessoais, Clareza de Papel/Funcao e Gerenciamento de Mudancas. Esses dominios permitem identificar fatores organizacionais que podem contribuir para o estresse ocupacional e para o comprometimento da saude mental e do bem-estar dos trabalhadores.',
+        'Os resultados da avaliacao sao apresentados em percentuais de percepcao dos trabalhadores, os quais foram convertidos em niveis de risco psicossocial no Inventario de Riscos do PGR, conforme metodologia de analise qualitativa baseada na matriz de probabilidade e severidade.',
+        'A probabilidade foi definida com base na frequencia das ocorrencias obtidas na pesquisa, considerando que menores percentuais indicam maior potencial de ocorrencia de condicoes desfavoraveis no ambiente de trabalho. Ja a severidade foi definida com base nos potenciais impactos a saude decorrentes da exposicao prolongada aos fatores psicossociais, tais como estresse ocupacional, fadiga mental, ansiedade, transtornos emocionais e possiveis afastamentos relacionados a saude mental.',
+        'Apos a conversao dos resultados percentuais em niveis de probabilidade e severidade, os riscos foram classificados conforme os criterios da matriz de risco adotada no Programa de Gerenciamento de Riscos, resultando nas categorias Trivial, Toleravel, Moderado, Substancial ou Intoleravel, de acordo com o grau de criticidade identificado.',
+    ]
+
+    paragraph_gap = 4 * mm
+    min_bottom = 18 * mm
+    for paragraph in paragraphs:
+        estimated_lines = len(wrap_text(paragraph, font='Helvetica', size=8.3, max_width=width - (2 * margin_x)))
+        needed = (estimated_lines * 10.5) + paragraph_gap
+        if y - needed < min_bottom:
+            c.showPage()
+            y = new_page()
+        y = draw_paragraph(y, paragraph, font='Helvetica', size=8.3, leading=10.5)
+        y -= paragraph_gap
+
+    image_gap = 8 * mm
+    if y - image_gap < min_bottom:
+        c.showPage()
+        y = new_page()
+    else:
+        y -= image_gap
+
+    image_drawn = False
+
+    try:
+        if REPORT_RISK_MATRIX_IMAGE.exists():
+            img = ImageReader(str(REPORT_RISK_MATRIX_IMAGE))
+            img_w_px, img_h_px = img.getSize()
+            available_w = width - (2 * margin_x)
+            max_h = height - min_bottom - y
+            if img_w_px and img_h_px and max_h > 20 * mm:
+                scale = min(available_w / float(img_w_px), max_h / float(img_h_px))
+                draw_w = float(img_w_px) * scale
+                draw_h = float(img_h_px) * scale
+                img_x = (width - draw_w) / 2
+                img_y = y - draw_h
+                c.drawImage(
+                    img,
+                    img_x,
+                    img_y,
+                    width=draw_w,
+                    height=draw_h,
+                    preserveAspectRatio=True,
+                    mask='auto',
+                    anchor='c',
+                )
+                y = img_y
+                image_drawn = True
+    except Exception:
+        pass
+
+    if image_drawn:
+        y -= 8 * mm
+
+    probability_title_gap = 6 * mm
+    probability_text_gap = 4 * mm
+    table_gap = 4 * mm
+    probability_text = 'A probabilidade representa a chance de o problema ocorrer ou estar presente no ambiente de trabalho.'
+
+    table_rows = [
+        ('90-100%', 'ambiente muito saudavel', '1'),
+        ('75-89%', 'boa condicao', '2'),
+        ('60-74%', 'atencao', '3'),
+        ('40-59%', 'problema frequente', '4'),
+        ('< 40%', 'problema critico', '5'),
+    ]
+
+    title_needed = 6 * mm
+    text_needed = len(wrap_text(probability_text, font='Helvetica', size=8.3)) * 10.5
+    table_header_h = 8 * mm
+    table_row_h = 8 * mm
+    table_needed = table_header_h + (len(table_rows) * table_row_h)
+    total_needed = probability_title_gap + title_needed + probability_text_gap + text_needed + table_gap + table_needed
+    if y - total_needed < min_bottom:
+        c.showPage()
+        y = new_page()
+
+    y -= probability_title_gap
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x, y, 'Probabilidade')
+    y -= probability_text_gap
+    y = draw_paragraph(y, probability_text, font='Helvetica', size=8.3, leading=10.5)
+    y -= table_gap
+
+    table_x = margin_x
+    table_w = width - (2 * margin_x)
+    col_widths = [0.18 * table_w, 0.50 * table_w, 0.32 * table_w]
+    header_y = y
+
+    c.setStrokeColor(colors.HexColor('#d1d5db'))
+    c.setFillColor(colors.HexColor('#f3f4f6'))
+    c.rect(table_x, header_y - table_header_h, table_w, table_header_h, stroke=1, fill=1)
+
+    headers = ['%', 'Interpretação', 'Probabilidade']
+    x = table_x
+    for header, col_w in zip(headers, col_widths):
+        draw_cell_text(x, header_y, col_w, table_header_h, header, font='Helvetica-Bold', size=8, align='center')
+        x += col_w
+
+    row_y = header_y - table_header_h
+    for idx, row in enumerate(table_rows):
+        fill = pastel_risk_fill(len(table_rows) - idx - 1)
+        c.setFillColor(fill)
+        c.rect(table_x, row_y - table_row_h, table_w, table_row_h, stroke=1, fill=1)
+        x = table_x
+        aligns = ['center', 'left', 'center']
+        paddings = [0, 3 * mm, 0]
+        for value, col_w, align, pad in zip(row, col_widths, aligns, paddings):
+            draw_cell_text(x, row_y, col_w, table_row_h, value, font='Helvetica', size=7.8, align=align, pad=pad)
+            x += col_w
+        row_y -= table_row_h
+
+    x = table_x
+    total_h = table_header_h + (len(table_rows) * table_row_h)
+    for col_w in col_widths[:-1]:
+        x += col_w
+        c.line(x, header_y, x, header_y - total_h)
+
+    y = header_y - total_h
+    severity_title_gap = 8 * mm
+    severity_text_gap = 4 * mm
+    severity_table_gap = 4 * mm
+    severity_text = 'A severidade representa o impacto do risco na saude do trabalhador caso ele ocorra.'
+    severity_rows = [
+        ('1', 'desconforto leve'),
+        ('2', 'fadiga mental leve'),
+        ('3', 'estresse ocupacional'),
+        ('4', 'transtornos psicológicos'),
+        ('5', 'adoecimento grave'),
+    ]
+    severity_col_widths = [0.34 * table_w, 0.66 * table_w]
+    severity_text_needed = len(wrap_text(severity_text, font='Helvetica', size=8.3)) * 10.5
+    severity_table_needed = table_header_h + (len(severity_rows) * table_row_h)
+    severity_total_needed = severity_title_gap + title_needed + severity_text_gap + severity_text_needed + severity_table_gap + severity_table_needed
+    if y - severity_total_needed < min_bottom:
+        c.showPage()
+        y = new_page()
+
+    y -= severity_title_gap
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x, y, 'Severidade')
+    y -= severity_text_gap
+    y = draw_paragraph(y, severity_text, font='Helvetica', size=8.3, leading=10.5)
+    y -= severity_table_gap
+
+    severity_header_y = y
+    c.setStrokeColor(colors.HexColor('#d1d5db'))
+    c.setFillColor(colors.HexColor('#f3f4f6'))
+    c.rect(table_x, severity_header_y - table_header_h, table_w, table_header_h, stroke=1, fill=1)
+
+    severity_headers = ['Severidade', 'Impacto']
+    x = table_x
+    for header, col_w in zip(severity_headers, severity_col_widths):
+        draw_cell_text(x, severity_header_y, col_w, table_header_h, header, font='Helvetica-Bold', size=8, align='center')
+        x += col_w
+
+    severity_row_y = severity_header_y - table_header_h
+    for idx, row in enumerate(severity_rows):
+        fill = pastel_risk_fill(len(severity_rows) - idx - 1)
+        c.setFillColor(fill)
+        c.rect(table_x, severity_row_y - table_row_h, table_w, table_row_h, stroke=1, fill=1)
+        x = table_x
+        aligns = ['center', 'left']
+        paddings = [0, 3 * mm]
+        for value, col_w, align, pad in zip(row, severity_col_widths, aligns, paddings):
+            draw_cell_text(x, severity_row_y, col_w, table_row_h, value, font='Helvetica', size=7.8, align=align, pad=pad)
+            x += col_w
+        severity_row_y -= table_row_h
+
+    x = table_x
+    severity_total_h = table_header_h + (len(severity_rows) * table_row_h)
+    for col_w in severity_col_widths[:-1]:
+        x += col_w
+        c.line(x, severity_header_y, x, severity_header_y - severity_total_h)
+
+    y = severity_header_y - severity_total_h
+    control_title_gap = 8 * mm
+    control_text_gap = 4 * mm
+    control_table_gap = 4 * mm
+    control_text = 'Os métodos de controle devem ser definidos de acordo com o nível de risco identificado na avaliação, e que a priorização das ações segue a hierarquia da criticidade, onde riscos mais elevados exigem intervencoes imediatas e rigorosas, enquanto riscos menores podem ser apenas monitorados ou receber acoes adicionais quando necessario.'
+    control_rows = [
+        ('INTOLERAVEL', 'Ações imediatas'),
+        ('SUBSTANCIAL', 'Controle necessario'),
+        ('MODERADO', 'Controle adicional, se possivel / viavel'),
+        ('TOLERAVEL', 'Nenhum controle adicional necessario'),
+        ('TRIVIAL', 'Nenhuma ação necessária'),
+    ]
+    control_col_widths = [0.46 * table_w, 0.54 * table_w]
+    control_text_needed = len(wrap_text(control_text, font='Helvetica', size=8.3)) * 10.5
+    control_table_needed = table_header_h + (len(control_rows) * table_row_h)
+    control_total_needed = control_title_gap + title_needed + control_text_gap + control_text_needed + control_table_gap + control_table_needed
+    if y - control_total_needed < min_bottom:
+        c.showPage()
+        y = new_page()
+
+    y -= control_title_gap
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x, y, 'Medidas de controle e ação')
+    y -= control_text_gap
+    y = draw_paragraph(y, control_text, font='Helvetica', size=8.3, leading=10.5)
+    y -= control_table_gap
+
+    control_header_y = y
+    c.setStrokeColor(colors.HexColor('#d1d5db'))
+    c.setFillColor(colors.HexColor('#f3f4f6'))
+    c.rect(table_x, control_header_y - table_header_h, table_w, table_header_h, stroke=1, fill=1)
+
+    control_headers = ['NÍVEIS DE RISCOS (ORDEM DE PRIORIDADE)', 'CONTROLE DE AÇÕES']
+    x = table_x
+    for header, col_w in zip(control_headers, control_col_widths):
+        draw_cell_text(x, control_header_y, col_w, table_header_h, header, font='Helvetica-Bold', size=7.2, align='center')
+        x += col_w
+
+    control_row_y = control_header_y - table_header_h
+    for idx, row in enumerate(control_rows):
+        fill = pastel_risk_fill(len(control_rows) - idx - 1)
+        c.setFillColor(fill)
+        c.rect(table_x, control_row_y - table_row_h, table_w, table_row_h, stroke=1, fill=1)
+        x = table_x
+        aligns = ['center', 'left']
+        paddings = [0, 3 * mm]
+        for value, col_w, align, pad in zip(row, control_col_widths, aligns, paddings):
+            draw_cell_text(x, control_row_y, col_w, table_row_h, value, font='Helvetica', size=7.2, align=align, pad=pad)
+            x += col_w
+        control_row_y -= table_row_h
+
+    x = table_x
+    control_total_h = table_header_h + (len(control_rows) * table_row_h)
+    for col_w in control_col_widths[:-1]:
+        x += col_w
+        c.line(x, control_header_y, x, control_header_y - control_total_h)
+    c.showPage()
+
+
+def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
+    width, height = A4
+    margin_x = 15 * mm
+    blue = colors.HexColor('#14532d')
+    page_bottom = 15 * mm
+    ref_label = ((report_data.get('filters') or {}).get('ref_label') or 'Setor/GHE')
+    overall = (report_data.get('overall') or {})
+    per_ref = report_data.get('per_ref', []) or []
+
+    domain_meta = {
+        'demandas': {
+            'label': 'Demandas de trabalho',
+            'agent': 'Excesso de trabalho / falta de apoio',
+            'damages': 'Transtorno mental; DORT; estresse ocupacional; fadiga',
+            'severity': 4,
+        },
+        'controle': {
+            'label': 'Controle sobre o trabalho',
+            'agent': 'Baixo controle e pouca autonomia / falta de autonomia',
+            'damages': 'Transtorno mental; DORT; ansiedade',
+            'severity': 3,
+        },
+        'apoio da gestao': {
+            'label': 'Apoio da gestao',
+            'agent': 'Falta de cooperacao no trabalho',
+            'damages': 'Transtorno mental',
+            'severity': 3,
+        },
+        'suporte dos colegas': {
+            'label': 'Suporte dos colegas',
+            'agent': 'Maus relacionamentos no local de trabalho',
+            'damages': 'Transtorno mental; DORT',
+            'severity': 2,
+        },
+        'relacionamentos': {
+            'label': 'Relacionamentos no trabalho',
+            'agent': 'Conflitos frequentes na equipe',
+            'damages': 'Transtorno mental',
+            'severity': 4,
+        },
+        'clareza de papel | funcao': {
+            'label': 'Clareza de Papel/Funcao',
+            'agent': 'Baixa clareza de papel/funcao',
+            'damages': 'Transtorno mental',
+            'severity': 2,
+        },
+        'gerenciamento de mudancas': {
+            'label': 'Gerenciamento de Mudancas',
+            'agent': 'Ma gestao de mudancas organizacionais',
+            'damages': 'Transtorno mental; DORT',
+            'severity': 3,
+        },
+    }
+
+    def normalize_text(value):
+        value = str(value or '').strip().lower()
+        replacements = {
+            'ã': 'a', 'á': 'a', 'à': 'a', 'â': 'a',
+            'é': 'e', 'ê': 'e',
+            'í': 'i',
+            'ó': 'o', 'ô': 'o', 'õ': 'o',
+            'ú': 'u', 'ç': 'c',
+        }
+        for src, dst in replacements.items():
+            value = value.replace(src, dst)
+        value = value.replace('/', ' / ')
+        value = ' '.join(value.split())
+        return value
+
+    def calc_probability(percent):
+        pct = float(percent or 0)
+        if pct >= 90:
+            return 1
+        if pct >= 75:
+            return 2
+        if pct >= 60:
+            return 3
+        if pct >= 40:
+            return 4
+        return 5
+
+    def calc_risk_label(probability, severity):
+        score = int(probability) * int(severity)
+        if score <= 4:
+            return 'TRIVIAL'
+        if score <= 8:
+            return 'TOLERAVEL'
+        if score <= 12:
+            return 'MODERADO'
+        if score <= 16:
+            return 'SUBSTANCIAL'
+        return 'INTOLERAVEL'
+
+    def risk_fill(label):
+        palette = {
+            'TRIVIAL': colors.HexColor('#bfdbfe'),
+            'TOLERAVEL': colors.HexColor('#bbf7d0'),
+            'MODERADO': colors.HexColor('#fde047'),
+            'SUBSTANCIAL': colors.HexColor('#fdba74'),
+            'INTOLERAVEL': colors.HexColor('#fca5a5'),
+        }
+        return palette.get(label, colors.white)
+
+    def percent_fill(percent_text):
+        try:
+            pct = float(str(percent_text or '').replace('%', '').strip())
+        except Exception:
+            return colors.white
+        if pct >= 90:
+            return colors.HexColor('#e0f2fe')
+        if pct >= 75:
+            return colors.HexColor('#dcfce7')
+        if pct >= 60:
+            return colors.HexColor('#fef9c3')
+        if pct >= 40:
+            return colors.HexColor('#ffedd5')
+        return colors.HexColor('#fee2e2')
+
+    def wrap_text(text, font, size, max_width):
+        words = str(text or '').split()
+        if not words:
+            return ['-']
+        lines = []
+        line = ''
+        for word in words:
+            test = f'{line} {word}'.strip()
+            if c.stringWidth(test, font, size) <= max_width:
+                line = test
+            else:
+                if line:
+                    lines.append(line)
+                line = word
+        if line:
+            lines.append(line)
+        return lines or ['-']
+
+    def draw_section_header():
+        c.setFillColor(colors.white)
+        c.rect(0, 0, width, height, stroke=0, fill=1)
+        y_local = height - 18 * mm
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawRightString(margin_x + 3.5 * mm, y_local - 0.5, '10')
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(margin_x + 5.2 * mm, y_local - 0.5, 'INVENTÁRIO DE RISCOS OCUPACIONAIS PARA O PGR')
+        c.setStrokeColor(blue)
+        c.setLineWidth(1)
+        c.line(margin_x, y_local - 4 * mm, width - margin_x, y_local - 4 * mm)
+        return y_local - 14 * mm
+
+    def draw_paragraph(y_pos, paragraph, font='Helvetica', size=8.6, leading=11):
+        lines = wrap_text(paragraph, font, size, width - (2 * margin_x))
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont(font, size)
+        for line in lines:
+            c.drawString(margin_x, y_pos, line)
+            y_pos -= leading
+        return y_pos
+
+    def build_rows(domain_items):
+        rows = []
+        for item in domain_items or []:
+            meta = domain_meta.get(normalize_text(item.get('domain')))
+            if not meta:
+                continue
+            percent = float(item.get('percent', 0) or 0)
+            probability = calc_probability(percent)
+            severity = int(meta['severity'])
+            rows.append({
+                'domain': meta['label'],
+                'percent': f'{percent:.1f}%',
+                'agent': meta['agent'],
+                'damages': meta['damages'],
+                'probability': str(probability),
+                'severity': str(severity),
+                'risk': calc_risk_label(probability, severity),
+            })
+        return rows
+
+    def draw_inventory_table(y_pos, title, rows):
+        table_x = margin_x
+        table_w = width - (2 * margin_x)
+        title_h = 7 * mm
+        header_h = 10 * mm
+        col_defs = [
+            ('DOMÍNIO', 0.16, 'left'),
+            ('%', 0.07, 'center'),
+            ('AGENTE NOCIVO', 0.19, 'left'),
+            ('POSSÍVEIS DANOS', 0.19, 'left'),
+            ('PROBABILIDADE\n(1 a 5)', 0.12, 'center'),
+            ('SEVERIDADE\n(Fixa)', 0.11, 'center'),
+            ('NÍVEL DE\nRISCO', 0.16, 'center'),
+        ]
+        col_widths = [table_w * ratio for _, ratio, _ in col_defs]
+        body_font = 6.6
+        header_font = 6.2
+        line_leading = 8
+
+        prepared_rows = []
+        for row in rows:
+            line_counts = []
+            for idx, (label, col_ratio, align) in enumerate(col_defs):
+                key = ['domain', 'percent', 'agent', 'damages', 'probability', 'severity', 'risk'][idx]
+                pad = 2.2 * mm if align == 'left' else 1.2 * mm
+                lines = wrap_text(row[key], 'Helvetica', body_font, col_widths[idx] - (2 * pad))
+                line_counts.append(len(lines))
+            row_h = max(8 * mm, max(line_counts) * 3.8 * mm)
+            prepared_rows.append((row, row_h))
+
+        total_h = title_h + header_h + sum(row_h for _, row_h in prepared_rows)
+        if y_pos - total_h < page_bottom:
+            c.showPage()
+            y_pos = draw_section_header()
+
+        c.setStrokeColor(colors.HexColor('#cbd5e1'))
+        c.setFillColor(colors.HexColor('#e5e7eb'))
+        c.rect(table_x, y_pos - title_h, table_w, title_h, stroke=1, fill=1)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.setFont('Helvetica-Bold', 8.3)
+        c.drawString(table_x + 2.5 * mm, y_pos - 4.7 * mm, title)
+        y_pos -= title_h
+
+        c.setFillColor(colors.HexColor('#2563eb'))
+        c.rect(table_x, y_pos - header_h, table_w, header_h, stroke=1, fill=1)
+        x = table_x
+        for idx, (header, _, _) in enumerate(col_defs):
+            c.setStrokeColor(colors.white)
+            if idx < len(col_defs) - 1:
+                c.line(x + col_widths[idx], y_pos, x + col_widths[idx], y_pos - header_h)
+            c.setFillColor(colors.white)
+            c.setFont('Helvetica-Bold', header_font)
+            parts = header.split('\n')
+            if len(parts) == 1:
+                c.drawCentredString(x + (col_widths[idx] / 2), y_pos - 5.8 * mm, parts[0])
+            else:
+                c.drawCentredString(x + (col_widths[idx] / 2), y_pos - 4.2 * mm, parts[0])
+                c.drawCentredString(x + (col_widths[idx] / 2), y_pos - 7.1 * mm, parts[1])
+            x += col_widths[idx]
+        y_pos -= header_h
+
+        for row, row_h in prepared_rows:
+            x = table_x
+            row_top = y_pos
+            keys = ['domain', 'percent', 'agent', 'damages', 'probability', 'severity', 'risk']
+            for idx, ((_, _, align), col_w, key) in enumerate(zip(col_defs, col_widths, keys)):
+                fill = colors.white
+                if key == 'percent':
+                    fill = percent_fill(row[key])
+                if key == 'risk':
+                    fill = risk_fill(row[key])
+                c.setStrokeColor(colors.HexColor('#cbd5e1'))
+                c.setFillColor(fill)
+                c.rect(x, row_top - row_h, col_w, row_h, stroke=1, fill=1)
+
+                pad = 2.2 * mm if align == 'left' else 1.2 * mm
+                lines = wrap_text(row[key], 'Helvetica', body_font, col_w - (2 * pad))
+                text_total_h = len(lines) * line_leading
+                text_y = row_top - ((row_h - text_total_h) / 2.0) - 6
+                c.setFillColor(colors.HexColor('#111827'))
+                c.setFont('Helvetica-Bold' if key in {'probability', 'severity', 'risk'} else 'Helvetica', body_font)
+                for line in lines:
+                    if align == 'left':
+                        c.drawString(x + pad, text_y, line)
+                    else:
+                        c.drawCentredString(x + (col_w / 2), text_y, line)
+                    text_y -= line_leading
+                x += col_w
+            y_pos -= row_h
+
+        return y_pos - 5 * mm
+
+    y = draw_section_header()
+    paragraphs = [
+        'Os dominios avaliados foram incorporados ao inventario de Riscos Ocupacionais, permitindo a identificacao dos fatores psicossociais relevantes no ambiente de trabalho e subsidiando a elaboracao do Plano de Acao do PGR, no qual e definido o monitoramento necessario para a mitigacao dos riscos identificados.',
+        'Ressalta-se que os resultados obtidos refletem a percepcao dos trabalhadores no momento da avaliacao e devem ser considerados periodicamente, revisando o ciclo de melhoria continua do Gerenciamento de Riscos Ocupacionais (GRO), garantindo a atualizacao das informacoes e a efetividade das medidas preventivas adotadas pela organizacao.',
+    ]
+    for paragraph in paragraphs:
+        needed = len(wrap_text(paragraph, 'Helvetica', 8.6, width - (2 * margin_x))) * 11 + (4 * mm)
+        if y - needed < page_bottom:
+            c.showPage()
+            y = draw_section_header()
+        y = draw_paragraph(y, paragraph)
+        y -= 4 * mm
+
+    table_blocks = [('GERAL', build_rows(overall.get('domains', []) or []))]
+    for ref_item in per_ref:
+        ref = ref_item.get('ref', {}) or {}
+        label = f'{str(ref_label).upper()}: {str(ref.get("name", "-")).upper()}'
+        table_blocks.append((label, build_rows(ref_item.get('domains', []) or [])))
+
+    for title, rows in table_blocks:
+        if rows:
+            y = draw_inventory_table(y, title, rows)
+
+    c.showPage()
+
+
 def _draw_pdf_anexos_pages(c, report_data):
     width, height = A4
     margin_x = 15 * mm
@@ -1889,7 +2572,7 @@ def _draw_pdf_anexos_pages(c, report_data):
         # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
-        c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '9')
+        c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '11')
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
         c.drawString(margin_x + 5.2 * mm, y - 0.5, 'ANEXOS')
@@ -2663,6 +3346,8 @@ def _build_report_pdf_response(campanha, rel_payload):
     _draw_pdf_conclusoes_recomendacoes_pages(c, rel_payload)
     _draw_pdf_limitacoes_page(c)
     _draw_pdf_responsabilidades_page(c, consultoria_cfg=consultoria_cfg, campanha=campanha)
+    _draw_pdf_risk_classification_page(c, campanha, campanha.empresa, rel_payload)
+    _draw_pdf_pgr_inventory_page(c, campanha, campanha.empresa, rel_payload)
     _draw_pdf_anexos_pages(c, rel_payload)
     c.save()
     pdf = _apply_pdf_letterhead(buffer.getvalue())
@@ -2833,7 +3518,10 @@ class DashboardOverviewView(APIView):
         from datetime import date as date_cls
         empresa_id_raw = (request.query_params.get('empresa_id') or '').strip()
         empresa_id = None
-        if empresa_id_raw:
+        all_companies = False
+        if empresa_id_raw == 'all':
+            all_companies = True
+        elif empresa_id_raw:
             try:
                 empresa_id = int(empresa_id_raw)
             except ValueError:
@@ -2848,7 +3536,7 @@ class DashboardOverviewView(APIView):
                 date_to = date_cls.fromisoformat(raw_to)
         except ValueError:
             return Response({'detail': 'Formato de data inválido. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(_build_dashboard_overview(request.user, empresa_id=empresa_id, date_from=date_from, date_to=date_to))
+        return Response(_build_dashboard_overview(request.user, empresa_id=empresa_id, date_from=date_from, date_to=date_to, all_companies=all_companies))
 
 
 def _consultoria_owner_for_user(user):
@@ -3312,8 +4000,16 @@ class TotemPublicView(APIView):
             for c in cargos_qs
         ]
         responsaveis_tecnicos = []
+        consultoria_logo_url = ''
+        consultoria_nome = ''
         try:
             cfg = get_system_team_owner(empresa.consultor).consultoria_configuracao
+            consultoria_nome = cfg.nome_consultoria or ''
+            if cfg.logo:
+                try:
+                    consultoria_logo_url = request.build_absolute_uri(cfg.logo.url)
+                except Exception:
+                    pass
             responsaveis_tecnicos = list(
                 cfg.responsaveis_tecnicos.filter(responsavel_totem=True).order_by('id').values('nome', 'formacao', 'registro')
             )
@@ -3322,11 +4018,14 @@ class TotemPublicView(APIView):
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
+            'evaluation_type': empresa.evaluation_type,
             'token': str(token),
             'ghes': ghes,
             'setores': setores,
             'cargos': cargos,
             'responsaveis_tecnicos': responsaveis_tecnicos,
+            'consultoria_logo_url': consultoria_logo_url,
+            'consultoria_nome': consultoria_nome,
         })
 
     def post(self, request, token):

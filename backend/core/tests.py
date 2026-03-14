@@ -10,8 +10,8 @@ from pypdf import PdfReader
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-from .models import Empresa, User, UserType
-from .views import _apply_pdf_letterhead
+from .models import Campanha, Empresa, User, UserType
+from .views import _apply_pdf_letterhead, _build_report_pdf_response
 
 
 class ConsultoriaHierarchyTests(APITestCase):
@@ -253,3 +253,82 @@ class PdfLetterheadTests(APITestCase):
             self.assertIn('HEADER FOOTER TIMBRADO', page_2_text)
             self.assertIn('PAGINA 1 RELATORIO', page_1_text)
             self.assertIn('PAGINA 2 RELATORIO', page_2_text)
+
+
+class CampaignReportPdfTests(APITestCase):
+    def test_campaign_report_pdf_includes_risk_classification_section_before_annexes(self):
+        consultoria = User.objects.create_user(
+            email='consultoria-pdf@example.com',
+            password='secret123',
+            user_type=UserType.CONSULTOR,
+            full_name='Consultoria PDF',
+        )
+        empresa_user = User.objects.create_user(
+            email='empresa-pdf@example.com',
+            password='secret123',
+            user_type=UserType.EMPRESA,
+        )
+        empresa = Empresa.objects.create(
+            consultor=consultoria,
+            responsavel_usuario=empresa_user,
+            document_type='CNPJ',
+            document_number='12345678000199',
+            company_name='Empresa PDF',
+            establishment_type='MATRIZ',
+            establishment_name='Unidade Central',
+            evaluation_type='SETOR',
+            responsible_name='Responsavel Empresa',
+            risk_level='3',
+            employee_count=50,
+        )
+        campanha = Campanha.objects.create(
+            empresa=empresa,
+            title='Campanha PDF',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            review_recommendation_months=6,
+        )
+
+        rel_payload = {
+            'empresa': {'name': empresa.company_name},
+            'filters': {'ref_label': 'Setor'},
+            'overall': {
+                'summary': {
+                    'completed_responses': 20,
+                    'company_mean_percent': 68.5,
+                    'company_mean_score': 3.42,
+                    'company_zone': {'key': 'yellow', 'label': 'Atencao'},
+                    'sample_percent': 40.0,
+                    'sample_zone': {'key': 'green', 'label': 'Bom'},
+                },
+                'domains': [
+                    {'domain': 'Demandas', 'percent': 72.0, 'zone': {'key': 'red', 'label': 'Critico'}},
+                    {'domain': 'Apoio', 'percent': 48.0, 'zone': {'key': 'yellow', 'label': 'Atencao'}},
+                ],
+                'steps': [],
+            },
+            'per_ref': [
+                {
+                    'ref': {'id': 1, 'name': 'Administrativo'},
+                    'summary': {'company_mean_percent': 62.0, 'company_zone': {'key': 'yellow', 'label': 'Atencao'}},
+                    'steps': [],
+                },
+            ],
+            'preliminary_measures': [],
+            'preliminary_whens': [],
+            'attachments': [],
+            'review_recommendation_months': campanha.review_recommendation_months,
+        }
+
+        response = _build_report_pdf_response(campanha, rel_payload)
+        reader = PdfReader(BytesIO(response.content))
+        pdf_text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+        classif_idx = pdf_text.find('CLASSIFICACAO')
+        anexos_idx = pdf_text.rfind('ANEXOS')
+
+        self.assertIn('9', pdf_text)
+        self.assertGreaterEqual(classif_idx, 0)
+        self.assertIn('AVALIACAO', pdf_text)
+        self.assertIn('10', pdf_text)
+        self.assertGreaterEqual(anexos_idx, 0)
+        self.assertLess(classif_idx, anexos_idx)

@@ -1,0 +1,128 @@
+================================================================================
+  DOCUMENTAÇÃO DE POLARIDADES — QUESTION_SCORING_CONFIG
+  NR-1 Fácil — Sistema de Avaliação de Riscos Psicossociais
+================================================================================
+
+CONCEITO DE POLARIDADE
+--------------------------------------------------------------------------------
+Cada pergunta tem uma polaridade que define a direção da escala de frequência.
+A resposta "NUNCA" pode ser ÓTIMA ou PÉSSIMA dependendo da pergunta.
+
+  POLARIDADE NEGATIVE (pergunta sobre algo ruim/problemático):
+    NUNCA        → score 5  (ótimo: o problema nunca ocorre)
+    RARAMENTE    → score 4
+    ÀS VEZES     → score 3
+    FREQUENTEMENTE → score 2
+    SEMPRE       → score 1  (péssimo: o problema sempre ocorre)
+
+  POLARIDADE POSITIVE (pergunta sobre algo bom/desejável):
+    NUNCA        → score 1  (péssimo: o benefício nunca ocorre)
+    RARAMENTE    → score 2
+    ÀS VEZES     → score 3
+    FREQUENTEMENTE → score 4
+    SEMPRE       → score 5  (ótimo: o benefício sempre ocorre)
+
+CLASSIFICAÇÃO DE ZONAS (baseada no percentual do score):
+    < 40%  → Crítico  (zona vermelha)
+    40–74% → Atenção  (zona amarela)
+    ≥ 75%  → Bom      (zona verde)
+
+================================================================================
+  STEP 2 — DOMÍNIO: DEMANDAS  (orientação: negative)
+================================================================================
+Todas as perguntas tratam de situações PROBLEMÁTICAS no trabalho.
+"NUNCA" = bom | "SEMPRE" = ruim
+
+  q1 [negative] "As diferentes áreas do meu trabalho fazem exigências difíceis de conciliar entre si?"
+  q2 [negative] "Recebo prazos que considero impossíveis de cumprir?"
+  q3 [negative] "Meu trabalho exige que eu atue com nível muito alto de intensidade?"
+  q4 [negative] "Preciso abandonar ou adiar tarefas porque a quantidade de demandas é excessiva?"
+  q5 [negative] "Não consigo realizar pausas adequadas durante a jornada de trabalho?"
+  q6 [negative] "Sinto pressão para trabalhar por longos períodos ou fazer horas extras?"
+  q7 [negative] "Preciso executar minhas atividades em ritmo muito acelerado?"
+  q8 [negative] "As pausas previstas no trabalho são difíceis ou inviáveis de cumprir?"
+
+================================================================================
+  STEP 3 — DOMÍNIO: CONTROLE  (orientação: positive)
+================================================================================
+Todas as perguntas tratam de AUTONOMIA e FLEXIBILIDADE (situações desejáveis).
+"NUNCA" = ruim | "SEMPRE" = bom
+
+  q1 [positive] "Tenho autonomia para escolher quando fazer uma pausa?"
+  q2 [positive] "Posso decidir o ritmo em que realizo meu trabalho?"
+  q3 [positive] "Tenho liberdade para definir como executo minhas atividades?"
+  q4 [positive] "Tenho autonomia para decidir quais tarefas realizo no trabalho?"
+  q5 [positive] "Possuo influência sobre a forma como desempenho minhas atividades?"
+  q6 [positive] "Meu horário de trabalho permite flexibilidade?"
+
+================================================================================
+  STEP 4 — DOMÍNIO: APOIO DA GESTÃO  (orientação: positive)
+================================================================================
+Todas as perguntas tratam de SUPORTE do supervisor (situações desejáveis).
+"NUNCA" = ruim | "SEMPRE" = bom
+
+  q1 [positive] "Recebo informações e suporte adequados para desempenhar meu trabalho?"
+  q2 [positive] "Posso contar com meu supervisor direto quando enfrento dificuldades no trabalho?"
+  q3 [positive] "Consigo conversar com meu supervisor direto sobre situações que me incomodam no trabalho?"
+  q4 [positive] "Recebo apoio quando realizo atividades emocionalmente exigentes?"
+  q5 [positive] "Meu supervisor direto me oferece incentivo e encorajamento no trabalho?"
+
+================================================================================
+  STEP 5 — DOMÍNIO: SUPORTE DOS COLEGAS  (orientação: positive)
+================================================================================
+Todas as perguntas tratam de APOIO entre pares (situações desejáveis).
+"NUNCA" = ruim | "SEMPRE" = bom
+
+  q1 [positive] "Quando o trabalho se torna difícil, posso contar com a ajuda dos meus colegas?"
+  q2 [positive] "Recebo dos meus colegas o apoio necessário para realizar meu trabalho?"
+  q3 [positive] "Sou tratado com o respeito que mereço pelos meus colegas?"
+  q4 [positive] "Meus colegas estão dispostos a ouvir quando tenho problemas relacionados ao trabalho?"
+
+================================================================================
+  STEP 6 — DOMÍNIO: RELACIONAMENTOS  (orientação: negative)
+================================================================================
+Todas as perguntas tratam de CONFLITOS e COMPORTAMENTOS NEGATIVOS.
+"NUNCA" = bom | "SEMPRE" = ruim
+
+  q1 [negative] "Sinto que sou alvo de perseguição no ambiente de trabalho?"
+  q2 [negative] "Existem conflitos ou desentendimentos frequentes entre colegas?"
+  q3 [negative] "Sou tratado ou abordado de forma rude ou excessivamente dura?"
+  q4 [negative] "Os relacionamentos no ambiente de trabalho estão desgastados?"
+
+================================================================================
+  STEP 7 — DOMÍNIO: CLAREZA DE PAPEL | FUNÇÃO  (orientação: positive)
+================================================================================
+Todas as perguntas tratam de CLAREZA e COMPREENSÃO do papel (situações desejáveis).
+"NUNCA" = ruim | "SEMPRE" = bom
+
+  q1 [positive] "Eu entendo claramente o que é esperado de mim no trabalho?"
+  q2 [positive] "Sei como realizar minhas atividades de forma adequada?"
+  q3 [positive] "Tenho clareza sobre minhas funções e responsabilidades?"
+  q4 [positive] "Compreendo os objetivos e metas do meu departamento?"
+  q5 [positive] "Entendo como o meu trabalho contribui para os objetivos gerais da organização?"
+
+================================================================================
+  STEP 8 — DOMÍNIO: GERENCIAMENTO DE MUDANÇAS  (orientação: positive)
+================================================================================
+Todas as perguntas tratam de PARTICIPAÇÃO e TRANSPARÊNCIA nas mudanças (desejáveis).
+"NUNCA" = ruim | "SEMPRE" = bom
+
+  q1 [positive] "Tenho oportunidades suficientes para questionar os gestores sobre mudanças no trabalho?"
+  q2 [positive] "Os funcionários são consultados sobre mudanças que afetam o trabalho?"
+  q3 [positive] "Quando ocorrem mudanças no trabalho, compreendo claramente como elas serão aplicadas na prática?"
+
+================================================================================
+  RESUMO DAS POLARIDADES POR DOMÍNIO
+================================================================================
+
+  Domínio                    | Step | Polaridade  | "NUNCA" significa
+  ---------------------------|------|-------------|-------------------
+  Demandas                   |   2  | negative    | Bom (problema ausente)
+  Controle                   |   3  | positive    | Ruim (autonomia ausente)
+  Apoio da Gestão            |   4  | positive    | Ruim (suporte ausente)
+  Suporte dos Colegas        |   5  | positive    | Ruim (apoio ausente)
+  Relacionamentos            |   6  | negative    | Bom (conflito ausente)
+  Clareza de Papel | Função  |   7  | positive    | Ruim (clareza ausente)
+  Gerenciamento de Mudanças  |   8  | positive    | Ruim (participação ausente)
+
+================================================================================
