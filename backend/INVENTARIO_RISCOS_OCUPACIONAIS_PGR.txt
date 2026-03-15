@@ -1,0 +1,259 @@
+================================================================================
+  DOCUMENTACAO DAS REGRAS - INVENTARIO DE RISCOS OCUPACIONAIS PARA O PGR
+  NR-1 Facil - Secao do PDF do relatorio
+================================================================================
+
+ORIGEM GERAL DA TABELA
+--------------------------------------------------------------------------------
+A tabela do topico "INVENTARIO DE RISCOS OCUPACIONAIS PARA O PGR" e montada na
+funcao `_draw_pdf_pgr_inventory_page` em `backend/core/views.py`.
+
+Essa funcao recebe o `report_data` do relatorio e gera uma ou mais tabelas:
+
+  1. GERAL
+  2. Uma tabela por referencia de avaliacao:
+     - SETOR: <nome>  ou
+     - GHE: <nome>
+
+As linhas da tabela sao geradas pela funcao interna `build_rows(domain_items)`.
+
+
+ORIGEM DOS DADOS BASE
+--------------------------------------------------------------------------------
+Cada linha parte de um item de dominio vindo de:
+
+  - `report_data["overall"]["domains"]` para a tabela GERAL
+  - `report_data["per_ref"][...]["domains"]` para as tabelas por SETOR/GHE
+
+Esses dominios sao montados por `_build_report_bundle(...)`, que por sua vez usa
+`_build_step_report(...)`.
+
+Em resumo:
+
+  respostas Step 1..8
+      -> `_build_step_report`
+      -> `_build_report_bundle`
+      -> `report_data["overall"]["domains"]` / `report_data["per_ref"][...]["domains"]`
+      -> `build_rows(...)`
+      -> tabela do inventario no PDF
+
+
+COLUNAS DA TABELA
+--------------------------------------------------------------------------------
+A tabela possui as seguintes colunas:
+
+  - DOMINIO
+  - %
+  - AGENTE NOCIVO
+  - POSSIVEIS DANOS
+  - PROBABILIDADE (1 a 5)
+  - SEVERIDADE (Fixa)
+  - NIVEL DE RISCO
+
+As colunas solicitadas abaixo sao preenchidas da seguinte forma.
+
+
+================================================================================
+  AGENTE NOCIVO
+================================================================================
+
+ORIGEM
+--------------------------------------------------------------------------------
+Vem do dicionario fixo `domain_meta`, definido dentro de
+`_draw_pdf_pgr_inventory_page`.
+
+Ou seja, o valor NAO e calculado a partir das respostas. Ele e um texto fixo por
+dominio.
+
+REGRA
+--------------------------------------------------------------------------------
+O codigo normaliza o nome do dominio (`normalize_text(item["domain"])`) e usa
+esse valor como chave para buscar o `agent` correspondente em `domain_meta`.
+
+MAPEAMENTO ATUAL
+--------------------------------------------------------------------------------
+  Demandas
+    -> "Excesso de trabalho / falta de apoio"
+
+  Controle
+    -> "Baixo controle e pouca autonomia / falta de autonomia"
+
+  Apoio da gestao
+    -> "Falta de cooperacao no trabalho"
+
+  Suporte dos colegas
+    -> "Maus relacionamentos no local de trabalho"
+
+  Relacionamentos
+    -> "Conflitos frequentes na equipe"
+
+  Clareza de papel | funcao
+    -> "Baixa clareza de papel/funcao"
+
+  Gerenciamento de mudancas
+    -> "Ma gestao de mudancas organizacionais"
+
+
+================================================================================
+  POSSIVEIS DANOS
+================================================================================
+
+ORIGEM
+--------------------------------------------------------------------------------
+Tambem vem do dicionario fixo `domain_meta`, no campo `damages`.
+
+Assim como "agente nocivo", esse valor e estatico por dominio e nao e derivado
+diretamente das respostas individuais.
+
+MAPEAMENTO ATUAL
+--------------------------------------------------------------------------------
+  Demandas
+    -> "Transtorno mental; DORT; estresse ocupacional; fadiga"
+
+  Controle
+    -> "Transtorno mental; DORT; ansiedade"
+
+  Apoio da gestao
+    -> "Transtorno mental"
+
+  Suporte dos colegas
+    -> "Transtorno mental; DORT"
+
+  Relacionamentos
+    -> "Transtorno mental"
+
+  Clareza de papel | funcao
+    -> "Transtorno mental"
+
+  Gerenciamento de mudancas
+    -> "Transtorno mental; DORT"
+
+
+================================================================================
+  PROBABILIDADE
+================================================================================
+
+ORIGEM
+--------------------------------------------------------------------------------
+A probabilidade e calculada a partir do percentual do dominio (`item["percent"]`)
+que vem de `_build_report_bundle(...)`.
+
+Esse percentual representa o resultado consolidado do dominio na escala de 0 a
+100%.
+
+REGRA DE CALCULO
+--------------------------------------------------------------------------------
+A funcao usada e `calc_probability(percent)`.
+
+Mapeamento atual:
+
+  90% a 100% -> 1
+  75% a 89%  -> 2
+  60% a 74%  -> 3
+  40% a 59%  -> 4
+  abaixo de 40% -> 5
+
+INTERPRETACAO
+--------------------------------------------------------------------------------
+Quanto menor o percentual do dominio, maior a probabilidade atribuida ao risco.
+Ou seja:
+
+  - percentual alto = ambiente mais saudavel = probabilidade menor
+  - percentual baixo = problema mais critico = probabilidade maior
+
+
+================================================================================
+  SEVERIDADE
+================================================================================
+
+ORIGEM
+--------------------------------------------------------------------------------
+A severidade vem do dicionario fixo `domain_meta`, no campo `severity`.
+
+Ela e fixa por dominio e nao muda conforme o percentual da campanha.
+
+MAPEAMENTO ATUAL
+--------------------------------------------------------------------------------
+  Demandas
+    -> 4
+
+  Controle
+    -> 3
+
+  Apoio da gestao
+    -> 3
+
+  Suporte dos colegas
+    -> 2
+
+  Relacionamentos
+    -> 4
+
+  Clareza de papel | funcao
+    -> 2
+
+  Gerenciamento de mudancas
+    -> 3
+
+REFERENCIA TEXTUAL DA SEVERIDADE
+--------------------------------------------------------------------------------
+Na pagina metodologica anterior do PDF, a escala de severidade e descrita assim:
+
+  1 -> desconforto leve
+  2 -> fadiga mental leve
+  3 -> estresse ocupacional
+  4 -> transtornos psicologicos
+  5 -> adoecimento grave
+
+
+================================================================================
+  NIVEL DE RISCO
+================================================================================
+
+ORIGEM
+--------------------------------------------------------------------------------
+O nivel de risco e calculado pela funcao `calc_risk_label(probability, severity)`.
+
+Primeiro o codigo multiplica:
+
+  score = probabilidade * severidade
+
+Depois converte o score em uma faixa de classificacao.
+
+REGRA DE CALCULO
+--------------------------------------------------------------------------------
+  score <= 4   -> TRIVIAL
+  score <= 8   -> TOLERAVEL
+  score <= 12  -> MODERADO
+  score <= 16  -> SUBSTANCIAL
+  score > 16   -> INTOLERAVEL
+
+EXEMPLOS
+--------------------------------------------------------------------------------
+  - Probabilidade 5 e Severidade 4
+    score = 20
+    nivel de risco = INTOLERAVEL
+
+  - Probabilidade 3 e Severidade 2
+    score = 6
+    nivel de risco = TOLERAVEL
+
+  - Probabilidade 4 e Severidade 3
+    score = 12
+    nivel de risco = MODERADO
+
+
+================================================================================
+  OBSERVACAO IMPORTANTE
+================================================================================
+
+No estado atual do codigo:
+
+  - "Agente nocivo" e "Possiveis danos" sao textos fixos por dominio
+  - "Severidade" e fixa por dominio
+  - "Probabilidade" depende apenas do percentual consolidado do dominio
+  - "Nivel de risco" depende do produto entre probabilidade e severidade
+
+Portanto, a variacao dinamica da tabela vem principalmente do percentual do
+dominio e, por consequencia, da probabilidade e do nivel de risco.
+

@@ -1586,6 +1586,9 @@ export default function App() {
     if (u?.user_type === "CONSULTOR") return "Consultor";
     return "Empresa";
   }
+  function getAuthToken() {
+    return token || localStorage.getItem(TOKEN_KEY) || "";
+  }
   function goSection(s) { setSection(s); setSideOpen(false); setSideUserMenuOpen(false); }
 
   useEffect(() => {
@@ -2767,11 +2770,20 @@ export default function App() {
 
   async function loadEmpresas() {
     const cache = resourceCacheRef.current.empresas;
-    if (cache.loaded && cache.token === token) {
+    const authToken = getAuthToken();
+    if (!authToken) {
+      cache.loaded = false;
+      cache.promise = null;
+      cache.token = "";
+      setEmpLoad(false);
+      setEmpErr("Sessao invalida. Faca login novamente.");
+      return;
+    }
+    if (cache.loaded && cache.token === authToken) {
       setEmpLoad(false);
       return;
     }
-    if (cache.promise && cache.token === token) {
+    if (cache.promise && cache.token === authToken) {
       setEmpLoad(true);
       try {
         await cache.promise;
@@ -2781,13 +2793,13 @@ export default function App() {
       return;
     }
     setEmpLoad(true); setEmpErr("");
-    cache.token = token;
+    cache.token = authToken;
     try {
       cache.promise = (async () => {
         const controller = new AbortController();
         const timeoutId = window.setTimeout(() => controller.abort(), 15000);
         try {
-          const r = await fetch(`${API}/empresas/`, { headers: { Authorization: `Token ${token}` }, signal: controller.signal });
+          const r = await fetch(`${API}/empresas/`, { headers: { Authorization: `Token ${authToken}` }, signal: controller.signal });
           if (!r.ok) throw new Error("Nao foi possivel carregar empresas.");
           setEmpresas(await r.json());
           cache.loaded = true;
@@ -4478,7 +4490,12 @@ export default function App() {
   async function saveEmpresa(e) {
     e.preventDefault(); const msg = checkStep(3); if (msg) return setEErr(msg);
     setESaving(true); setEErr("");
-    const authToken = token || localStorage.getItem(TOKEN_KEY) || "";
+    const authToken = getAuthToken();
+    if (!authToken) {
+      setESaving(false);
+      setEErr("Sessao invalida. Faca login novamente.");
+      return;
+    }
     const form = new FormData();
     form.append("document_type", eForm.document_type);
     form.append("document_number", eForm.document_number);
@@ -4519,7 +4536,9 @@ export default function App() {
   async function inativarEmpresa() {
     if (!eInactivate) return; setEActing(true); setEErr("");
     try {
-      const r = await fetch(`${API}/empresas/${eInactivate.id}/inativar/`, { method: "POST", headers: { Authorization: `Token ${token}` } });
+      const authToken = getAuthToken();
+      if (!authToken) throw new Error("Sessao invalida. Faca login novamente.");
+      const r = await fetch(`${API}/empresas/${eInactivate.id}/inativar/`, { method: "POST", headers: { Authorization: `Token ${authToken}` } });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setEmpresas((prev) => prev.map((x) => x.id === d.id ? d : x)); resourceCacheRef.current.empresas.loaded = true; invalidateResourceCache("dashboard"); setEInactivate(null);
     } catch (err) { setEErr(err.message); } finally { setEActing(false); }
@@ -4527,7 +4546,9 @@ export default function App() {
 
   async function reativarEmpresa(x) {
     try {
-      const r = await fetch(`${API}/empresas/${x.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Token ${token}` }, body: JSON.stringify({ is_active: true, responsible_email: x.responsible_user_email }) });
+      const authToken = getAuthToken();
+      if (!authToken) throw new Error("Sessao invalida. Faca login novamente.");
+      const r = await fetch(`${API}/empresas/${x.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Token ${authToken}` }, body: JSON.stringify({ is_active: true, responsible_email: x.responsible_user_email }) });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setEmpresas((prev) => prev.map((i) => i.id === d.id ? d : i));
       resourceCacheRef.current.empresas.loaded = true;
@@ -8798,7 +8819,7 @@ export default function App() {
                 <div><label>UF (Obrigatório)</label><input maxLength={2} value={eForm.state} disabled readOnly /></div>
                 <div><label>Cidade (Obrigatório)</label><input value={eForm.city} disabled readOnly /></div>
                 <div><label>Bairro (Obrigatório)</label><input value={eForm.neighborhood} disabled readOnly /></div>
-                <div><label>Rua (Opcional)</label><input value={eForm.street} disabled readOnly /></div>
+                <div><label>Rua (Opcional)</label><input value={eForm.street} onChange={(e) => eChange("street", e.target.value)} /></div>
                 <div><label>Número (Opcional)</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
                 <div><label>Complemento (Opcional)</label><input value={eForm.complement} onChange={(e) => eChange("complement", e.target.value)} /></div>
               </div>}

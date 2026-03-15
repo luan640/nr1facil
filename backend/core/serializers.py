@@ -297,6 +297,11 @@ class EmpresaSerializer(serializers.ModelSerializer):
         document_type = attrs.get('document_type') or getattr(self.instance, 'document_type', None)
         document_number = attrs.get('document_number') or getattr(self.instance, 'document_number', '')
         establishment_type = attrs.get('establishment_type') or getattr(self.instance, 'establishment_type', None)
+        responsible_email = str(
+            attrs.get('responsible_email')
+            or getattr(getattr(self.instance, 'responsavel_usuario', None), 'email', '')
+            or ''
+        ).strip().lower()
 
         if document_type == DocumentType.CPF and len(document_number) != 11:
             raise serializers.ValidationError({'document_number': 'CPF deve ter 11 digitos.'})
@@ -305,11 +310,11 @@ class EmpresaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'document_number': 'CNPJ deve ter 14 digitos.'})
 
         if establishment_type not in EstablishmentType.values:
-            raise serializers.ValidationError({'establishment_type': 'Tipo de estabelecimento invalido.'})
+            raise serializers.ValidationError({'establishment_type': 'Tipo de estabelecimento inválido.'})
 
         evaluation_type = attrs.get('evaluation_type') or getattr(self.instance, 'evaluation_type', None)
         if evaluation_type not in EvaluationType.values:
-            raise serializers.ValidationError({'evaluation_type': 'Tipo de avaliacao invalido.'})
+            raise serializers.ValidationError({'evaluation_type': 'Tipo de avaliação inválido.'})
 
         consultoria_owner = get_consultoria_owner(getattr(request, 'user', None))
         if consultoria_owner and document_number:
@@ -321,7 +326,16 @@ class EmpresaSerializer(serializers.ModelSerializer):
                 exists_qs = exists_qs.exclude(id=self.instance.id)
             if exists_qs.exists():
                 raise serializers.ValidationError({
-                    'document_number': 'Ja existe uma empresa com este documento nesta consultoria.'
+                    'document_number': 'Já existe uma empresa com este documento nesta consultoria.'
+                })
+
+        if responsible_email:
+            user_qs = User.objects.filter(email__iexact=responsible_email)
+            if self.instance and getattr(self.instance, 'responsavel_usuario_id', None):
+                user_qs = user_qs.exclude(id=self.instance.responsavel_usuario_id)
+            if user_qs.exists():
+                raise serializers.ValidationError({
+                    'responsible_email': 'Já existe um usuário com este e-mail.'
                 })
 
         return attrs

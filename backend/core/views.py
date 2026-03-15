@@ -2234,7 +2234,7 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     c.setFillColor(colors.HexColor('#f3f4f6'))
     c.rect(table_x, control_header_y - table_header_h, table_w, table_header_h, stroke=1, fill=1)
 
-    control_headers = ['NÍVEIS DE RISCOS (ORDEM DE PRIORIDADE)', 'CONTROLE DE AÇÕES']
+    control_headers = ['Níveis de riscos (ORDEM DE PRIORIDADE)', 'Controle de ações']
     x = table_x
     for header, col_w in zip(control_headers, control_col_widths):
         draw_cell_text(x, control_header_y, col_w, table_header_h, header, font='Helvetica-Bold', size=7.2, align='center')
