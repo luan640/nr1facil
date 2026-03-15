@@ -1571,7 +1571,7 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         c.drawString(box_x + 2 * mm, y, f'{domain_name} | {scope_label}')
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 8.4)
-        c.drawRightString(box_x + box_w - 2 * mm, y, f'Pontuacao: {score:.1f}')
+        c.drawRightString(box_x + box_w - 2 * mm, y, f'Pontuação: {score:.1f}')
         y -= 5 * mm
 
         y = draw_wrapped_text(box_x + 2 * mm, y, question, font='Helvetica', size=8.8, max_width=box_w - 4 * mm, leading=11.5)
@@ -1579,25 +1579,25 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
 
         c.setFillColor(colors.HexColor('#92400e'))
         c.setFont('Helvetica-Bold', 8.4)
-        c.drawString(box_x + 2 * mm, y, 'Plano de acao:')
+        c.drawString(box_x + 2 * mm, y, 'Plano de ação:')
         c.setFillColor(colors.HexColor('#111827'))
         y = draw_wrapped_text(box_x + 28 * mm, y, m.get('action_text', '-'), font='Helvetica', size=8.8, max_width=box_w - 30 * mm, leading=11.5)
         y -= 2 * mm
 
-        # Sempre renderiza a tabela do plano de acao.
-        # Se nao houver "quando", a coluna "Data de Implantacao" permanece vazia.
+        # Sempre renderiza a tabela do plano de ação.
+        # Se não houver "quando", a coluna "Data de Implantação" permanece vazia.
         table_x = box_x + 2 * mm
         table_w = box_w - 4 * mm
         header_h = 5 * mm
         body_h = 6 * mm
         cols = [
-            ('Responsavel', 0.24),
-            ('Data de\nImplantacao', 0.19),
+            ('Responsável', 0.24),
+            ('Data de\nImplantação', 0.19),
             ('A\nFazer', 0.08),
             ('Fazendo', 0.10),
             ('Adiado', 0.10),
-            ('Concluido', 0.12),
-            ('Concluido em', 0.17),
+            ('Concluído', 0.12),
+            ('Concluído em', 0.17),
         ]
         widths = [table_w * p for _, p in cols]
         c.setStrokeColor(colors.HexColor('#d1d5db'))
@@ -1875,7 +1875,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     cidade = (getattr(consultoria_cfg, 'cidade', '') or 'Fortaleza').strip()
     uf = (getattr(consultoria_cfg, 'uf', '') or 'CE').strip().upper()
     data_encerramento = getattr(campanha, 'end_date', None)
-    data_txt = _format_date_long_pt_br(data_encerramento) or 'data nao informada'
+    data_txt = _format_date_long_pt_br(data_encerramento) or 'data não informada'
     c.drawString(margin_x, y, f'{cidade} - {uf}, {data_txt}')
     y -= 14 * mm
 
@@ -2021,11 +2021,11 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
 
     y = new_page()
     paragraphs = [
-        'A identificacao e avaliacao dos fatores de risco psicossociais foram realizadas por meio de Avaliacao Ergonomica Preliminar (AEP) baseada na ferramenta Stress Indicator Tool (SIT), metodologia internacionalmente validada pelo Health and Safety Executive - HSE (Reino Unido) e adaptada as exigencias das Normas Regulamentadoras brasileiras, especificamente NR-01 (Gerenciamento de Riscos Ocupacionais - GRO) e NR-17 (Ergonomia).',
-        'A ferramenta contempla a analise estruturada de dominios organizacionais relacionados ao ambiente de trabalho, sendo eles: Demandas de Trabalho, Controle sobre o Trabalho, Apoio da Gestao, Suporte dos Colegas, Relacionamentos Interpessoais, Clareza de Papel/Funcao e Gerenciamento de Mudancas. Esses dominios permitem identificar fatores organizacionais que podem contribuir para o estresse ocupacional e para o comprometimento da saude mental e do bem-estar dos trabalhadores.',
-        'Os resultados da avaliacao sao apresentados em percentuais de percepcao dos trabalhadores, os quais foram convertidos em niveis de risco psicossocial no Inventario de Riscos do PGR, conforme metodologia de analise qualitativa baseada na matriz de probabilidade e severidade.',
-        'A probabilidade foi definida com base na frequencia das ocorrencias obtidas na pesquisa, considerando que menores percentuais indicam maior potencial de ocorrencia de condicoes desfavoraveis no ambiente de trabalho. Ja a severidade foi definida com base nos potenciais impactos a saude decorrentes da exposicao prolongada aos fatores psicossociais, tais como estresse ocupacional, fadiga mental, ansiedade, transtornos emocionais e possiveis afastamentos relacionados a saude mental.',
-        'Apos a conversao dos resultados percentuais em niveis de probabilidade e severidade, os riscos foram classificados conforme os criterios da matriz de risco adotada no Programa de Gerenciamento de Riscos, resultando nas categorias Trivial, Toleravel, Moderado, Substancial ou Intoleravel, de acordo com o grau de criticidade identificado.',
+        'A identificação e avaliação dos fatores de risco psicossociais foram realizadas por meio de Avaliação Ergonômica Preliminar (AEP) baseada na ferramenta Stress Indicator Tool (SIT), metodologia internacionalmente validada pelo Health and Safety Executive - HSE (Reino Unido) e adaptada às exigências das Normas Regulamentadoras brasileiras, especificamente NR-01 (Gerenciamento de Riscos Ocupacionais - GRO) e NR-17 (Ergonomia).',
+        'A ferramenta contempla a análise estruturada de domínios organizacionais relacionados ao ambiente de trabalho, sendo eles: Demandas de Trabalho, Controle sobre o Trabalho, Apoio da Gestão, Suporte dos Colegas, Relacionamentos Interpessoais, Clareza de Papel/Função e Gerenciamento de Mudanças. Esses domínios permitem identificar fatores organizacionais que podem contribuir para o estresse ocupacional e para o comprometimento da saúde mental e do bem-estar dos trabalhadores.',
+        'Os resultados da avaliação são apresentados em percentuais de percepção dos trabalhadores, os quais foram convertidos em níveis de risco psicossocial no Inventário de Riscos do PGR, conforme metodologia de análise qualitativa baseada na matriz de probabilidade e severidade.',
+        'A probabilidade foi definida com base na frequência das ocorrências obtidas na pesquisa, considerando que menores percentuais indicam maior potencial de ocorrência de condições desfavoráveis no ambiente de trabalho. Já a severidade foi definida com base nos potenciais impactos à saúde decorrentes da exposição prolongada aos fatores psicossociais, tais como estresse ocupacional, fadiga mental, ansiedade, transtornos emocionais e possíveis afastamentos relacionados à saúde mental.',
+        'Após a conversão dos resultados percentuais em níveis de probabilidade e severidade, os riscos foram classificados conforme os critérios da matriz de risco adotada no Programa de Gerenciamento de Riscos, resultando nas categorias Trivial, Tolerável, Moderado, Substancial ou Intolerável, de acordo com o grau de criticidade identificado.',
     ]
 
     paragraph_gap = 4 * mm
@@ -2084,11 +2084,11 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     probability_text = 'A probabilidade representa a chance de o problema ocorrer ou estar presente no ambiente de trabalho.'
 
     table_rows = [
-        ('90-100%', 'ambiente muito saudavel', '1'),
-        ('75-89%', 'boa condicao', '2'),
-        ('60-74%', 'atencao', '3'),
+        ('90-100%', 'ambiente muito saudável', '1'),
+        ('75-89%', 'boa condição', '2'),
+        ('60-74%', 'atenção', '3'),
         ('40-59%', 'problema frequente', '4'),
-        ('< 40%', 'problema critico', '5'),
+        ('< 40%', 'problema crítico', '5'),
     ]
 
     title_needed = 6 * mm
@@ -2147,7 +2147,7 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     severity_title_gap = 8 * mm
     severity_text_gap = 4 * mm
     severity_table_gap = 4 * mm
-    severity_text = 'A severidade representa o impacto do risco na saude do trabalhador caso ele ocorra.'
+    severity_text = 'A severidade representa o impacto do risco na saúde do trabalhador caso ele ocorra.'
     severity_rows = [
         ('1', 'desconforto leve'),
         ('2', 'fadiga mental leve'),
@@ -2205,12 +2205,12 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     control_title_gap = 8 * mm
     control_text_gap = 4 * mm
     control_table_gap = 4 * mm
-    control_text = 'Os métodos de controle devem ser definidos de acordo com o nível de risco identificado na avaliação, e que a priorização das ações segue a hierarquia da criticidade, onde riscos mais elevados exigem intervencoes imediatas e rigorosas, enquanto riscos menores podem ser apenas monitorados ou receber acoes adicionais quando necessario.'
+    control_text = 'Os m?todos de controle devem ser definidos de acordo com o n?vel de risco identificado na avalia??o, e que a prioriza??o das a??es segue a hierarquia da criticidade, onde riscos mais elevados exigem interven??es imediatas e rigorosas, enquanto riscos menores podem ser apenas monitorados ou receber a??es adicionais quando necess?rio.'
     control_rows = [
         ('INTOLERAVEL', 'Ações imediatas'),
-        ('SUBSTANCIAL', 'Controle necessario'),
-        ('MODERADO', 'Controle adicional, se possivel / viavel'),
-        ('TOLERAVEL', 'Nenhum controle adicional necessario'),
+        ('SUBSTANCIAL', 'Controle necess?rio'),
+        ('MODERADO', 'Controle adicional, se poss?vel / vi?vel'),
+        ('TOLER?VEL', 'Nenhum controle adicional necess?rio'),
         ('TRIVIAL', 'Nenhuma ação necessária'),
     ]
     control_col_widths = [0.46 * table_w, 0.54 * table_w]
@@ -2644,7 +2644,7 @@ def _draw_pdf_anexos_pages(c, report_data):
             except Exception:
                 c.setFillColor(colors.HexColor('#9ca3af'))
                 c.setFont('Helvetica-Oblique', 7.2)
-                c.drawCentredString(box_x + (box_w / 2), box_y + (slot_h / 2), 'Preview indisponivel no momento da geracao do PDF.')
+                c.drawCentredString(box_x + (box_w / 2), box_y + (slot_h / 2), 'Preview indisponível no momento da geração do PDF.')
         else:
             c.setFillColor(colors.HexColor('#9ca3af'))
             c.setFont('Helvetica-Oblique', 7.2)
@@ -2936,14 +2936,14 @@ def _draw_pdf_identificacao_page_card(c, campanha, empresa, report_data, consult
     y -= 3 * mm
     c.setFillColor(blue)
     c.setFont('Helvetica-Bold', 8)
-    c.drawString(margin_x, y, '1.1 Responsaveis tecnicos pela ferramenta de avaliacao FRPRT')
+    c.drawString(margin_x, y, '1.1 Responsáveis técnicos pela ferramenta de avaliação FRPRT')
     y -= 8 * mm
 
     table_x = margin_x
     table_w = width - (2 * margin_x)
     col_w = [table_w * 0.38, table_w * 0.42, table_w * 0.20]
     row_h = 6 * mm
-    headers = ['Nome', 'Formacao', 'Registro']
+    headers = ['Nome', 'Formação', 'Registro']
     rows = _get_consultoria_tecnicos_rows(empresa=empresa, consultoria_cfg=consultoria_cfg)
 
     c.setStrokeColor(colors.HexColor('#d1d5db'))
@@ -3434,9 +3434,9 @@ class PasswordResetRequestView(APIView):
         reset_url = f'{base_url}/reset-password?uid={uid}&token={token}'
         subject = 'Redefinicao de senha'
         message = (
-            'Recebemos uma solicitacao para redefinir sua senha.\n\n'
+            'Recebemos uma solicitação para redefinir sua senha.\n\n'
             f'Acesse o link abaixo para cadastrar uma nova senha:\n{reset_url}\n\n'
-            'Se voce nao solicitou essa alteracao, ignore este e-mail.'
+            'Se você não solicitou essa alteração, ignore este e-mail.'
         )
 
         send_mail(
@@ -3692,9 +3692,9 @@ class ConsultorDetailView(APIView):
     def delete(self, request, consultor_id):
         consultor = self.get_object(consultor_id)
         if not consultor:
-            return Response({'detail': 'Consultor nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Consultor não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         if consultor.consultoria_usuarios.exists() or consultor.empresas_consultoria.exists():
-            return Response({'detail': 'Nao e possivel excluir consultoria com usuarios internos ou empresas vinculadas.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Não é possível excluir consultoria com usuários internos ou empresas vinculadas.'}, status=status.HTTP_400_BAD_REQUEST)
         consultor.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -3734,7 +3734,7 @@ class ConsultoriaUserDetailView(APIView):
     def patch(self, request, user_id):
         usuario = self.get_object(request, user_id)
         if not usuario:
-            return Response({'detail': 'Usuario da consultoria nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Usuário da consultoria não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         serializer = ConsultoriaUserSerializer(usuario, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         usuario = serializer.save()
@@ -3743,7 +3743,7 @@ class ConsultoriaUserDetailView(APIView):
     def delete(self, request, user_id):
         usuario = self.get_object(request, user_id)
         if not usuario:
-            return Response({'detail': 'Usuario da consultoria nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Usuário da consultoria não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         usuario.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -3772,7 +3772,7 @@ class SystemAccountDetailView(APIView):
     def patch(self, request, account_id):
         conta = self.get_object(account_id)
         if not conta:
-            return Response({'detail': 'Conta do sistema nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Conta do sistema não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = SystemAccountSerializer(conta, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -3782,9 +3782,9 @@ class SystemAccountDetailView(APIView):
     def delete(self, request, account_id):
         conta = self.get_object(account_id)
         if not conta:
-            return Response({'detail': 'Conta do sistema nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Conta do sistema não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         if conta.id == request.user.id:
-            return Response({'detail': 'Voce nao pode excluir a propria conta.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Você não pode excluir a própria conta.'}, status=status.HTTP_400_BAD_REQUEST)
 
         conta.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -4031,7 +4031,7 @@ class TotemPublicView(APIView):
     def post(self, request, token):
         empresa = Empresa.objects.filter(totem_token=token, is_active=True).first()
         if not empresa:
-            return Response({'detail': 'Totem nao encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Totem não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         data = {
             'possui_vinculo': request.data.get('possui_vinculo'),
