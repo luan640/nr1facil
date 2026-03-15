@@ -2283,9 +2283,9 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
             'damages': 'Transtorno mental; DORT; ansiedade',
             'severity': 3,
         },
-        'apoio da gestao': {
-            'label': 'Apoio da gestao',
-            'agent': 'Falta de cooperacao no trabalho',
+        'apoio da gestão': {
+            'label': 'Apoio da gestão',
+            'agent': 'Falta de cooperação no trabalho',
             'damages': 'Transtorno mental',
             'severity': 3,
         },
@@ -2301,15 +2301,15 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
             'damages': 'Transtorno mental',
             'severity': 4,
         },
-        'clareza de papel | funcao': {
-            'label': 'Clareza de Papel/Funcao',
-            'agent': 'Baixa clareza de papel/funcao',
+        'clareza de papel | função': {
+            'label': 'Clareza de Papel/Função',
+            'agent': 'Baixa clareza de papel/função',
             'damages': 'Transtorno mental',
             'severity': 2,
         },
         'gerenciamento de mudancas': {
-            'label': 'Gerenciamento de Mudancas',
-            'agent': 'Ma gestao de mudancas organizacionais',
+            'label': 'Gerenciamento de Mudanas',
+            'agent': 'Má gestão de mudanças organizacionais',
             'damages': 'Transtorno mental; DORT',
             'severity': 3,
         },
