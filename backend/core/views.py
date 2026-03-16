@@ -79,6 +79,18 @@ FREQUENCY_SCORE_POSITIVE = {
     FrequencyChoice.FREQUENTEMENTE: 4,
     FrequencyChoice.SEMPRE: 5,
 }
+
+
+def _build_frontend_url(path, query=''):
+    base_url = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/')
+    use_hash_routing = getattr(settings, 'FRONTEND_PUBLIC_USE_HASH_ROUTING', True)
+    normalized_path = '/' + str(path or '').lstrip('/')
+
+    if use_hash_routing:
+        return f'{base_url}#{normalized_path}{query}'
+    return f'{base_url}{normalized_path}{query}'
+
+
 FREQUENCY_SCORE_NEGATIVE = {
     FrequencyChoice.NUNCA: 5,
     FrequencyChoice.RARAMENTE: 4,
@@ -3430,8 +3442,7 @@ class PasswordResetRequestView(APIView):
 
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        base_url = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/')
-        reset_url = f'{base_url}/reset-password?uid={uid}&token={token}'
+        reset_url = _build_frontend_url('/reset-password', f'?uid={uid}&token={token}')
         subject = 'Redefinicao de senha'
         message = (
             'Recebemos uma solicitação para redefinir sua senha.\n\n'

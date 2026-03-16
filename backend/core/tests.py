@@ -1,4 +1,6 @@
 from django.urls import reverse
+from django.test import override_settings
+from django.core import mail
 from datetime import date
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
@@ -253,6 +255,54 @@ class PdfLetterheadTests(APITestCase):
             self.assertIn('HEADER FOOTER TIMBRADO', page_2_text)
             self.assertIn('PAGINA 1 RELATORIO', page_1_text)
             self.assertIn('PAGINA 2 RELATORIO', page_2_text)
+
+
+class PasswordResetTests(APITestCase):
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        FRONTEND_PUBLIC_BASE_URL='https://app.example.com',
+        FRONTEND_PUBLIC_USE_HASH_ROUTING=True,
+    )
+    def test_password_reset_email_uses_hash_route_when_enabled(self):
+        user = User.objects.create_user(
+            email='reset@example.com',
+            password='secret123',
+            user_type=UserType.CONSULTOR,
+        )
+
+        response = self.client.post(
+            reverse('password-reset-request'),
+            {'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('https://app.example.com#/reset-password?uid=', mail.outbox[0].body)
+        self.assertIn('&token=', mail.outbox[0].body)
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        FRONTEND_PUBLIC_BASE_URL='https://app.example.com',
+        FRONTEND_PUBLIC_USE_HASH_ROUTING=False,
+    )
+    def test_password_reset_email_uses_path_route_when_hash_routing_disabled(self):
+        user = User.objects.create_user(
+            email='reset-path@example.com',
+            password='secret123',
+            user_type=UserType.CONSULTOR,
+        )
+
+        response = self.client.post(
+            reverse('password-reset-request'),
+            {'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('https://app.example.com/reset-password?uid=', mail.outbox[0].body)
+        self.assertNotIn('https://app.example.com#/reset-password?uid=', mail.outbox[0].body)
 
 
 class CampaignReportPdfTests(APITestCase):
