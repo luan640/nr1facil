@@ -3885,11 +3885,17 @@ class EmpresaCanalDenunciasLinkView(APIView):
             empresa.save(update_fields=['canal_denuncias_token', 'updated_at'])
         return empresa.canal_denuncias_token
 
-    def _public_url(self, token):
+    def _build_public_frontend_url(self, path):
         base = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/')
         if not base:
             base = 'http://localhost:5173'
-        return f'{base}/canal-denuncias/{token}/'
+        clean_path = path if path.startswith('/') else f'/{path}'
+        if getattr(settings, 'FRONTEND_PUBLIC_USE_HASH_ROUTING', True):
+            return f'{base}/#{clean_path}'
+        return f'{base}{clean_path}'
+
+    def _public_url(self, token):
+        return self._build_public_frontend_url(f'/canal-denuncias/{token}/')
 
     def _build_qr_data_uri(self, text):
         try:
@@ -3946,11 +3952,17 @@ class EmpresaTotemLinkView(APIView):
             empresa.save(update_fields=['totem_token', 'updated_at'])
         return empresa.totem_token
 
-    def _public_url(self, token):
+    def _build_public_frontend_url(self, path):
         base = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/')
         if not base:
             base = 'http://localhost:5173'
-        return f'{base}/totem/{token}/'
+        clean_path = path if path.startswith('/') else f'/{path}'
+        if getattr(settings, 'FRONTEND_PUBLIC_USE_HASH_ROUTING', True):
+            return f'{base}/#{clean_path}'
+        return f'{base}{clean_path}'
+
+    def _public_url(self, token):
+        return self._build_public_frontend_url(f'/totem/{token}/')
 
     def get(self, request, empresa_id):
         empresa = self.get_object(request, empresa_id)

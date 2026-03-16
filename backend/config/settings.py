@@ -190,6 +190,7 @@ DEV_CORS_ALLOW_ORIGINS = [
 CORS_ALLOW_ORIGINS = parse_origin_list(os.getenv('CORS_ALLOW_ORIGINS', '')) or DEV_CORS_ALLOW_ORIGINS
 
 FRONTEND_PUBLIC_BASE_URL = os.getenv('FRONTEND_PUBLIC_BASE_URL', 'http://localhost:5173')
+FRONTEND_PUBLIC_USE_HASH_ROUTING = os.getenv('FRONTEND_PUBLIC_USE_HASH_ROUTING', '1') == '1'
 
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
