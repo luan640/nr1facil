@@ -17,6 +17,7 @@ from django.core.mail import send_mail
 from django.http import HttpResponse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils import timezone
 import os
 import uuid
 import copy
@@ -28,7 +29,7 @@ import math
 import base64
 from io import BytesIO, StringIO
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -611,6 +612,511 @@ def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=Non
             },
         },
     }
+
+
+def _parse_dashboard_filters(request):
+    from datetime import date as date_cls
+
+    empresa_id_raw = (request.query_params.get('empresa_id') or '').strip()
+    empresa_id = None
+    all_companies = False
+    if empresa_id_raw == 'all':
+        all_companies = True
+    elif empresa_id_raw:
+        try:
+            empresa_id = int(empresa_id_raw)
+        except ValueError:
+            return None, Response({'detail': 'Empresa invalida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    date_from = date_to = None
+    try:
+        raw_from = (request.query_params.get('date_from') or '').strip()
+        raw_to = (request.query_params.get('date_to') or '').strip()
+        if raw_from:
+            date_from = date_cls.fromisoformat(raw_from)
+        if raw_to:
+            date_to = date_cls.fromisoformat(raw_to)
+    except ValueError:
+        return None, Response({'detail': 'Formato de data invalido. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    return {
+        'empresa_id': empresa_id,
+        'date_from': date_from,
+        'date_to': date_to,
+        'all_companies': all_companies,
+    }, None
+
+
+def _draw_dashboard_pdf_card(c, x, y, w, h, title, value, detail='', fill_color=colors.white, value_color=colors.HexColor('#0f172a')):
+    c.saveState()
+    c.setFillColor(fill_color)
+    c.setStrokeColor(colors.HexColor('#d7e8e8'))
+    c.roundRect(x, y, w, h, 10, fill=1, stroke=1)
+    c.setFillColor(colors.HexColor('#5f7b83'))
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(x + 12, y + h - 18, str(title or '-'))
+    c.setFillColor(value_color)
+    c.setFont('Helvetica-Bold', 19)
+    c.drawString(x + 12, y + h - 42, str(value or '0'))
+    if detail:
+        c.setFillColor(colors.HexColor('#6b7280'))
+        c.setFont('Helvetica', 8.5)
+        c.drawString(x + 12, y + 12, str(detail)[:90])
+    c.restoreState()
+
+
+def _draw_dashboard_pdf_bar_group(c, x, y_top, w, title, items, percent_key='percent', value_suffix='%', empty_label='Sem dados suficientes.'):
+    c.saveState()
+    c.setFillColor(colors.HexColor('#0f172a'))
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(x, y_top, title)
+    y = y_top - 18
+    if not items:
+        c.setFillColor(colors.HexColor('#6b7280'))
+        c.setFont('Helvetica', 9)
+        c.drawString(x, y, empty_label)
+        c.restoreState()
+        return y - 14
+
+    bar_x = x + 112
+    bar_w = max(60, w - 150)
+    for item in items:
+        label = str(item.get('label') or item.get('key') or '-')
+        raw_value = float(item.get(percent_key) or 0)
+        bounded_value = max(0.0, min(100.0, raw_value))
+        display_value = f'{raw_value:.1f}{value_suffix}'
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica', 8.5)
+        c.drawString(x, y, label[:24])
+        c.setFillColor(colors.HexColor('#e2e8f0'))
+        c.roundRect(bar_x, y - 6, bar_w, 8, 4, fill=1, stroke=0)
+        zone_key = ((item.get('zone') or {}).get('key') if isinstance(item.get('zone'), dict) else None) or ''
+        fill = {
+            'green': colors.HexColor('#16a34a'),
+            'yellow': colors.HexColor('#f59e0b'),
+            'red': colors.HexColor('#ef4444'),
+        }.get(zone_key, colors.HexColor('#0c9fb0'))
+        c.setFillColor(fill)
+        c.roundRect(bar_x, y - 6, (bar_w * bounded_value) / 100.0, 8, 4, fill=1, stroke=0)
+        c.setFillColor(colors.HexColor('#0f172a'))
+        c.drawRightString(x + w, y, display_value)
+        y -= 18
+    c.restoreState()
+    return y
+
+
+def _draw_dashboard_pdf_list(c, x, y_top, w, title, items, empty_label='Sem dados suficientes.'):
+    c.saveState()
+    c.setFillColor(colors.HexColor('#0f172a'))
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(x, y_top, title)
+    y = y_top - 18
+    if not items:
+        c.setFillColor(colors.HexColor('#6b7280'))
+        c.setFont('Helvetica', 9)
+        c.drawString(x, y, empty_label)
+        c.restoreState()
+        return y - 14
+
+    for item in items:
+        label = str(item.get('label') or item.get('key') or '-')
+        value = item.get('value')
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica', 8.5)
+        c.drawString(x, y, f'- {label[:36]}')
+        c.setFillColor(colors.HexColor('#0f172a'))
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawRightString(x + w, y, str(value if value is not None else 0))
+        y -= 15
+    c.restoreState()
+    return y
+
+
+def _draw_dashboard_pdf_hbar_chart(c, x, y_top, w, title, items, value_key='value', empty_label='Sem dados suficientes.'):
+    """Horizontal bar chart with colored dot, label, proportional bar and value badge."""
+    _PALETTE = [
+        '#3b82f6', '#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6',
+        '#10b981', '#f97316', '#ec4899', '#0c9fb0', '#94a3b8',
+    ]
+    c.saveState()
+    c.setFillColor(colors.HexColor('#0f172a'))
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(x, y_top, title)
+    y = y_top - 20
+
+    if not items:
+        c.setFillColor(colors.HexColor('#6b7280'))
+        c.setFont('Helvetica', 9)
+        c.drawString(x, y, empty_label)
+        c.restoreState()
+        return y - 14
+
+    values = [float(item.get(value_key) or 0) for item in items]
+    max_val = max(values) if values else 1.0
+    if max_val <= 0:
+        max_val = 1.0
+
+    dot_size = 7
+    label_w = 86
+    badge_w = 26
+    gap = 5
+    bar_x = x + dot_size + gap + label_w + gap
+    bar_w = w - (dot_size + gap + label_w + gap + badge_w + gap + 2)
+    row_h = 20
+
+    for idx, item in enumerate(items):
+        label = str(item.get('label') or item.get('key') or '-')[:20]
+        value = values[idx]
+        fill_ratio = value / max_val
+        col = _PALETTE[idx % len(_PALETTE)]
+
+        # Colored dot
+        c.setFillColor(colors.HexColor(col))
+        c.roundRect(x, y - dot_size + 3, dot_size, dot_size, 2, fill=1, stroke=0)
+
+        # Label
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica', 8.5)
+        c.drawString(x + dot_size + gap, y, label)
+
+        # Bar track (light gray)
+        track_y = y - 5
+        bar_h = 8
+        c.setFillColor(colors.HexColor('#e8f0f2'))
+        c.roundRect(bar_x, track_y, bar_w, bar_h, 4, fill=1, stroke=0)
+
+        # Bar fill (proportional, colored)
+        if fill_ratio > 0:
+            c.setFillColor(colors.HexColor(col))
+            c.roundRect(bar_x, track_y, max(bar_h, bar_w * fill_ratio), bar_h, 4, fill=1, stroke=0)
+
+        # Value badge
+        bx = x + w - badge_w
+        c.setFillColor(colors.HexColor('#f1f5f9'))
+        c.setStrokeColor(colors.HexColor('#dde8ea'))
+        c.roundRect(bx, track_y - 1, badge_w, bar_h + 2, 3, fill=1, stroke=1)
+        c.setFillColor(colors.HexColor('#0f172a'))
+        c.setFont('Helvetica-Bold', 8)
+        val_str = str(int(value) if float(value).is_integer() else round(value, 1))
+        c.drawCentredString(bx + badge_w / 2, track_y + 1, val_str)
+
+        y -= row_h
+
+    c.restoreState()
+    return y
+
+
+def _draw_dashboard_pdf_vertical_chart(c, x, y, w, h, title, items, value_key='value', empty_label='Sem dados suficientes.'):
+    c.saveState()
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor('#d7e8e8'))
+    c.roundRect(x, y, w, h, 10, fill=1, stroke=1)
+    c.setFillColor(colors.HexColor('#0f172a'))
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(x + 12, y + h - 18, title)
+
+    if not items:
+        c.setFillColor(colors.HexColor('#6b7280'))
+        c.setFont('Helvetica', 9)
+        c.drawString(x + 12, y + h - 36, empty_label)
+        c.restoreState()
+        return
+
+    chart_items = list(items[:6])
+    values = []
+    for item in chart_items:
+        try:
+            values.append(float(item.get(value_key) or 0))
+        except (TypeError, ValueError):
+            values.append(0.0)
+    max_value = max(values) if values else 0.0
+    if max_value <= 0:
+        max_value = 1.0
+
+    chart_x = x + 16
+    chart_y = y + 26
+    chart_w = w - 32
+    chart_h = h - 52
+    c.setStrokeColor(colors.HexColor('#e2e8f0'))
+    c.setFillColor(colors.HexColor('#e2e8f0'))
+    for step in range(5):
+        grid_y = chart_y + (chart_h * step / 4.0)
+        c.line(chart_x, grid_y, chart_x + chart_w, grid_y)
+
+    gap = 8
+    bar_w = max(14, (chart_w - (gap * (len(chart_items) - 1))) / max(1, len(chart_items)))
+    palette = [
+        colors.HexColor('#0c9fb0'),
+        colors.HexColor('#14b8a6'),
+        colors.HexColor('#3b82f6'),
+        colors.HexColor('#f59e0b'),
+        colors.HexColor('#ef4444'),
+        colors.HexColor('#8b5cf6'),
+    ]
+
+    for idx, item in enumerate(chart_items):
+        value = values[idx]
+        bar_h = 0 if max_value <= 0 else (value / max_value) * (chart_h - 20)
+        bar_x = chart_x + idx * (bar_w + gap)
+        label = str(item.get('label') or item.get('key') or '-')[:10]
+        c.setFillColor(colors.HexColor('#edf2f7'))
+        c.roundRect(bar_x, chart_y, bar_w, chart_h - 20, 4, fill=1, stroke=0)
+        c.setFillColor(palette[idx % len(palette)])
+        c.roundRect(bar_x, chart_y, bar_w, bar_h, 4, fill=1, stroke=0)
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica-Bold', 7.5)
+        c.drawCentredString(bar_x + (bar_w / 2), chart_y + bar_h + 8, str(int(value) if float(value).is_integer() else round(value, 1)))
+        c.setFont('Helvetica', 7)
+        c.drawCentredString(bar_x + (bar_w / 2), y + 12, label)
+
+    c.restoreState()
+
+
+def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None, date_to=None, all_companies=False):
+    overview = _build_dashboard_overview(
+        user,
+        empresa_id=empresa_id,
+        date_from=date_from,
+        date_to=date_to,
+        all_companies=all_companies,
+    )
+
+    consultoria_owner = get_consultoria_owner(user)
+    if user.is_superuser or user.user_type == UserType.ADM:
+        empresas_qs = Empresa.objects.all()
+    else:
+        empresas_qs = Empresa.objects.filter(consultor=consultoria_owner)
+
+    selected_empresa_id = overview.get('selected_empresa_id')
+    empresa = None
+    if selected_empresa_id:
+        empresa = empresas_qs.filter(id=selected_empresa_id).first()
+
+    page_size = landscape(A4)
+    w, h = page_size
+    mx = 14 * mm
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=page_size)
+    c.setTitle('Dashboard de Indicadores')
+
+    empresa_nome = empresa.company_name if empresa else ('Visão consolidada' if all_companies else 'Empresa não identificada')
+    periodo = f'{date_from.strftime("%d/%m/%Y") if date_from else "Inicio livre"} ate {date_to.strftime("%d/%m/%Y") if date_to else "Hoje"}'
+    generated_at = timezone.now().strftime('%d/%m/%Y %H:%M')
+
+    c.setFillColor(colors.HexColor('#f5fbfb'))
+    c.rect(0, 0, w, h, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor('#0b5f6b'))
+    c.roundRect(mx, h - (34 * mm), w - (2 * mx), 24 * mm, 12, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 21)
+    c.drawString(mx + 14, h - (20 * mm), 'Painel de Indicadores')
+    c.setFont('Helvetica', 10)
+    # c.drawString(mx + 14, h - (26 * mm), 'Exportacao da visao atual da dashboard')
+    c.setFont('Helvetica', 9)
+    c.drawRightString(w - mx - 14, h - (20 * mm), f'Gerado em {generated_at}')
+    c.drawRightString(w - mx - 14, h - (26 * mm), periodo)
+
+    info_y = h - (46 * mm)
+    info_h = 36 * mm
+    info_w = w - (2 * mx)
+    info_bottom = info_y - info_h
+
+    doc_label = 'CNPJ' if getattr(empresa, 'document_type', '') == 'CNPJ' else 'DOC.'
+    doc_value = getattr(empresa, 'document_number', '') or '-'
+    employee_value = str(getattr(empresa, 'employee_count', 0) if empresa else 0)
+    responsible_name = getattr(empresa, 'responsible_name', '') or '-'
+    logo_area_w = 52 * mm if empresa else 0
+
+    # Outer box
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor('#c8d8db'))
+    c.roundRect(mx, info_bottom, info_w, info_h, 10, fill=1, stroke=1)
+
+    # Left accent line (teal, 3.5pt)
+    c.setStrokeColor(colors.HexColor('#0b5f6b'))
+    c.setLineWidth(3.5)
+    c.line(mx + 1.75, info_bottom + 10, mx + 1.75, info_y - 10)
+    c.setLineWidth(1)
+
+    # Vertical divider before logo column
+    if empresa:
+        div_x = mx + info_w - logo_area_w
+        c.setStrokeColor(colors.HexColor('#dde8ea'))
+        c.setLineWidth(0.5)
+        c.line(div_x, info_bottom + 8, div_x, info_y - 8)
+        c.setLineWidth(1)
+
+    tx = mx + 14
+    content_edge = mx + info_w - logo_area_w - 8
+
+    # 'EMPRESA' kicker
+    c.setFillColor(colors.HexColor('#0b5f6b'))
+    c.setFont('Helvetica-Bold', 7.5)
+    c.drawString(tx, info_y - 11, 'EMPRESA')
+
+    # Company name
+    c.setFillColor(colors.HexColor('#0f172a'))
+    c.setFont('Helvetica-Bold', 17)
+    c.drawString(tx, info_y - 26, empresa_nome[:55])
+
+    # Separator line
+    sep_y = info_bottom + (13 * mm)
+    c.setStrokeColor(colors.HexColor('#e8eff1'))
+    c.setLineWidth(0.5)
+    c.line(tx, sep_y, content_edge, sep_y)
+    c.setLineWidth(1)
+
+    # Info chips row (4 fields side by side)
+    periodo_str = '{} - {}'.format(
+        date_from.strftime('%d/%m/%y') if date_from else 'Inicio',
+        date_to.strftime('%d/%m/%y') if date_to else 'Hoje',
+    )
+    chips = [
+        (doc_label, str(doc_value)[:22]),
+        ('COLABORADORES', employee_value),
+        ('RESPONSAVEL', str(responsible_name)[:30]),
+        ('PERIODO', periodo_str),
+    ]
+    chips_area_w = content_edge - tx
+    chip_gap = 3 * mm
+    chip_h = 11 * mm
+    chip_w = (chips_area_w - chip_gap * (len(chips) - 1)) / len(chips)
+    chip_y = info_bottom + (2 * mm)
+
+    for i, (chip_label, chip_value) in enumerate(chips):
+        cx = tx + i * (chip_w + chip_gap)
+        c.setFillColor(colors.HexColor('#f4f8f9'))
+        c.setStrokeColor(colors.HexColor('#dde8ea'))
+        c.roundRect(cx, chip_y, chip_w, chip_h, 4, fill=1, stroke=1)
+        c.setFillColor(colors.HexColor('#5f7b83'))
+        c.setFont('Helvetica-Bold', 6.5)
+        c.drawString(cx + 7, chip_y + chip_h - 7, chip_label)
+        c.setFillColor(colors.HexColor('#0f172a'))
+        c.setFont('Helvetica-Bold', 9.5)
+        c.drawString(cx + 7, chip_y + 4, str(chip_value)[:26])
+
+    # Logo (vertically centered in the logo column)
+    if empresa:
+        _draw_pdf_empresa_logo(
+            c,
+            empresa,
+            info_y - 5,
+            max_width=40 * mm,
+            max_height=18 * mm,
+            x=mx + info_w - logo_area_w + 6,
+            y=info_bottom + (info_h - (18 * mm)) / 2,
+        )
+
+    # ── Overview cards (4 cards matching the dashboard) ─────────────────────
+    summary_cards_data = overview.get('summary_cards') or []
+    canal = overview.get('canal_overview') or {}
+    domain_items = overview.get('domain_distribution') or []
+
+    total_empresas_val = summary_cards_data[0].get('value', 0) if summary_cards_data else 0
+    avg_domain_val = int(
+        sum(float(d.get('percent') or 0) for d in domain_items) / max(1, len(domain_items))
+    ) if domain_items else 0
+
+    pdf_cards = [
+        {'label': 'Total de Empresas', 'value': total_empresas_val},
+        {'label': 'Média de segmentos', 'value': f'{avg_domain_val}%'},
+        {'label': 'Canal de denúncias', 'value': canal.get('total_denuncias', 0)},
+        {'label': 'Humor monitorado', 'value': canal.get('total_humor', 0)},
+    ]
+    card_y = info_y - info_h - (9 * mm)
+    card_h = 24 * mm
+    card_gap = 5 * mm
+    card_w = (info_w - (card_gap * 3)) / 4
+    card_colors = [
+        colors.HexColor('#e6fbf5'),
+        colors.HexColor('#edf8ff'),
+        colors.HexColor('#feeef0'),
+        colors.HexColor('#fff7e8'),
+    ]
+    for idx, card in enumerate(pdf_cards):
+        _draw_dashboard_pdf_card(
+            c,
+            mx + idx * (card_w + card_gap),
+            card_y - card_h,
+            card_w,
+            card_h,
+            card['label'],
+            card['value'],
+            fill_color=card_colors[idx],
+        )
+
+    left_x = mx
+    left_w = (info_w * 0.55) - (4 * mm)
+    right_x = left_x + left_w + (8 * mm)
+    right_w = info_w - left_w - (8 * mm)
+    charts_top = card_y - card_h - (8 * mm)
+
+    _draw_dashboard_pdf_bar_group(c, left_x, charts_top, left_w, 'Distribuição por segmento', domain_items)
+
+    # History chart: position so its TOP aligns with charts_top and goes DOWN 45mm
+    hist_chart_h = 45 * mm
+    history = overview.get('history') or {}
+    hist_items = [{'label': label, 'value': value} for label, value in zip(history.get('labels') or [], history.get('values') or [])]
+    _draw_dashboard_pdf_vertical_chart(
+        c,
+        right_x,
+        charts_top - hist_chart_h,
+        right_w,
+        hist_chart_h,
+        'Histórico de avaliações',
+        hist_items,
+    )
+
+    # Denúncias por status list below the history chart
+    den_list_top = charts_top - hist_chart_h - (5 * mm)
+    _draw_dashboard_pdf_list(c, right_x, den_list_top, right_w, 'Denúncias por status', canal.get('den_por_status') or [])
+
+    c.showPage()
+    c.setFillColor(colors.HexColor('#f5fbfb'))
+    c.rect(0, 0, w, h, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor('#0f172a'))
+    c.setFont('Helvetica-Bold', 20)
+    c.drawString(mx, h - (18 * mm), 'Indicadores complementares')
+    c.setFont('Helvetica', 10)
+    c.setFillColor(colors.HexColor('#5f7b83'))
+    c.drawString(mx, h - (24 * mm), f'{empresa_nome}  |  Período: {periodo}')
+
+    top_y = h - (34 * mm)
+    col_gap = 8 * mm
+    col_w = (w - (2 * mx) - (2 * col_gap)) / 3
+    col1_x = mx
+    col2_x = mx + col_w + col_gap
+    col3_x = mx + 2 * (col_w + col_gap)
+
+    chart_h = 60 * mm
+    _draw_dashboard_pdf_vertical_chart(c, col1_x, top_y - chart_h, col_w, chart_h, 'Denúncias por status', canal.get('den_por_status') or [])
+    _draw_dashboard_pdf_vertical_chart(c, col2_x, top_y - chart_h, col_w, chart_h, 'Humor por tipo', canal.get('humor_por_tipo') or [])
+
+    humor_trend = canal.get('humor_trend') or {}
+    humor_trend_items = [{'label': label, 'value': value} for label, value in zip(humor_trend.get('labels') or [], humor_trend.get('values') or [])]
+    _draw_dashboard_pdf_vertical_chart(c, col3_x, top_y - chart_h, col_w, chart_h, 'Histórico de humor', humor_trend_items)
+
+    list_top = top_y - chart_h - 10 * mm
+    y1 = _draw_dashboard_pdf_hbar_chart(c, col1_x, list_top, col_w, 'Denúncias por tipo', canal.get('den_por_tipo') or [])
+    y2 = _draw_dashboard_pdf_hbar_chart(c, col2_x, list_top, col_w, 'Denúncias por GHE', canal.get('den_por_ghe') or [])
+    _draw_dashboard_pdf_card(
+        c,
+        col3_x,
+        list_top - (26 * mm),
+        col_w,
+        24 * mm,
+        'Pedidos de ajuda',
+        canal.get('total_pedidos_ajuda', 0),
+        detail='Registros contabilizados no período atual',
+        fill_color=colors.HexColor('#eef7f8'),
+    )
+
+    c.save()
+    pdf = buffer.getvalue()
+    safe_name = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in str(f'dashboard_{empresa_nome}'))[:80] or 'dashboard_indicadores'
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{safe_name}.pdf"'
+    return response
 
 
 def _supabase_s3_client():
@@ -3550,6 +4056,16 @@ class DashboardOverviewView(APIView):
         return Response(_build_dashboard_overview(request.user, empresa_id=empresa_id, date_from=date_from, date_to=date_to, all_companies=all_companies))
 
 
+class DashboardOverviewPdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get(self, request):
+        filters, error_response = _parse_dashboard_filters(request)
+        if error_response:
+            return error_response
+        return _build_dashboard_overview_pdf_response(request.user, **filters)
+
+
 def _consultoria_owner_for_user(user):
     return get_consultoria_owner(user)
 
@@ -6400,6 +6916,150 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     safe2 = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in (camp2.title or 'c2'))[:30]
     response['Content-Disposition'] = f'attachment; filename="comparativo_{safe1}_vs_{safe2}.pdf"'
     return response
+
+
+class CampanhaQrCodePdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get_object(self, request, campanha_id):
+        qs = Campanha.objects.select_related('empresa').filter(id=campanha_id)
+        if request.user.is_superuser or request.user.user_type == UserType.ADM:
+            return qs.first()
+        return qs.filter(empresa__consultor=_consultoria_owner_for_user(request.user)).first()
+
+    def get(self, request, campanha_id):
+        campanha = self.get_object(request, campanha_id)
+        if not campanha:
+            return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Build the public URL and generate QR code image bytes
+        base_url = getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', 'http://127.0.0.1:5173').rstrip('/')
+        public_url = f'{base_url}/#/questionario/{campanha.share_token}/'
+
+        try:
+            import qrcode as qrcode_lib
+            qr_buffer = BytesIO()
+            qrcode_lib.make(public_url).save(qr_buffer, format='PNG')
+            qr_bytes = qr_buffer.getvalue()
+        except Exception:
+            qr_bytes = None
+
+        # Draw PDF (A4 portrait)
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        page_w, page_h = A4
+
+        top_margin = REPORT_SOURCE_TOP_MARGIN
+        bottom_margin = REPORT_SOURCE_BOTTOM_MARGIN
+        side_margin = 20 * mm
+        content_w = page_w - 2 * side_margin
+        cx = page_w / 2  # horizontal center
+
+        # Background
+        c.setFillColor(colors.HexColor('#f8fafb'))
+        c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
+        # Header band
+        band_h = 18 * mm
+        band_y = page_h - top_margin - band_h
+        c.setFillColor(colors.HexColor('#0b5f6b'))
+        c.roundRect(side_margin, band_y, content_w, band_h, 8, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 16)
+        c.drawCentredString(cx, band_y + (band_h - 16) / 2 + 2, 'Questionário de Avaliação NR-1')
+
+        # Company name
+        empresa_nome = campanha.empresa.company_name if campanha.empresa else ''
+        y = band_y - 10 * mm
+        if empresa_nome:
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica-Bold', 9)
+            c.drawCentredString(cx, y, 'EMPRESA')
+            y -= 6 * mm
+            c.setFillColor(colors.HexColor('#0f172a'))
+            c.setFont('Helvetica-Bold', 13)
+            c.drawCentredString(cx, y, empresa_nome[:60])
+            y -= 5 * mm
+
+        # Campaign title
+        c.setFillColor(colors.HexColor('#5f7b83'))
+        c.setFont('Helvetica-Bold', 9)
+        c.drawCentredString(cx, y, 'CAMPANHA')
+        y -= 6 * mm
+        c.setFillColor(colors.HexColor('#0f172a'))
+        c.setFont('Helvetica-Bold', 14)
+        c.drawCentredString(cx, y, str(campanha.title or '')[:60])
+        y -= 9 * mm
+
+        # Instruction text
+        c.setFillColor(colors.HexColor('#475569'))
+        c.setFont('Helvetica', 10)
+        c.drawCentredString(cx, y, 'Escaneie o QR Code abaixo para acessar o questionário da campanha.')
+        y -= 4 * mm
+
+        # QR code image (centered, large)
+        qr_size = 72 * mm
+        qr_x = cx - qr_size / 2
+        qr_y = y - qr_size - 4 * mm
+
+        # QR code card background
+        card_pad = 6 * mm
+        c.setFillColor(colors.white)
+        c.setStrokeColor(colors.HexColor('#d1dce0'))
+        c.roundRect(qr_x - card_pad, qr_y - card_pad, qr_size + 2 * card_pad, qr_size + 2 * card_pad, 10, fill=1, stroke=1)
+
+        if qr_bytes:
+            from reportlab.lib.utils import ImageReader
+            c.drawImage(ImageReader(BytesIO(qr_bytes)), qr_x, qr_y, width=qr_size, height=qr_size, mask='auto')
+        else:
+            c.setFillColor(colors.HexColor('#94a3b8'))
+            c.setFont('Helvetica', 9)
+            c.drawCentredString(cx, qr_y + qr_size / 2, 'QR Code indisponivel')
+
+        y = qr_y - card_pad - 8 * mm
+
+        # URL below QR
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica', 7.5)
+        c.drawCentredString(cx, y, public_url[:90])
+        y -= 8 * mm
+
+        # Separator
+        c.setStrokeColor(colors.HexColor('#e2e8f0'))
+        c.setLineWidth(0.5)
+        c.line(side_margin + 20 * mm, y, page_w - side_margin - 20 * mm, y)
+        c.setLineWidth(1)
+        y -= 7 * mm
+
+        # Info chips (dates)
+        start = campanha.start_date.strftime('%d/%m/%Y') if campanha.start_date else '-'
+        end = campanha.end_date.strftime('%d/%m/%Y') if campanha.end_date else 'Em aberto'
+        chip_data = [('INICIO', start), ('ENCERRAMENTO', end)]
+        chip_w = 48 * mm
+        chip_h = 12 * mm
+        chip_gap = 6 * mm
+        total_chips_w = len(chip_data) * chip_w + (len(chip_data) - 1) * chip_gap
+        chip_start_x = cx - total_chips_w / 2
+        for i, (lbl, val) in enumerate(chip_data):
+            cx_chip = chip_start_x + i * (chip_w + chip_gap)
+            c.setFillColor(colors.HexColor('#f1f5f9'))
+            c.setStrokeColor(colors.HexColor('#dde8ea'))
+            c.roundRect(cx_chip, y - chip_h, chip_w, chip_h, 5, fill=1, stroke=1)
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica-Bold', 7)
+            c.drawCentredString(cx_chip + chip_w / 2, y - 7, lbl)
+            c.setFillColor(colors.HexColor('#0f172a'))
+            c.setFont('Helvetica-Bold', 9)
+            c.drawCentredString(cx_chip + chip_w / 2, y - chip_h + 3, val)
+
+        c.save()
+        pdf = _apply_pdf_letterhead(buffer.getvalue())
+        buffer.close()
+
+        safe_name = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in str(campanha.title or 'qrcode'))[:60]
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="qrcode_{safe_name}.pdf"'
+        return response
 
 
 class CampanhaComparativoPdfView(APIView):

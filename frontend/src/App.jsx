@@ -618,8 +618,10 @@ function DashboardOverviewModern({
   onDashboardDateChange,
   canFilter = false,
   dashLoad = false,
+  dashPdfLoading = false,
   dashErr = "",
   loadDashboardOverview,
+  exportDashboardPdf,
   userName = "Usuario",
   userRoleLabel = "Usuario",
   goSection,
@@ -728,6 +730,10 @@ function DashboardOverviewModern({
         </div>
 
         <div className="dashboard-topbar-actions">
+          <button type="button" className="dashboard-ghost-btn" onClick={exportDashboardPdf} disabled={dashPdfLoading || dashLoad}>
+            <span aria-hidden="true">⭳</span>
+            <span>{dashPdfLoading ? "Gerando PDF..." : "Baixar PDF"}</span>
+          </button>
           {/* <button type="button" className="dashboard-ghost-btn" onClick={() => loadDashboardOverview()}>
             Atualizar
           </button> */}
@@ -1115,7 +1121,7 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(false), [sideExpand, setSideExpand] = useState(true), [section, setSection] = useState(getCachedSection());
   const [sideUserMenuOpen, setSideUserMenuOpen] = useState(false);
   const [cadOpen, setCadOpen] = useState(() => ["setor", "ghe", "cargos"].includes(getCachedSection()));
-  const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState(""), [dashDateFrom, setDashDateFrom] = useState(""), [dashDateTo, setDashDateTo] = useState("");
+  const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashPdfLoading, setDashPdfLoading] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState(""), [dashDateFrom, setDashDateFrom] = useState(""), [dashDateTo, setDashDateTo] = useState("");
   const [dashEmpresaBusca, setDashEmpresaBusca] = useState(""), [dashEmpresaMenuOpen, setDashEmpresaMenuOpen] = useState(false);
   const [cfgData, setCfgData] = useState(null), [cfgLoad, setCfgLoad] = useState(false), [cfgErr, setCfgErr] = useState(""), [cfgSaving, setCfgSaving] = useState(false);
   const [cfgForm, setCfgForm] = useState({ cnpj: "", nome_consultoria: "", responsavel_legal: "", representante_legal_relatorio: "", cidade: "", uf: "" });
@@ -1134,6 +1140,8 @@ export default function App() {
 
   const [empresas, setEmpresas] = useState([]), [empErr, setEmpErr] = useState(""), [empLoad, setEmpLoad] = useState(false);
   const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("9"), [empPage, setEmpPage] = useState(1);
+  const [empConsultoriaFilter, setEmpConsultoriaFilter] = useState("");
+  const [empConsultoriaMenuOpen, setEmpConsultoriaMenuOpen] = useState(false);
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false);
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
@@ -1161,7 +1169,9 @@ export default function App() {
   const [cargoNomeBusca, setCargoNomeBusca] = useState("");
   const [campanhas, setCampanhas] = useState([]), [campErr, setCampErr] = useState(""), [campLoad, setCampLoad] = useState(false), [campStatusLoadingId, setCampStatusLoadingId] = useState(null);
   const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
-  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false);
+  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false), [campStatusMenuOpen, setCampStatusMenuOpen] = useState(false);
+  const [campQrPdfLoadingId, setCampQrPdfLoadingId] = useState(null);
+  const [campConsultoriaFilter, setCampConsultoriaFilter] = useState(""), [campConsultoriaMenuOpen, setCampConsultoriaMenuOpen] = useState(false);
   const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false);
   const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false);
   const [ajudaListEmpresaBusca, setAjudaListEmpresaBusca] = useState(""), [ajudaListEmpresaFiltro, setAjudaListEmpresaFiltro] = useState(""), [ajudaListLoad, setAjudaListLoad] = useState(false), [ajudaListErr, setAjudaListErr] = useState(""), [ajudaListData, setAjudaListData] = useState(null), [ajudaListEmpresaMenuOpen, setAjudaListEmpresaMenuOpen] = useState(false);
@@ -1185,6 +1195,8 @@ export default function App() {
   const [denAnalyzeModal, setDenAnalyzeModal] = useState({ item: null, saving: false, err: "" });
   const [denViewModal, setDenViewModal] = useState(null);
   const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null), [cmpEmpresaMenuOpen, setCmpEmpresaMenuOpen] = useState(false), [cmpPdfLoading, setCmpPdfLoading] = useState(false);
+  const [cmpConsultoriaFilter, setCmpConsultoriaFilter] = useState(""), [cmpConsultoriaMenuOpen, setCmpConsultoriaMenuOpen] = useState(false);
+  const [cmpPeriodoInicio, setCmpPeriodoInicio] = useState(""), [cmpPeriodoFim, setCmpPeriodoFim] = useState("");
   const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState(""), [totemEmpresaMenuOpen, setTotemEmpresaMenuOpen] = useState(false);
   const [totemLinkData, setTotemLinkData] = useState(null), [totemLoad, setTotemLoad] = useState(false), [totemErr, setTotemErr] = useState("");
   const [linkRegenModal, setLinkRegenModal] = useState({ target: "", open: false });
@@ -1918,6 +1930,43 @@ export default function App() {
     } finally {
       cache.promise = null;
       setDashLoad(false);
+    }
+  }
+
+  async function exportDashboardPdf() {
+    setDashPdfLoading(true);
+    try {
+      const authToken = getAuthToken();
+      if (!authToken) throw new Error("Sessao invalida. Faca login novamente.");
+      const params = new URLSearchParams();
+      if (dashEmpresa) params.set("empresa_id", dashEmpresa);
+      if (dashDateFrom) params.set("date_from", dashDateFrom);
+      if (dashDateTo) params.set("date_to", dashDateTo);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      const r = await fetch(`${API}/dashboard/overview/pdf/${qs}`, {
+        headers: { Authorization: `Token ${authToken}` },
+      });
+      if (!r.ok) {
+        let msg = "Nao foi possivel gerar o PDF da dashboard.";
+        try {
+          const d = await r.json();
+          msg = pErr(d);
+        } catch {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "dashboard-indicadores.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDashErr(err.message || "Erro ao exportar dashboard.");
+    } finally {
+      setDashPdfLoading(false);
     }
   }
 
@@ -3743,55 +3792,26 @@ export default function App() {
   }
 
   function printCampanhaQr(item) {
-    if (!item?.qr_code_data || !item?.public_url) {
+    if (!item?.id) {
       setCampErr("QR Code indisponivel para impressao.");
       return;
     }
-    const printWindow = window.open("", "_blank", "width=900,height=700");
-    if (!printWindow) {
-      setCampErr("Nao foi possivel abrir a janela de impressao.");
-      return;
-    }
-    const safeTitle = String(item.title || "Questionario").replace(/[<>&"]/g, "");
-    const safeCompany = String(item.empresa_name || "").replace(/[<>&"]/g, "");
-    const safeUrl = String(item.public_url || "").replace(/[<>&"]/g, "");
-    printWindow.document.write(`
-      <!doctype html>
-      <html lang="pt-BR">
-        <head>
-          <meta charset="utf-8" />
-          <title>QR Code - ${safeTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 32px; color: #0f172a; }
-            .sheet { max-width: 760px; margin: 0 auto; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 28px; }
-            p { margin: 0 0 12px; line-height: 1.5; }
-            .meta { color: #475569; font-size: 14px; }
-            .qr { margin: 28px auto 20px; display: inline-flex; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; background: #fff; }
-            .qr img { width: 280px; height: 280px; object-fit: contain; }
-            .url { margin-top: 12px; font-size: 13px; word-break: break-all; color: #334155; }
-          </style>
-        </head>
-        <body>
-          <main class="sheet">
-            <h1>${safeTitle}</h1>
-            ${safeCompany ? `<p class="meta">${safeCompany}</p>` : ""}
-            <p>Escaneie o QR Code para acessar o questionario da campanha.</p>
-            <div class="qr">
-              <img src="${item.qr_code_data}" alt="QR Code da campanha ${safeTitle}" />
-            </div>
-            <p class="url">${safeUrl}</p>
-          </main>
-          <script>
-            window.addEventListener("load", () => {
-              window.print();
-              window.setTimeout(() => window.close(), 200);
-            });
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    const authToken = getAuthToken();
+    if (!authToken) { setCampErr("Sessao invalida."); return; }
+    setCampQrPdfLoadingId(item.id);
+    const url = `${API}/campanhas/${item.id}/qrcode/pdf/`;
+    fetch(url, { headers: { Authorization: `Token ${authToken}` } })
+      .then((r) => {
+        if (!r.ok) throw new Error("Erro ao gerar PDF do QR Code.");
+        return r.blob();
+      })
+      .then((blob) => {
+        const objUrl = URL.createObjectURL(blob);
+        window.open(objUrl, "_blank");
+        setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+      })
+      .catch((err) => setCampErr(err.message))
+      .finally(() => setCampQrPdfLoadingId(null));
   }
 
   function printDenunciaQr(item) {
@@ -4345,8 +4365,7 @@ export default function App() {
     }
   }
 
-  async function submitCompararCampanhas(e) {
-    e.preventDefault();
+  async function doCompararCampanhas() {
     setCmpErr("");
     setCmpSubmitted(false);
     setCmpResult(null);
@@ -4370,6 +4389,7 @@ export default function App() {
       setCmpLoading(false);
     }
   }
+  function submitCompararCampanhas(e) { e.preventDefault(); doCompararCampanhas(); }
 
   async function exportComparativoPdf() {
     if (!cmpCamp1 || !cmpCamp2) return;
@@ -4596,8 +4616,10 @@ export default function App() {
         onDashboardDateChange={onDashboardDateChange}
         canFilter={canEmp(user)}
         dashLoad={dashLoad}
+        dashPdfLoading={dashPdfLoading}
         dashErr={dashErr}
         loadDashboardOverview={loadDashboardOverview}
+        exportDashboardPdf={exportDashboardPdf}
         userName={(user.full_name || user.email || "Usuario").slice(0, 22)}
         userRoleLabel={userRoleLabel(user)}
         goSection={goSection}
@@ -4834,14 +4856,23 @@ export default function App() {
         {!empLoad && (
           <>
             {(() => {
+              const isSuperUser = isAdm(user);
+              const consultorias = isSuperUser
+                ? [...new Map(empresas.map((e) => [e.consultor_id, { id: e.consultor_id, name: e.consultor_name }])).values()]
+                    .filter((c) => c.id && c.name)
+                    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+                : [];
+              const byConsultoria = isSuperUser && empConsultoriaFilter
+                ? empresas.filter((e) => String(e.consultor_id) === empConsultoriaFilter)
+                : empresas;
               const termo = empBusca.trim().toLowerCase();
               const filtradas = termo
-                ? empresas.filter((e) =>
+                ? byConsultoria.filter((e) =>
                     [e.company_name, e.document_number, e.description]
                       .filter(Boolean)
                       .some((v) => String(v).toLowerCase().includes(termo))
                   )
-                : empresas;
+                : byConsultoria;
               const pageSize = Math.max(1, Number(empPageSize || 6));
               const totalPages = Math.max(1, Math.ceil(filtradas.length / pageSize));
               const currentPage = Math.min(Math.max(1, empPage), totalPages);
@@ -4851,11 +4882,65 @@ export default function App() {
               return (
                 <>
                   <div className="empresas-toolbar">
+                    <div className="empresas-toolbar-left">
                     <input
                       placeholder="Buscar por nome, CNPJ ou descricao..."
                       value={empBusca}
                       onChange={(e) => { setEmpBusca(e.target.value); setEmpPage(1); }}
                     />
+                    {isSuperUser && (
+                      <div className="emp-cf-wrap">
+                        <button
+                          type="button"
+                          className={`emp-cf-btn${empConsultoriaFilter ? " active" : ""}`}
+                          onClick={() => setEmpConsultoriaMenuOpen((v) => !v)}
+                          onBlur={() => setTimeout(() => setEmpConsultoriaMenuOpen(false), 150)}
+                        >
+                          <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+                          </svg>
+                          <span className="emp-cf-label">
+                            {empConsultoriaFilter
+                              ? (consultorias.find((c) => String(c.id) === empConsultoriaFilter)?.name || "Consultoria")
+                              : "Consultoria"}
+                          </span>
+                          {empConsultoriaFilter ? (
+                            <span
+                              className="emp-cf-clear"
+                              role="button"
+                              aria-label="Limpar filtro"
+                              onMouseDown={(ev) => { ev.stopPropagation(); setEmpConsultoriaFilter(""); setEmpPage(1); setEmpConsultoriaMenuOpen(false); }}
+                            >×</span>
+                          ) : (
+                            <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                              <path d={empConsultoriaMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                            </svg>
+                          )}
+                        </button>
+                        {empConsultoriaMenuOpen && (
+                          <div className="emp-cf-menu">
+                            <button
+                              type="button"
+                              className={`emp-cf-option${!empConsultoriaFilter ? " selected" : ""}`}
+                              onMouseDown={() => { setEmpConsultoriaFilter(""); setEmpPage(1); setEmpConsultoriaMenuOpen(false); }}
+                            >
+                              Todas as consultorias
+                            </button>
+                            {consultorias.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                className={`emp-cf-option${String(c.id) === empConsultoriaFilter ? " selected" : ""}`}
+                                onMouseDown={() => { setEmpConsultoriaFilter(String(c.id)); setEmpPage(1); setEmpConsultoriaMenuOpen(false); }}
+                              >
+                                {c.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    </div>
                     <div className="empresas-page-size">
                       <label>Itens por pagina:</label>
                       <select value={empPageSize} onChange={(e) => { setEmpPageSize(e.target.value); setEmpPage(1); }}>
@@ -4893,6 +4978,12 @@ export default function App() {
 
                   <p className="empresa-doc-row"><strong>{e.document_type === "CNPJ" ? "CNPJ" : "CPF"}:</strong> {e.document_number}</p>
                   <p className="empresa-doc-row"><strong>Criada em:</strong> {e.created_at ? fDate(e.created_at) : "-"}</p>
+                  {isSuperUser && e.consultor_name && (
+                    <p className="empresa-consultoria-badge">
+                      <span className="empresa-consultoria-dot" aria-hidden="true" />
+                      {e.consultor_name}
+                    </p>
+                  )}
 
                   <div className="mt-3 flex items-center justify-end gap-2">
                     <button
@@ -6205,22 +6296,34 @@ export default function App() {
       );
     }
     if (section === "campanhas") {
+      const isSuperUser = isAdm(user);
+      const campConsultorias = isSuperUser
+        ? [...new Map(empresas.map((e) => [e.consultor_id, { id: e.consultor_id, name: e.consultor_name }])).values()]
+            .filter((c) => c.id && c.name)
+            .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        : [];
+      const empresasParaCamp = isSuperUser && campConsultoriaFilter
+        ? empresas.filter((emp) => String(emp.consultor_id) === campConsultoriaFilter)
+        : empresas;
       const termoEmpresa = campEmpresaBusca.trim().toLowerCase();
       const campEmpresaSugestoes = (campEmpresaBusca.trim()
-        ? empresas.filter((emp) => (
+        ? empresasParaCamp.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
         ))
-        : empresas
+        : empresasParaCamp
       ).slice(0, 8);
       const empresasPorBusca = termoEmpresa
-        ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
+        ? empresasParaCamp.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
+      const empresasParaCampIds = empresasParaCamp.map((e) => String(e.id));
       const campanhasBase = campEmpresaFiltro
         ? campanhas.filter((cp) => String(cp.empresa) === String(campEmpresaFiltro))
         : termoEmpresa
           ? campanhas.filter((cp) => empresasPorBusca.includes(String(cp.empresa)))
-          : campanhas;
+          : campConsultoriaFilter
+            ? campanhas.filter((cp) => empresasParaCampIds.includes(String(cp.empresa)))
+            : campanhas;
       const campanhasFiltradas = campStatusFiltro === "TODAS"
         ? campanhasBase
         : campanhasBase.filter((cp) => String(cp.status || "") === campStatusFiltro);
@@ -6280,19 +6383,97 @@ export default function App() {
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               {/* <h2 className="m-0 text-lg font-semibold text-slate-900">Lista de campanhas</h2> */}
-              <div className="flex items-center gap-2">
-                <label htmlFor="camp-status-filter" className="text-sm font-medium text-slate-600">Status</label>
-                <select
-                  id="camp-status-filter"
-                  value={campStatusFiltro}
-                  onChange={(e) => { setCampPage(1); setCampStatusFiltro(e.target.value); }}
-                  className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+              <div className="emp-cf-wrap">
+                <button
+                  type="button"
+                  className={`emp-cf-btn${campStatusFiltro !== "TODAS" ? " active" : ""}`}
+                  onClick={() => setCampStatusMenuOpen((v) => !v)}
+                  onBlur={() => setTimeout(() => setCampStatusMenuOpen(false), 150)}
                 >
-                  <option value="TODAS">Todas</option>
-                  <option value="ATIVO">Ativa</option>
-                  <option value="ENCERRADO">Encerrada</option>
-                </select>
+                  <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
+                  </svg>
+                  <span className="emp-cf-label">
+                    {campStatusFiltro === "TODAS" ? "Status" : campStatusFiltro === "ATIVO" ? "Ativa" : "Encerrada"}
+                  </span>
+                  {campStatusFiltro !== "TODAS" ? (
+                    <span
+                      className="emp-cf-clear"
+                      role="button"
+                      aria-label="Limpar filtro"
+                      onMouseDown={(ev) => { ev.stopPropagation(); setCampStatusFiltro("TODAS"); setCampPage(1); setCampStatusMenuOpen(false); }}
+                    >×</span>
+                  ) : (
+                    <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                      <path d={campStatusMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                    </svg>
+                  )}
+                </button>
+                {campStatusMenuOpen && (
+                  <div className="emp-cf-menu">
+                    {[{ v: "TODAS", l: "Todas" }, { v: "ATIVO", l: "Ativa" }, { v: "ENCERRADO", l: "Encerrada" }].map(({ v, l }) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`emp-cf-option${campStatusFiltro === v ? " selected" : ""}`}
+                        onMouseDown={() => { setCampStatusFiltro(v); setCampPage(1); setCampStatusMenuOpen(false); }}
+                      >{l}</button>
+                    ))}
+                  </div>
+                )}
               </div>
+              {isSuperUser && (
+                <div className="emp-cf-wrap">
+                  <button
+                    type="button"
+                    className={`emp-cf-btn${campConsultoriaFilter ? " active" : ""}`}
+                    onClick={() => setCampConsultoriaMenuOpen((v) => !v)}
+                    onBlur={() => setTimeout(() => setCampConsultoriaMenuOpen(false), 150)}
+                  >
+                    <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+                    </svg>
+                    <span className="emp-cf-label">
+                      {campConsultoriaFilter
+                        ? (campConsultorias.find((c) => String(c.id) === campConsultoriaFilter)?.name || "Consultoria")
+                        : "Consultoria"}
+                    </span>
+                    {campConsultoriaFilter ? (
+                      <span
+                        className="emp-cf-clear"
+                        role="button"
+                        aria-label="Limpar filtro"
+                        onMouseDown={(ev) => { ev.stopPropagation(); setCampConsultoriaFilter(""); setCampPage(1); setCampConsultoriaMenuOpen(false); }}
+                      >×</span>
+                    ) : (
+                      <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                        <path d={campConsultoriaMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                      </svg>
+                    )}
+                  </button>
+                  {campConsultoriaMenuOpen && (
+                    <div className="emp-cf-menu">
+                      <button
+                        type="button"
+                        className={`emp-cf-option${!campConsultoriaFilter ? " selected" : ""}`}
+                        onMouseDown={() => { setCampConsultoriaFilter(""); setCampPage(1); setCampConsultoriaMenuOpen(false); }}
+                      >
+                        Todas as consultorias
+                      </button>
+                      {campConsultorias.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`emp-cf-option${String(c.id) === campConsultoriaFilter ? " selected" : ""}`}
+                          onMouseDown={() => { setCampConsultoriaFilter(String(c.id)); setCampPage(1); setCampConsultoriaMenuOpen(false); }}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <button
               type="button"
@@ -6377,7 +6558,7 @@ export default function App() {
                             <button className="campanha-icon-btn" title="Relatorio" aria-label="Abrir relatorio" onClick={() => openCampanhaRelatorio(cp)}>{I.rpt}</button>
                           )}
                           <button className="campanha-icon-btn" title="Ver link/QR" aria-label="Abrir link e QR" onClick={() => openCampanha("qr", cp)}>{I.link}</button>
-                          <button className="campanha-icon-btn" title="Imprimir QR Code" aria-label="Imprimir QR Code do questionario" onClick={() => printCampanhaQr(cp)}>{I.print}</button>
+                          <button className="campanha-icon-btn" title="Imprimir QR Code" aria-label="Imprimir QR Code do questionario" disabled={campQrPdfLoadingId === cp.id} onClick={() => printCampanhaQr(cp)}>{campQrPdfLoadingId === cp.id ? <span className="spinner-xs" /> : I.print}</button>
                           <button className="campanha-icon-btn" title="Copiar link publico" aria-label="Copiar link publico" onClick={async () => { try { await copyText(cp.public_url); } catch (err) { setCampErr(err.message); } }}>{I.copy}</button>
                           <button className="campanha-icon-btn" title="Editar campanha" aria-label="Editar campanha" onClick={() => openCampanha("edit", cp)}>{I.edit}</button>
                           <button className="campanha-icon-btn danger" title="Excluir campanha" aria-label="Excluir campanha" onClick={() => openCampanha("delete", cp)}>{I.del}</button>
@@ -6409,16 +6590,30 @@ export default function App() {
       );
     }
     if (section === "comparar-campanhas" && canEmp(user)) {
+      const isSuperUser = isAdm(user);
+      const cmpConsultorias = isSuperUser
+        ? [...new Map(empresas.map((e) => [e.consultor_id, { id: e.consultor_id, name: e.consultor_name }])).values()]
+            .filter((c) => c.id && c.name)
+            .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        : [];
+      const cmpEmpresasFiltradas = isSuperUser && cmpConsultoriaFilter
+        ? empresas.filter((e) => String(e.consultor_id) === cmpConsultoriaFilter)
+        : empresas;
       const termoCmpEmpresa = cmpEmpresaBusca.trim().toLowerCase();
-      const cmpEmpresaSugestoes = (cmpEmpresaBusca.trim()
-        ? empresas.filter((emp) => (
-          String(emp.company_name || "").toLowerCase().includes(termoCmpEmpresa)
-          || String(emp.document_number || "").toLowerCase().includes(termoCmpEmpresa)
-        ))
-        : empresas
-      );
+      const cmpEmpresasVisiveis = termoCmpEmpresa
+        ? cmpEmpresasFiltradas.filter((e) =>
+            String(e.company_name || "").toLowerCase().includes(termoCmpEmpresa)
+            || String(e.document_number || "").toLowerCase().includes(termoCmpEmpresa)
+          )
+        : cmpEmpresasFiltradas;
+      const cmpEmpresaInfo = empresas.find((e) => String(e.id) === String(cmpEmpresaFiltro));
       const campanhasDaEmpresa = cmpEmpresaFiltro
-        ? campanhas.filter((cp) => String(cp.empresa) === String(cmpEmpresaFiltro))
+        ? campanhas.filter((cp) => {
+            if (String(cp.empresa) !== String(cmpEmpresaFiltro)) return false;
+            if (cmpPeriodoInicio && cp.start_date && cp.start_date < cmpPeriodoInicio) return false;
+            if (cmpPeriodoFim && cp.start_date && cp.start_date > cmpPeriodoFim) return false;
+            return true;
+          })
         : [];
       const campanhaA = campanhas.find((cp) => String(cp.id) === String(cmpCamp1));
       const campanhaB = campanhas.find((cp) => String(cp.id) === String(cmpCamp2));
@@ -6433,74 +6628,178 @@ export default function App() {
       return (
         <section className="admin-panel">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Comparar Campanhas</h2> */}
-                <p className="text-sm font-medium text-slate-500">Selecione campanhas para comparar resultados e indicadores.</p>
-              </div>
-            </div>
+            <p className="text-sm font-medium text-slate-500">Selecione campanhas para comparar resultados e indicadores.</p>
           </div>
-          <section className="config-card">
-            <form onSubmit={submitCompararCampanhas} className="config-form-grid">
-              <div className="config-full-row">
-                <label htmlFor="cmp-empresa-search">Empresa</label>
-                <div className="relative w-full">
-                  <input
-                    id="cmp-empresa-search"
-                    placeholder="Buscar empresa..."
-                    autoComplete="off"
-                    className="w-full"
-                    value={cmpEmpresaBusca}
-                    onFocus={() => setCmpEmpresaMenuOpen(true)}
-                    onBlur={() => setTimeout(() => setCmpEmpresaMenuOpen(false), 120)}
-                    onChange={(e) => { onCmpEmpresaBuscaChange(e.target.value); setCmpEmpresaMenuOpen(true); }}
-                  />
-                  {cmpEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                      {cmpEmpresaSugestoes.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+
+          {/* ── Filtros ── */}
+          <section className="config-card cmp-filters-card">
+            <div className="cmp-filters-row">
+              {isSuperUser && (
+                <div className="cmp-filter-field">
+                  <label>Consultoria</label>
+                  <div className="emp-cf-wrap" style={{ position: "relative" }}>
+                    <button
+                      type="button"
+                      className={`emp-cf-btn${cmpConsultoriaFilter ? " active" : ""}`}
+                      onClick={() => setCmpConsultoriaMenuOpen((v) => !v)}
+                      onBlur={() => setTimeout(() => setCmpConsultoriaMenuOpen(false), 150)}
+                    >
+                      <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+                      </svg>
+                      <span className="emp-cf-label">
+                        {cmpConsultoriaFilter
+                          ? (cmpConsultorias.find((c) => String(c.id) === cmpConsultoriaFilter)?.name || "Consultoria")
+                          : "Todas as consultorias"}
+                      </span>
+                      {cmpConsultoriaFilter ? (
+                        <span className="emp-cf-clear" role="button" aria-label="Limpar" onMouseDown={(ev) => { ev.stopPropagation(); setCmpConsultoriaFilter(""); setCmpEmpresaFiltro(""); setCmpCamp1(""); setCmpCamp2(""); setCmpConsultoriaMenuOpen(false); }}>×</span>
                       ) : (
-                        cmpEmpresaSugestoes.map((emp) => (
-                          <button
-                            key={`cmp-empresa-opt-${emp.id}`}
-                            type="button"
-                            className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-transparent focus:bg-transparent active:bg-transparent"
-                            onMouseDown={(ev) => ev.preventDefault()}
-                            onClick={() => selectCmpEmpresaBuscaOption(emp)}
-                          >
-                            <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
-                          </button>
-                        ))
+                        <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                          <path d={cmpConsultoriaMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                        </svg>
                       )}
-                    </div>
-                  )}
+                    </button>
+                    {cmpConsultoriaMenuOpen && (
+                      <div className="emp-cf-menu">
+                        <button type="button" className={`emp-cf-option${!cmpConsultoriaFilter ? " selected" : ""}`} onMouseDown={() => { setCmpConsultoriaFilter(""); setCmpEmpresaFiltro(""); setCmpCamp1(""); setCmpCamp2(""); setCmpConsultoriaMenuOpen(false); }}>Todas as consultorias</button>
+                        {cmpConsultorias.map((c) => (
+                          <button key={c.id} type="button" className={`emp-cf-option${String(c.id) === cmpConsultoriaFilter ? " selected" : ""}`} onMouseDown={() => { setCmpConsultoriaFilter(String(c.id)); setCmpEmpresaFiltro(""); setCmpCamp1(""); setCmpCamp2(""); setCmpConsultoriaMenuOpen(false); }}>{c.name}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+              )}
+              <div className="cmp-filter-field">
+                <label>Período — de</label>
+                <input type="date" value={cmpPeriodoInicio} onChange={(e) => { setCmpPeriodoInicio(e.target.value); setCmpCamp1(""); setCmpCamp2(""); setCmpSubmitted(false); setCmpResult(null); }} />
               </div>
-              <div>
-                <label>Campanha 1</label>
-                <select value={cmpCamp1} onChange={(e) => { setCmpCamp1(e.target.value); setCmpErr(""); setCmpSubmitted(false); }} disabled={!cmpEmpresaFiltro}>
-                  <option value="">{cmpEmpresaFiltro ? "Selecione" : "Selecione uma empresa primeiro"}</option>
-                  {campanhasDaEmpresa.map((cp) => (
-                    <option key={`cmp-c1-${cp.id}`} value={cp.id}>{cp.title}</option>
-                  ))}
-                </select>
+              <div className="cmp-filter-field">
+                <label>até</label>
+                <input type="date" value={cmpPeriodoFim} onChange={(e) => { setCmpPeriodoFim(e.target.value); setCmpCamp1(""); setCmpCamp2(""); setCmpSubmitted(false); setCmpResult(null); }} />
               </div>
-              <div>
-                <label>Campanha 2</label>
-                <select value={cmpCamp2} onChange={(e) => { setCmpCamp2(e.target.value); setCmpErr(""); setCmpSubmitted(false); }} disabled={!cmpEmpresaFiltro}>
-                  <option value="">{cmpEmpresaFiltro ? "Selecione" : "Selecione uma empresa primeiro"}</option>
-                  {campanhasDaEmpresa.map((cp) => (
-                    <option key={`cmp-c2-${cp.id}`} value={cp.id}>{cp.title}</option>
-                  ))}
-                </select>
-              </div>
-              {cmpErr && <p className="error config-full-row">{cmpErr}</p>}
-              <div className="config-actions config-full-row">
-                <button type="submit" disabled={cmpLoading || !cmpEmpresaFiltro || campanhasDaEmpresa.length < 2}>{cmpLoading ? "Comparando..." : "Comparar"}</button>
-              </div>
-            </form>
+              {(cmpPeriodoInicio || cmpPeriodoFim) && (
+                <button type="button" className="secondary cmp-clear-period" onClick={() => { setCmpPeriodoInicio(""); setCmpPeriodoFim(""); setCmpCamp1(""); setCmpCamp2(""); setCmpSubmitted(false); setCmpResult(null); }}>Limpar período</button>
+              )}
+            </div>
           </section>
+
+          {/* ── Empresas ── */}
+          <section className="config-card">
+            <div className="cmp-empresa-header">
+              <h2>
+                Empresas
+                {isSuperUser && cmpConsultoriaFilter && (
+                  <span className="cmp-consultoria-tag">{cmpConsultorias.find((c) => String(c.id) === cmpConsultoriaFilter)?.name}</span>
+                )}
+              </h2>
+              <input
+                placeholder="Buscar empresa..."
+                value={cmpEmpresaBusca}
+                onChange={(e) => setCmpEmpresaBusca(e.target.value)}
+                className="cmp-empresa-search-input"
+              />
+            </div>
+            {cmpEmpresasVisiveis.length === 0 ? (
+              <p className="empty-state">Nenhuma empresa encontrada.</p>
+            ) : (
+              <div className="cmp-empresa-grid">
+                {cmpEmpresasVisiveis.map((emp) => {
+                  const isSelected = String(cmpEmpresaFiltro) === String(emp.id);
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      className={`cmp-empresa-card${isSelected ? " selected" : ""}`}
+                      onClick={() => {
+                        if (isSelected) { setCmpEmpresaFiltro(""); } else { setCmpEmpresaFiltro(String(emp.id)); }
+                        setCmpCamp1(""); setCmpCamp2(""); setCmpSubmitted(false); setCmpResult(null); setCmpErr("");
+                      }}
+                    >
+                      {isSelected && <span className="cmp-empresa-check">✓</span>}
+                      <span className="cmp-empresa-name">{emp.company_name}</span>
+                      {emp.document_number && <span className="cmp-empresa-doc">{emp.document_number}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* ── Campanhas ── */}
+          {cmpEmpresaFiltro && (
+            <section className="config-card">
+              <div className="cmp-camps-header">
+                <div>
+                  <h2>Campanhas — {cmpEmpresaInfo?.company_name}</h2>
+                  <p className="cmp-camps-hint">Clique em <b>1</b> ou <b>2</b> para selecionar cada campanha para comparação.</p>
+                </div>
+                {(cmpCamp1 || cmpCamp2) && (
+                  <button type="button" className="secondary" onClick={() => { setCmpCamp1(""); setCmpCamp2(""); setCmpSubmitted(false); setCmpResult(null); setCmpErr(""); }}>Limpar seleção</button>
+                )}
+              </div>
+              {campanhasDaEmpresa.length === 0 ? (
+                <p className="empty-state">Nenhuma campanha encontrada{(cmpPeriodoInicio || cmpPeriodoFim) ? " no período selecionado" : ""}.</p>
+              ) : (
+                <div className="cmp-camp-list">
+                  {campanhasDaEmpresa.map((cp) => {
+                    const isCamp1 = String(cmpCamp1) === String(cp.id);
+                    const isCamp2 = String(cmpCamp2) === String(cp.id);
+                    const fmt = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : null;
+                    return (
+                      <div key={cp.id} className={`cmp-camp-item${isCamp1 ? " sel-1" : isCamp2 ? " sel-2" : ""}`}>
+                        <div className="cmp-camp-info">
+                          <strong className="cmp-camp-title">{cp.title}</strong>
+                          <div className="cmp-camp-meta">
+                            {cp.start_date && <span>{fmt(cp.start_date)}{cp.end_date ? ` → ${fmt(cp.end_date)}` : ""}</span>}
+                            <span className={`cmp-camp-badge ${cp.status === "ATIVO" ? "ativo" : "encerrado"}`}>{cp.status === "ATIVO" ? "Ativa" : "Encerrada"}</span>
+                            {cp.completed_count > 0 && <span className="cmp-camp-count">{cp.completed_count} resposta{cp.completed_count !== 1 ? "s" : ""}</span>}
+                          </div>
+                        </div>
+                        <div className="cmp-camp-slots">
+                          <button
+                            type="button"
+                            className={`cmp-slot-btn${isCamp1 ? " active-1" : ""}`}
+                            title="Definir como Campanha 1"
+                            onClick={() => { setCmpCamp1(isCamp1 ? "" : String(cp.id)); setCmpErr(""); setCmpSubmitted(false); setCmpResult(null); }}
+                          >1</button>
+                          <button
+                            type="button"
+                            className={`cmp-slot-btn${isCamp2 ? " active-2" : ""}`}
+                            title="Definir como Campanha 2"
+                            onClick={() => { setCmpCamp2(isCamp2 ? "" : String(cp.id)); setCmpErr(""); setCmpSubmitted(false); setCmpResult(null); }}
+                          >2</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {(cmpCamp1 || cmpCamp2) && (
+                <div className="cmp-selection-bar">
+                  <div className="cmp-selected-slot">
+                    <span className="cmp-slot-label-1">Campanha 1</span>
+                    <span className="cmp-selected-name">{campanhaA?.title || <em>não selecionada</em>}</span>
+                  </div>
+                  <span className="cmp-vs">vs</span>
+                  <div className="cmp-selected-slot">
+                    <span className="cmp-slot-label-2">Campanha 2</span>
+                    <span className="cmp-selected-name">{campanhaB?.title || <em>não selecionada</em>}</span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!cmpCamp1 || !cmpCamp2 || cmpLoading}
+                    onClick={doCompararCampanhas}
+                  >
+                    {cmpLoading ? "Comparando..." : "Comparar"}
+                  </button>
+                </div>
+              )}
+              {cmpErr && <p className="error" style={{ marginTop: 12 }}>{cmpErr}</p>}
+            </section>
+          )}
 
           {cmpSubmitted && campanhaA && campanhaB && cmpResult && (
             <section className="config-card">
@@ -8639,12 +8938,13 @@ export default function App() {
                   <button type="button" className="secondary" onClick={closeCampanha}>Fechar</button>
                   <button
                     type="button"
+                    disabled={campQrPdfLoadingId === cpModal.item?.id}
                     onClick={() => {
                       setCpErr("");
                       printCampanhaQr(cpModal.item);
                     }}
                   >
-                    Imprimir QR
+                    {campQrPdfLoadingId === cpModal.item?.id ? "Gerando PDF..." : "Imprimir QR"}
                   </button>
                   <button
                     type="button"

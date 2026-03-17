@@ -1679,6 +1679,9 @@ input {
   border-radius: 8px;
   padding: 0 12px;
   font-size: 0.95rem;
+  line-height: 1;
+  margin: 0;
+  vertical-align: middle;
 }
 
 select {
@@ -2685,6 +2688,21 @@ h3 {
   margin: 6px 0 8px;
 }
 
+.empresas-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.empresas-toolbar-left > input {
+  max-width: 320px;
+  width: 100%;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
 .empresas-toolbar > input {
   max-width: 430px;
   width: 100%;
@@ -2715,6 +2733,146 @@ h3 {
 
 .denuncias-list-card .empresas-page-size select {
   width: 150px;
+}
+
+.emp-cf-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+}
+
+.emp-cf-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 12px;
+  background: #f9fafb;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  line-height: 1;
+  margin: 0;
+  vertical-align: middle;
+  color: #374151;
+  font-weight: 400;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  min-width: 190px;
+  max-width: 260px;
+}
+
+.emp-cf-btn:hover {
+  border-color: #0c9fb0;
+  background: #f5fbfc;
+}
+
+.emp-cf-btn.active {
+  border-color: #0c9fb0;
+  background: #e8f8fa;
+  color: #0b5f6b;
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(12, 159, 176, 0.1);
+}
+
+.emp-cf-icon {
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.emp-cf-btn.active .emp-cf-icon {
+  color: #0b5f6b;
+}
+
+.emp-cf-label {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emp-cf-arrow {
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+
+.emp-cf-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #0b5f6b;
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.emp-cf-clear:hover {
+  background: #094f58;
+}
+
+.emp-cf-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 300;
+  min-width: 240px;
+  background: #fff;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.11);
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.emp-cf-option {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #374151;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.emp-cf-option:hover {
+  background: #f0f9fa;
+  color: #0b5f6b;
+}
+
+.emp-cf-option.selected {
+  background: #e8f8fa;
+  color: #0b5f6b;
+  font-weight: 600;
+}
+
+.empresa-consultoria-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: #0b5f6b;
+  font-weight: 600;
+}
+
+.empresa-consultoria-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0c9fb0;
+  flex-shrink: 0;
 }
 
 .empresa-grid-compact {
@@ -3261,6 +3419,16 @@ h3 {
   font-weight: 600;
 }
 
+.spinner-xs {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #2563eb;
+  animation: spin-loading 0.75s linear infinite;
+}
+
 .loading-spinner {
   width: 18px;
   height: 18px;
@@ -3370,6 +3538,10 @@ h3 {
 
 .dashboard-ghost-btn,
 .dashboard-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 46px;
   margin-top: 0;
   border-radius: 999px;
@@ -3389,6 +3561,12 @@ h3 {
   background: linear-gradient(135deg, #0c9fb0 0%, #056475 100%);
   color: #ffffff;
   box-shadow: 0 16px 30px rgba(5, 100, 117, 0.2);
+}
+
+.dashboard-ghost-btn:disabled,
+.dashboard-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .dashboard-primary-btn-block {
@@ -5350,6 +5528,285 @@ h3 {
   gap: 12px;
 }
 
+/* ── Comparar Campanhas — novo layout ── */
+.cmp-filters-card { padding-bottom: 8px; }
+
+.cmp-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.cmp-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.cmp-filter-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cmp-clear-period {
+  align-self: flex-end;
+  margin-bottom: 1px;
+}
+
+.cmp-empresa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.cmp-empresa-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.cmp-consultoria-tag {
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+
+.cmp-empresa-search-input {
+  max-width: 260px;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.cmp-empresa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.cmp-empresa-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.cmp-empresa-card:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.cmp-empresa-card.selected {
+  border-color: #0891b2;
+  background: #e0f7fa;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.12);
+}
+
+.cmp-empresa-check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.75rem;
+  color: #0891b2;
+  font-weight: 700;
+}
+
+.cmp-empresa-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.cmp-empresa-doc {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.cmp-camps-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.cmp-camps-header h2 { margin: 0 0 2px; }
+
+.cmp-camps-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.cmp-camp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cmp-camp-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cmp-camp-item.sel-1 {
+  border-color: #0891b2;
+  background: #e0f7fa;
+}
+
+.cmp-camp-item.sel-2 {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.cmp-camp-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cmp-camp-title {
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cmp-camp-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.cmp-camp-badge {
+  padding: 1px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.cmp-camp-badge.ativo { background: #dcfce7; color: #16a34a; }
+.cmp-camp-badge.encerrado { background: #f1f5f9; color: #64748b; }
+
+.cmp-camp-count { color: #0891b2; font-weight: 500; }
+
+.cmp-camp-slots {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cmp-slot-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cmp-slot-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
+
+.cmp-slot-btn.active-1 {
+  border-color: #0891b2;
+  background: #0891b2;
+  color: #fff;
+}
+
+.cmp-slot-btn.active-2 {
+  border-color: #7c3aed;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.cmp-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.cmp-selected-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.cmp-slot-label-1 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0891b2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cmp-slot-label-2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7c3aed;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cmp-selected-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.cmp-vs {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+/* ── */
 .compare-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

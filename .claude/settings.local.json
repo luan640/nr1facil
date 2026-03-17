@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"section === ''empresas''\" /c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/frontend/src/App.jsx)"
+    ]
+  }
+}

@@ -110,6 +110,54 @@ class ConsultoriaHierarchyTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['company_name'], 'Empresa Alfa')
 
+
+class DashboardOverviewPdfTests(APITestCase):
+    def setUp(self):
+        self.consultoria = User.objects.create_user(
+            email='consultoria-dashboard@example.com',
+            password='secret123',
+            user_type=UserType.CONSULTOR,
+            full_name='Consultoria Dashboard',
+        )
+        self.empresa_user = User.objects.create_user(
+            email='empresa-dashboard@example.com',
+            password='secret123',
+            user_type=UserType.EMPRESA,
+        )
+        self.empresa = Empresa.objects.create(
+            consultor=self.consultoria,
+            responsavel_usuario=self.empresa_user,
+            document_type='CNPJ',
+            document_number='12345678000199',
+            company_name='Empresa Painel PDF',
+            establishment_type='MATRIZ',
+            establishment_name='Unidade Central',
+            evaluation_type='SETOR',
+            responsible_name='Responsavel PDF',
+            risk_level='2',
+            employee_count=42,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.consultoria)
+
+    def test_dashboard_overview_pdf_returns_landscape_pdf_with_company_info(self):
+        response = self.client.get(
+            reverse('dashboard-overview-pdf'),
+            {'empresa_id': self.empresa.id, 'date_from': '2026-01-01', 'date_to': '2026-01-31'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        reader = PdfReader(BytesIO(response.content))
+        self.assertGreaterEqual(len(reader.pages), 1)
+        page_width = float(reader.pages[0].mediabox.width)
+        page_height = float(reader.pages[0].mediabox.height)
+        self.assertGreater(page_width, page_height)
+        pdf_text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+        self.assertIn('Dashboard de Indicadores', pdf_text)
+        self.assertIn('Empresa Painel PDF', pdf_text)
+        self.assertIn('Distribuicao por segmento', pdf_text)
+
     def test_admin_list_consultorias_excludes_internal_users(self):
         User.objects.create_user(
             email='interno@example.com',

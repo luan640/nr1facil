@@ -254,6 +254,8 @@ class EmpresaSerializer(serializers.ModelSerializer):
     create_default_structure = serializers.BooleanField(write_only=True, required=False, default=True)
     responsible_user_email = serializers.EmailField(source='responsavel_usuario.email', read_only=True)
     logo_url = serializers.SerializerMethodField(read_only=True)
+    consultor_id = serializers.IntegerField(source='consultor.id', read_only=True)
+    consultor_name = serializers.CharField(source='consultor.full_name', read_only=True)
 
     class Meta:
         model = Empresa
@@ -286,8 +288,10 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'is_active',
             'created_at',
             'updated_at',
+            'consultor_id',
+            'consultor_name',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'responsible_user_email', 'logo_url']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'responsible_user_email', 'logo_url', 'consultor_id', 'consultor_name']
 
     def validate_document_number(self, value):
         return ''.join(char for char in value if char.isdigit())
