@@ -3184,6 +3184,31 @@ h3 {
   gap: 4px;
 }
 
+.field-invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.18);
+}
+
+.field-invalid:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
+}
+
+.field-invalid-pulse {
+  animation: field-invalid-pulse 1.05s ease-in-out infinite;
+}
+
+@keyframes field-invalid-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+  }
+}
+
 .empresa-wizard-modal {
   max-width: 760px;
 }

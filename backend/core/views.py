@@ -3937,7 +3937,7 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         email = str(request.data.get('email') or '').strip().lower()
         generic_response = {
-            'detail': 'Se o e-mail estiver cadastrado, voce recebera um link para redefinir a senha.'
+            'detail': 'Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.'
         }
         if not email:
             return Response(generic_response, status=status.HTTP_200_OK)
@@ -3976,7 +3976,7 @@ class PasswordResetConfirmView(APIView):
         password = str(request.data.get('password') or '')
 
         if not uid or not token or not password:
-            return Response({'detail': 'Dados invalidos para redefinicao de senha.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Dados inválidos para redefinição de senha.'}, status=status.HTTP_400_BAD_REQUEST)
         if len(password) < 8:
             return Response({'detail': 'A nova senha deve ter pelo menos 8 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3984,10 +3984,10 @@ class PasswordResetConfirmView(APIView):
             user_id = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=user_id, is_active=True)
         except Exception:
-            return Response({'detail': 'Link de redefinicao invalido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Link de redefinição inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not default_token_generator.check_token(user, token):
-            return Response({'detail': 'Link de redefinicao invalido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Link de redefinição inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user.set_password(password)
         user.save(update_fields=['password'])
@@ -4042,7 +4042,7 @@ class DashboardOverviewView(APIView):
             try:
                 empresa_id = int(empresa_id_raw)
             except ValueError:
-                return Response({'detail': 'Empresa invalida.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'Empresa inválida.'}, status=status.HTTP_400_BAD_REQUEST)
         date_from = date_to = None
         try:
             raw_from = (request.query_params.get('date_from') or '').strip()

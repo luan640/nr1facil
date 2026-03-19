@@ -1142,7 +1142,7 @@ export default function App() {
   const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("9"), [empPage, setEmpPage] = useState(1);
   const [empConsultoriaFilter, setEmpConsultoriaFilter] = useState("");
   const [empConsultoriaMenuOpen, setEmpConsultoriaMenuOpen] = useState(false);
-  const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false);
+  const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false), [eInvalidFields, setEInvalidFields] = useState({});
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
@@ -4415,13 +4415,19 @@ export default function App() {
     }
   }
 
-  function openEmpresaCreate() { setEMode("create"); setEEdit(null); setEForm(INIT_EMPRESA); setELogoFile(null); setEStep(1); setEErr(""); setEModalOpen(true); }
+  function openEmpresaCreate() { setEMode("create"); setEEdit(null); setEForm(INIT_EMPRESA); setELogoFile(null); setEStep(1); setEErr(""); setEInvalidFields({}); setEModalOpen(true); }
   function openEmpresaEdit(x) {
-    setEMode("edit"); setEEdit(x); setELogoFile(null); setEStep(1); setEErr(""); setEModalOpen(true);
+    setEMode("edit"); setEEdit(x); setELogoFile(null); setEStep(1); setEErr(""); setEInvalidFields({}); setEModalOpen(true);
     setEForm({ ...INIT_EMPRESA, document_type: x.document_type, establishment_type: x.establishment_type, establishment_custom_name: x.establishment_custom_name || "", company_name: x.company_name || "", cnae: x.cnae || "", document_number: x.document_number || "", responsible_name: x.responsible_name || "", responsible_email: x.responsible_user_email || "", responsible_password: "", establishment_name: x.establishment_name || "", evaluation_type: x.evaluation_type || "SETOR", risk_level: x.risk_level || "", employee_count: String(x.employee_count ?? ""), postal_code: x.postal_code || "", state: x.state || "", city: x.city || "", neighborhood: x.neighborhood || "", street: x.street || "", number: x.number || "", complement: x.complement || "", is_active: Boolean(x.is_active) });
   }
-  function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setECepErr(""); setECepLoading(false); setESaving(false); setEInactivate(null); setEActing(false); setELogoFile(null); setEForm(INIT_EMPRESA); }
+  function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setECepErr(""); setECepLoading(false); setESaving(false); setEInactivate(null); setEActing(false); setELogoFile(null); setEInvalidFields({}); setEForm(INIT_EMPRESA); }
   function eChange(k, v) {
+    setEInvalidFields((prev) => {
+      if (!prev[k]) return prev;
+      const next = { ...prev };
+      delete next[k];
+      return next;
+    });
     if (k === "postal_code") {
       const cep = String(v || "").replace(/\D/g, "").slice(0, 8);
       setECepErr("");
@@ -4478,14 +4484,38 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [eForm.postal_code, eStep]);
 
+  function empresaFieldClass(name) {
+    return eInvalidFields[name] ? "field-invalid field-invalid-pulse" : "";
+  }
+
+  function showEmpresaValidationError(result) {
+    if (!result) return false;
+    const invalidMap = (result.fields || []).reduce((acc, field) => {
+      acc[field] = true;
+      return acc;
+    }, {});
+    setEInvalidFields(invalidMap);
+    setEErr("");
+    pushToast("error", "Campo obrigatório", result.message);
+    return true;
+  }
+
   function checkStep(s) {
-    if (s === 1 && !eForm.document_type) return "Selecione CPF ou CNPJ.";
-    if (s === 2 && !eForm.establishment_type) return "Selecione o tipo do estabelecimento.";
+    if (s === 1 && !eForm.document_type) return { fields: ["document_type"], message: "Selecione CPF ou CNPJ." };
+    if (s === 2 && !eForm.establishment_type) return { fields: ["establishment_type"], message: "Selecione o tipo do estabelecimento." };
     if (s === 3) {
       const req = [["company_name", "Nome da empresa"], ["document_number", eForm.document_type], ["responsible_name", "Nome do responsável"], ["responsible_email", "E-mail do responsavel"], ["establishment_name", "Nome do estabelecimento"], ["evaluation_type", "Tipo de avaliacao"], ["risk_level", "Grau de risco"], ["employee_count", "Numero de funcionarios"], ["postal_code", "CEP"], ["state", "UF"], ["city", "Cidade"], ["neighborhood", "Bairro"]];
-      for (const [k, l] of req) if (!String(eForm[k] || "").trim()) return `Preencha: ${l}.`;
+      const missing = req.filter(([k]) => !String(eForm[k] || "").trim());
+      if (missing.length) {
+        const [firstKey, firstLabel] = missing[0];
+        const extraCount = missing.length - 1;
+        return {
+          fields: missing.map(([k]) => k),
+          message: extraCount > 0 ? `Preencha: ${firstLabel}. Há mais ${extraCount} campo(s) obrigatório(s) destacado(s).` : `Preencha: ${firstLabel}.`,
+        };
+      }
     }
-    return "";
+    return null;
   }
 
   function nextStep(ev) {
@@ -4494,7 +4524,8 @@ export default function App() {
       ev.stopPropagation();
     }
     const m = checkStep(eStep);
-    if (m) return setEErr(m);
+    if (showEmpresaValidationError(m)) return;
+    setEInvalidFields({});
     setEErr("");
     setEStep((s) => Math.min(3, s + 1));
   }
@@ -4504,12 +4535,13 @@ export default function App() {
       ev.stopPropagation();
     }
     setEErr("");
+    setEInvalidFields({});
     setEStep((s) => Math.max(1, s - 1));
   }
 
   async function saveEmpresa(e) {
-    e.preventDefault(); const msg = checkStep(3); if (msg) return setEErr(msg);
-    setESaving(true); setEErr("");
+    e.preventDefault(); const msg = checkStep(3); if (showEmpresaValidationError(msg)) return;
+    setESaving(true); setEErr(""); setEInvalidFields({});
     const authToken = getAuthToken();
     if (!authToken) {
       setESaving(false);
@@ -9010,7 +9042,7 @@ export default function App() {
                 <div className="empresa-step1">
                   <h4>1. Para comecar, selecione o tipo de documento</h4>
                   <div className="empresa-doc-options">
-                    <button type="button" className={`empresa-doc-option ${eForm.document_type === "CNPJ" ? "active" : ""}`} onClick={() => eChange("document_type", "CNPJ")}>
+                    <button type="button" className={`empresa-doc-option ${eForm.document_type === "CNPJ" ? "active" : ""} ${empresaFieldClass("document_type")}`} onClick={() => eChange("document_type", "CNPJ")}>
                       <span className="empresa-doc-option-icon" aria-hidden="true">{I.emp}</span>
                       <span className="empresa-doc-option-text">
                         <strong>CNPJ</strong>
@@ -9018,7 +9050,7 @@ export default function App() {
                       </span>
                       {eForm.document_type === "CNPJ" && <span className="empresa-doc-option-check" aria-hidden="true">✓</span>}
                     </button>
-                    <button type="button" className={`empresa-doc-option ${eForm.document_type === "CPF" ? "active" : ""}`} onClick={() => eChange("document_type", "CPF")}>
+                    <button type="button" className={`empresa-doc-option ${eForm.document_type === "CPF" ? "active" : ""} ${empresaFieldClass("document_type")}`} onClick={() => eChange("document_type", "CPF")}>
                       <span className="empresa-doc-option-icon" aria-hidden="true">{I.con}</span>
                       <span className="empresa-doc-option-text">
                         <strong>CPF</strong>
@@ -9043,7 +9075,7 @@ export default function App() {
                       <button
                         key={`unit-${opt.value}`}
                         type="button"
-                        className={`empresa-doc-option empresa-unit-option ${eForm.establishment_type === opt.value ? "active" : ""}`}
+                        className={`empresa-doc-option empresa-unit-option ${eForm.establishment_type === opt.value ? "active" : ""} ${empresaFieldClass("establishment_type")}`}
                         onClick={() => eChange("establishment_type", opt.value)}
                       >
                         <span className="empresa-doc-option-icon" aria-hidden="true">{opt.value === "MATRIZ" ? I.emp : opt.value === "FILIAL" ? I.cad : opt.value === "UNIDADE" ? I.camp : I.edit}</span>
@@ -9058,14 +9090,14 @@ export default function App() {
                   {["FILIAL", "UNIDADE", "OUTRO"].includes(eForm.establishment_type) && (
                     <div className="empresa-step2-custom">
                       <label>Nome complementar (opcional)</label>
-                      <input value={eForm.establishment_custom_name} onChange={(e) => eChange("establishment_custom_name", e.target.value)} placeholder="Ex.: Unidade Centro" />
+                      <input className={empresaFieldClass("establishment_custom_name")} value={eForm.establishment_custom_name} onChange={(e) => eChange("establishment_custom_name", e.target.value)} placeholder="Ex.: Unidade Centro" />
                     </div>
                   )}
                 </div>
               )}
 
               {eStep === 3 && <div className="wizard-grid">
-                <div><label>Nome da empresa (Obrigatório)</label><input value={eForm.company_name} onChange={(e) => eChange("company_name", e.target.value)} /></div>
+                <div><label>Nome da empresa (Obrigatório)</label><input className={empresaFieldClass("company_name")} value={eForm.company_name} onChange={(e) => eChange("company_name", e.target.value)} /></div>
                 <div>
                   <label>Logo da empresa (Opcional)</label>
                   <input type="file" accept="image/*" onChange={(e) => setELogoFile(e.target.files?.[0] || null)} />
@@ -9077,12 +9109,12 @@ export default function App() {
                   )}
                 </div>
                 <div><label>CNAE (Opcional)</label><input value={eForm.cnae} onChange={(e) => eChange("cnae", e.target.value)} placeholder="Ex.: 47.11-3-02" /></div>
-                <div><label>{eForm.document_type} (Obrigatório)</label><input value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
-                <div><label>Nome do responsável (Obrigatório)</label><input value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
-                <div><label>E-mail do responsável (Obrigatório)</label><input type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
+                <div><label>{eForm.document_type} (Obrigatório)</label><input className={empresaFieldClass("document_number")} value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
+                <div><label>Nome do responsável (Obrigatório)</label><input className={empresaFieldClass("responsible_name")} value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
+                <div><label>E-mail do responsável (Obrigatório)</label><input className={empresaFieldClass("responsible_email")} type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
                 {/* <div><label>Senha do responsável {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div> */}
-                <div><label>Nome do estabelecimento (Obrigatório)</label><input value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
-                <div><label>Tipo de avaliação (Obrigatório)</label><select value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
+                <div><label>Nome do estabelecimento (Obrigatório)</label><input className={empresaFieldClass("establishment_name")} value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
+                <div><label>Tipo de avaliação (Obrigatório)</label><select className={empresaFieldClass("evaluation_type")} value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
                 {eMode === "create" && (
                   <div className="md:col-span-2">
                     <label>Cadastros iniciais automáticos</label>
@@ -9108,17 +9140,17 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div><label>Grau de risco (Obrigatório)</label><select value={eForm.risk_level} onChange={(e) => eChange("risk_level", e.target.value)}><option value="">Selecione</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-                <div><label>Número de funcionários (Obrigatório)</label><input type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
+                <div><label>Grau de risco (Obrigatório)</label><select className={empresaFieldClass("risk_level")} value={eForm.risk_level} onChange={(e) => eChange("risk_level", e.target.value)}><option value="">Selecione</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+                <div><label>Número de funcionários (Obrigatório)</label><input className={empresaFieldClass("employee_count")} type="number" min="0" value={eForm.employee_count} onChange={(e) => eChange("employee_count", e.target.value)} /></div>
                 <div>
                   <label>CEP (Obrigatório)</label>
-                  <input value={eForm.postal_code} onChange={(e) => eChange("postal_code", e.target.value)} placeholder="Somente numeros" />
+                  <input className={empresaFieldClass("postal_code")} value={eForm.postal_code} onChange={(e) => eChange("postal_code", e.target.value)} placeholder="Somente numeros" />
                   {eCepLoading && <small>Buscando endereço automaticamente...</small>}
                   {!eCepLoading && eCepErr && <small className="error">{eCepErr}</small>}
                 </div>
-                <div><label>UF (Obrigatório)</label><input maxLength={2} value={eForm.state} disabled readOnly /></div>
-                <div><label>Cidade (Obrigatório)</label><input value={eForm.city} disabled readOnly /></div>
-                <div><label>Bairro (Obrigatório)</label><input value={eForm.neighborhood} disabled readOnly /></div>
+                <div><label>UF (Obrigatório)</label><input className={empresaFieldClass("state")} maxLength={2} value={eForm.state} disabled readOnly /></div>
+                <div><label>Cidade (Obrigatório)</label><input className={empresaFieldClass("city")} value={eForm.city} disabled readOnly /></div>
+                <div><label>Bairro (Obrigatório)</label><input className={empresaFieldClass("neighborhood")} value={eForm.neighborhood} disabled readOnly /></div>
                 <div><label>Rua (Opcional)</label><input value={eForm.street} onChange={(e) => eChange("street", e.target.value)} /></div>
                 <div><label>Número (Opcional)</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
                 <div><label>Complemento (Opcional)</label><input value={eForm.complement} onChange={(e) => eChange("complement", e.target.value)} /></div>
