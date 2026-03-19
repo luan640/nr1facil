@@ -628,6 +628,16 @@ function DashboardOverviewModern({
   fmtPct,
   reportZoneClass,
 }) {
+  const [empVisibleCount, setEmpVisibleCount] = useState(10);
+  useEffect(() => { setEmpVisibleCount(10); }, [dashEmpresaBusca, dashEmpresaMenuOpen]);
+
+  function handleEmpresaMenuScroll(e) {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) {
+      setEmpVisibleCount((prev) => prev + 10);
+    }
+  }
+
   const canal = dashData?.canal_overview || {};
   const denPorStatus = canal.den_por_status || [];
   const denPorTipo = canal.den_por_tipo || [];
@@ -712,14 +722,14 @@ function DashboardOverviewModern({
             onChange={(e) => { onDashboardEmpresaBuscaChange(e.target.value); setDashEmpresaMenuOpen(true); }}
           />
           {dashEmpresaMenuOpen && canFilter && (
-            <div className="dashboard-topbar-menu">
+            <div className="dashboard-topbar-menu" onScroll={handleEmpresaMenuScroll}>
               <button type="button" className="dashboard-topbar-menu-item" onMouseDown={(ev) => ev.preventDefault()} onClick={() => { setDashEmpresaMenuOpen(false); onDashboardEmpresaBuscaChange(""); }}>
                 <span>Todas as empresas</span>
               </button>
               {dashEmpresaSugestoes.length === 0 ? (
                 <div className="dashboard-topbar-empty">Nenhuma empresa encontrada.</div>
               ) : (
-                dashEmpresaSugestoes.map((emp) => (
+                dashEmpresaSugestoes.slice(0, empVisibleCount).map((emp) => (
                   <button key={`dash-emp-opt-${emp.id}`} type="button" className="dashboard-topbar-menu-item" onMouseDown={(ev) => ev.preventDefault()} onClick={() => selectDashEmpresaBuscaOption(emp)}>
                     <span>{emp.name}</span>
                   </button>
@@ -1150,13 +1160,13 @@ export default function App() {
   const [sModal, setSModal] = useState({ type: "", item: null }), [sEmpresa, setSEmpresa] = useState(""), [sNome, setSNome] = useState(""), [sDesc, setSDesc] = useState(""), [sAtivo, setSAtivo] = useState(true), [sErr, setSErr] = useState(""), [sSaving, setSSaving] = useState(false);
   const [setorInativarModal, setSetorInativarModal] = useState({ item: null, saving: false, err: "" });
   const [setorBulkDeleteModal, setSetorBulkDeleteModal] = useState({ open: false, ids: [], saving: false, err: "" });
-  const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1), [setorEmpresaMenuOpen, setSetorEmpresaMenuOpen] = useState(false);
+  const [setorEmpresaBusca, setSetorEmpresaBusca] = useState(""), [setorEmpresaFiltro, setSetorEmpresaFiltro] = useState(""), [setorPage, setSetorPage] = useState(1), [setorEmpresaMenuOpen, setSetorEmpresaMenuOpen] = useState(false), [setorEmpresaVisibleCount, setSetorEmpresaVisibleCount] = useState(10);
   const [setorNomeBusca, setSetorNomeBusca] = useState("");
   const [ghes, setGhes] = useState([]), [gheErr, setGheErr] = useState(""), [gheLoad, setGheLoad] = useState(false);
   const [selectedGhes, setSelectedGhes] = useState([]);
   const [gModal, setGModal] = useState({ type: "", item: null }), [gEmpresa, setGEmpresa] = useState(""), [gNome, setGNome] = useState(""), [gDesc, setGDesc] = useState(""), [gAtivo, setGAtivo] = useState(true), [gSetores, setGSetores] = useState([]), [gErr, setGErr] = useState(""), [gSaving, setGSaving] = useState(false);
   const [gheBulkDeleteModal, setGheBulkDeleteModal] = useState({ open: false, ids: [], saving: false, err: "" });
-  const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false);
+  const [gheEmpresaBusca, setGheEmpresaBusca] = useState(""), [gheEmpresaFiltro, setGheEmpresaFiltro] = useState(""), [ghePage, setGhePage] = useState(1), [gheEmpresaMenuOpen, setGheEmpresaMenuOpen] = useState(false), [gheEmpresaVisibleCount, setGheEmpresaVisibleCount] = useState(10);
   const [gheNomeBusca, setGheNomeBusca] = useState("");
   const [cargos, setCargos] = useState([]), [cargoErr, setCargoErr] = useState(""), [cargoLoad, setCargoLoad] = useState(false);
   const [selectedCargos, setSelectedCargos] = useState([]);
@@ -1165,16 +1175,16 @@ export default function App() {
   const [gSetorBusca, setGSetorBusca] = useState("");
   const [cgSetorBusca, setCgSetorBusca] = useState("");
   const [cgGheBusca, setCgGheBusca] = useState("");
-  const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1), [cargoEmpresaMenuOpen, setCargoEmpresaMenuOpen] = useState(false);
+  const [cargoEmpresaBusca, setCargoEmpresaBusca] = useState(""), [cargoEmpresaFiltro, setCargoEmpresaFiltro] = useState(""), [cargoPage, setCargoPage] = useState(1), [cargoEmpresaMenuOpen, setCargoEmpresaMenuOpen] = useState(false), [cargoEmpresaVisibleCount, setCargoEmpresaVisibleCount] = useState(10);
   const [cargoNomeBusca, setCargoNomeBusca] = useState("");
   const [campanhas, setCampanhas] = useState([]), [campErr, setCampErr] = useState(""), [campLoad, setCampLoad] = useState(false), [campStatusLoadingId, setCampStatusLoadingId] = useState(null);
-  const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
-  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false), [campStatusMenuOpen, setCampStatusMenuOpen] = useState(false);
+  const [cpModal, setCpModal] = useState({ type: "", item: null }), [cpEmpresa, setCpEmpresa] = useState(""), [cpTitulo, setCpTitulo] = useState(""), [cpInicio, setCpInicio] = useState(""), [cpFim, setCpFim] = useState(""), [cpStatus, setCpStatus] = useState("ATIVO"), [cpAceitarAposFim, setCpAceitarAposFim] = useState(false), [cpAceitarAcimaLimite, setCpAceitarAcimaLimite] = useState(false), [cpErr, setCpErr] = useState(""), [cpSaving, setCpSaving] = useState(false);
+  const [campEmpresaBusca, setCampEmpresaBusca] = useState(""), [campEmpresaFiltro, setCampEmpresaFiltro] = useState(""), [campPage, setCampPage] = useState(1), [campStatusFiltro, setCampStatusFiltro] = useState("TODAS"), [campEmpresaMenuOpen, setCampEmpresaMenuOpen] = useState(false), [campStatusMenuOpen, setCampStatusMenuOpen] = useState(false), [campEmpresaVisibleCount, setCampEmpresaVisibleCount] = useState(10);
   const [campQrPdfLoadingId, setCampQrPdfLoadingId] = useState(null);
   const [campConsultoriaFilter, setCampConsultoriaFilter] = useState(""), [campConsultoriaMenuOpen, setCampConsultoriaMenuOpen] = useState(false);
-  const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false);
-  const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false);
-  const [ajudaListEmpresaBusca, setAjudaListEmpresaBusca] = useState(""), [ajudaListEmpresaFiltro, setAjudaListEmpresaFiltro] = useState(""), [ajudaListLoad, setAjudaListLoad] = useState(false), [ajudaListErr, setAjudaListErr] = useState(""), [ajudaListData, setAjudaListData] = useState(null), [ajudaListEmpresaMenuOpen, setAjudaListEmpresaMenuOpen] = useState(false);
+  const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false), [denEmpresaVisibleCount, setDenEmpresaVisibleCount] = useState(10), [denQrPdfLoading, setDenQrPdfLoading] = useState(false);
+  const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false), [denListEmpresaVisibleCount, setDenListEmpresaVisibleCount] = useState(10);
+  const [ajudaListEmpresaBusca, setAjudaListEmpresaBusca] = useState(""), [ajudaListEmpresaFiltro, setAjudaListEmpresaFiltro] = useState(""), [ajudaListLoad, setAjudaListLoad] = useState(false), [ajudaListErr, setAjudaListErr] = useState(""), [ajudaListData, setAjudaListData] = useState(null), [ajudaListEmpresaMenuOpen, setAjudaListEmpresaMenuOpen] = useState(false), [ajudaEmpresaVisibleCount, setAjudaEmpresaVisibleCount] = useState(10);
   const [ajudaListStatusFiltro, setAjudaListStatusFiltro] = useState("TODOS");
   const [ajudaRowMenuOpenId, setAjudaRowMenuOpenId] = useState(null);
   const [ajudaPdfLoadingId, setAjudaPdfLoadingId] = useState(null);
@@ -1194,10 +1204,10 @@ export default function App() {
   const [denResolveModal, setDenResolveModal] = useState({ item: null, saving: false, err: "" });
   const [denAnalyzeModal, setDenAnalyzeModal] = useState({ item: null, saving: false, err: "" });
   const [denViewModal, setDenViewModal] = useState(null);
-  const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null), [cmpEmpresaMenuOpen, setCmpEmpresaMenuOpen] = useState(false), [cmpPdfLoading, setCmpPdfLoading] = useState(false);
+  const [cmpEmpresaBusca, setCmpEmpresaBusca] = useState(""), [cmpEmpresaFiltro, setCmpEmpresaFiltro] = useState(""), [cmpCamp1, setCmpCamp1] = useState(""), [cmpCamp2, setCmpCamp2] = useState(""), [cmpErr, setCmpErr] = useState(""), [cmpSubmitted, setCmpSubmitted] = useState(false), [cmpLoading, setCmpLoading] = useState(false), [cmpResult, setCmpResult] = useState(null), [cmpEmpresaMenuOpen, setCmpEmpresaMenuOpen] = useState(false), [cmpPdfLoading, setCmpPdfLoading] = useState(false), [cmpEmpresaVisibleCount, setCmpEmpresaVisibleCount] = useState(10);
   const [cmpConsultoriaFilter, setCmpConsultoriaFilter] = useState(""), [cmpConsultoriaMenuOpen, setCmpConsultoriaMenuOpen] = useState(false);
   const [cmpPeriodoInicio, setCmpPeriodoInicio] = useState(""), [cmpPeriodoFim, setCmpPeriodoFim] = useState("");
-  const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState(""), [totemEmpresaMenuOpen, setTotemEmpresaMenuOpen] = useState(false);
+  const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState(""), [totemEmpresaMenuOpen, setTotemEmpresaMenuOpen] = useState(false), [totemEmpresaVisibleCount, setTotemEmpresaVisibleCount] = useState(10);
   const [totemLinkData, setTotemLinkData] = useState(null), [totemLoad, setTotemLoad] = useState(false), [totemErr, setTotemErr] = useState("");
   const [linkRegenModal, setLinkRegenModal] = useState({ target: "", open: false });
   const [campRelatorio, setCampRelatorio] = useState(null), [campRelErr, setCampRelErr] = useState(""), [campRelLoad, setCampRelLoad] = useState(false);
@@ -1206,9 +1216,11 @@ export default function App() {
   const [campAttachUploading, setCampAttachUploading] = useState(false), [campAttachErr, setCampAttachErr] = useState("");
   const [campPdfLoading, setCampPdfLoading] = useState(false), [campPdfErr, setCampPdfErr] = useState("");
   const [campPdfProgress, setCampPdfProgress] = useState(0), [campPdfProgressEstimated, setCampPdfProgressEstimated] = useState(false);
+  const [campPdfPhase, setCampPdfPhase] = useState("idle");
   const [campReviewMonths, setCampReviewMonths] = useState("3"), [campReviewSaving, setCampReviewSaving] = useState(false);
   const [planosAcaoAtivos, setPlanosAcaoAtivos] = useState({}), [planosAcaoSaving, setPlanosAcaoSaving] = useState(false);
   const planosAcaoPendingRef = useRef(0);
+  const measureDraftSeqRef = useRef(1);
   const [pubLoad, setPubLoad] = useState(false), [pubErr, setPubErr] = useState(""), [pubData, setPubData] = useState(null), [pubSaving, setPubSaving] = useState(false), [pubOk, setPubOk] = useState("");
   const [pubCpf, setPubCpf] = useState(""), [pubNome, setPubNome] = useState(""), [pubIdade, setPubIdade] = useState(""), [pubSexo, setPubSexo] = useState(""), [pubRef, setPubRef] = useState(""), [pubCargo, setPubCargo] = useState("");
   const [pubStep, setPubStep] = useState(1), [pubStep1Id, setPubStep1Id] = useState("");
@@ -2378,7 +2390,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8"]) {
-        if (!pubS2[key]) throw new Error("Responda todas as perguntas do Step 2.");
+        if (!pubS2[key]) throw new Error("Responda todas as perguntas da etapa de Demandas.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS2 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step2/`, {
@@ -2403,7 +2415,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3", "q4", "q5", "q6"]) {
-        if (!pubS3[key]) throw new Error("Responda todas as perguntas do Step 3.");
+        if (!pubS3[key]) throw new Error("Responda todas as perguntas do Controle.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS3 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step3/`, {
@@ -2428,7 +2440,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3", "q4", "q5"]) {
-        if (!pubS4[key]) throw new Error("Responda todas as perguntas do Step 4.");
+        if (!pubS4[key]) throw new Error("Responda todas as perguntas do Apoio da Gestão.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS4 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step4/`, {
@@ -2453,7 +2465,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3", "q4"]) {
-        if (!pubS5[key]) throw new Error("Responda todas as perguntas do Step 5.");
+        if (!pubS5[key]) throw new Error("Responda todas as perguntas do Suporte dos Colegas.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS5 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step5/`, {
@@ -2478,7 +2490,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3", "q4"]) {
-        if (!pubS6[key]) throw new Error("Responda todas as perguntas do Step 6.");
+        if (!pubS6[key]) throw new Error("Responda todas as perguntas do Relacionamentos.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS6 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step6/`, {
@@ -2503,7 +2515,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3", "q4", "q5"]) {
-        if (!pubS7[key]) throw new Error("Responda todas as perguntas do Step 7.");
+        if (!pubS7[key]) throw new Error("Responda todas as perguntas do Clareza de Papel | Função.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS7 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step7/`, {
@@ -2528,7 +2540,7 @@ export default function App() {
     try {
       if (!pubStep1Id) throw new Error("Step 1 nao encontrado.");
       for (const key of ["q1", "q2", "q3"]) {
-        if (!pubS8[key]) throw new Error("Responda todas as perguntas do Step 8.");
+        if (!pubS8[key]) throw new Error("Responda todas as perguntas do Gerenciamento de Mudanças.");
       }
       const payload = { step1_response_id: Number(pubStep1Id), ...pubS8 };
       const r = await fetch(`${API}/campanhas/public/${publicToken}/step8/`, {
@@ -3031,6 +3043,7 @@ export default function App() {
 
   function onSetorEmpresaBuscaChange(value) {
     setSetorEmpresaBusca(value);
+    setSetorEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setSetorEmpresaFiltro(found ? String(found.id) : "");
   }
@@ -3194,6 +3207,7 @@ export default function App() {
 
   function onGheEmpresaBuscaChange(value) {
     setGheEmpresaBusca(value);
+    setGheEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setGheEmpresaFiltro(found ? String(found.id) : "");
   }
@@ -3363,6 +3377,7 @@ export default function App() {
 
   function onCargoEmpresaBuscaChange(value) {
     setCargoEmpresaBusca(value);
+    setCargoEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setCargoEmpresaFiltro(found ? String(found.id) : "");
   }
@@ -3446,27 +3461,57 @@ export default function App() {
     return [meta.step_number, meta.question_field, meta.scope_type, meta.setor || "", meta.ghe || ""].join("|");
   }
 
+  function createMeasureDraftEntry(text = "") {
+    const id = `draft-${measureDraftSeqRef.current++}`;
+    return { id, text };
+  }
+
   function openMeasureDraft(meta) {
     const key = measureKey(meta);
     setCampMeasureDrafts((prev) => ({
       ...prev,
       [key]: {
-        text: "",
-        whenMonths: [],
         ...(prev[key] || {}),
+        drafts: [...(((prev[key] || {}).drafts) || []), createMeasureDraftEntry("")],
+        whenMonths: Array.isArray((prev[key] || {}).whenMonths) ? prev[key].whenMonths : [],
         open: true,
       },
     }));
   }
 
-  function closeMeasureDraft(meta) {
+  function closeMeasureDraft(meta, draftId = null) {
     const key = measureKey(meta);
-    setCampMeasureDrafts((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), open: false, whenOpen: false, text: "", whenMonths: [] } }));
+    setCampMeasureDrafts((prev) => {
+      const current = prev[key] || {};
+      const drafts = Array.isArray(current.drafts) ? current.drafts : [];
+      const nextDrafts = draftId ? drafts.filter((draft) => draft.id !== draftId) : [];
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          drafts: nextDrafts,
+          open: nextDrafts.length > 0,
+          whenOpen: current.whenOpen || false,
+          whenMonths: Array.isArray(current.whenMonths) ? current.whenMonths : [],
+        },
+      };
+    });
   }
 
-  function changeMeasureDraft(meta, text) {
+  function changeMeasureDraft(meta, draftId, text) {
     const key = measureKey(meta);
-    setCampMeasureDrafts((prev) => ({ ...prev, [key]: { ...(prev[key] || { open: true, whenOpen: false, whenMonths: [] }), open: true, text } }));
+    setCampMeasureDrafts((prev) => {
+      const current = prev[key] || { open: true, whenOpen: false, whenMonths: [], drafts: [] };
+      const drafts = Array.isArray(current.drafts) ? current.drafts : [];
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          open: true,
+          drafts: drafts.map((draft) => (draft.id === draftId ? { ...draft, text } : draft)),
+        },
+      };
+    });
   }
 
   function toggleMeasureWhen(meta, initialMonths = []) {
@@ -3487,13 +3532,15 @@ export default function App() {
     });
   }
 
-  async function addPreliminaryMeasure(meta) {
+  async function addPreliminaryMeasure(meta, draftId) {
     if (!campRelCampanha?.id) return;
     const key = measureKey(meta);
-    const draft = campMeasureDrafts[key];
+    const draftState = campMeasureDrafts[key] || {};
+    const draft = (Array.isArray(draftState.drafts) ? draftState.drafts : []).find((item) => item.id === draftId);
     const text = String(draft?.text || "").trim();
     if (!text) return setCampMeasureErr("Informe a medida para salvar.");
-    setCampMeasureSavingKey(key); setCampMeasureErr("");
+    const saveKey = `${key}|${draftId}`;
+    setCampMeasureSavingKey(saveKey); setCampMeasureErr("");
     try {
       const payload = {
         step_number: meta.step_number,
@@ -3511,7 +3558,7 @@ export default function App() {
       const d = await r.json();
       if (!r.ok) throw new Error(pErr(d));
       setCampRelatorio((prev) => prev ? ({ ...prev, preliminary_measures: [...(prev.preliminary_measures || []), d] }) : prev);
-      closeMeasureDraft(meta);
+      closeMeasureDraft(meta, draftId);
     } catch (err) {
       setCampMeasureErr(err.message);
     } finally {
@@ -3587,12 +3634,35 @@ export default function App() {
     }
   }
 
+  function compressImage(file, maxDim = 1600, quality = 0.82) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) { height = Math.round((height / width) * maxDim); width = maxDim; }
+          else { width = Math.round((width / height) * maxDim); height = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" })), "image/jpeg", quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
   async function uploadRelatorioAnexo(file) {
     if (!campRelCampanha?.id || !file) return;
     setCampAttachUploading(true); setCampAttachErr("");
     try {
+      const isImage = file.type.startsWith("image/");
+      const uploadFile = isImage ? await compressImage(file) : file;
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", uploadFile);
       const r = await fetch(`${API}/campanhas/${campRelCampanha.id}/relatorio-anexos/`, {
         method: "POST",
         headers: { Authorization: `Token ${token}` },
@@ -3625,24 +3695,7 @@ export default function App() {
 
   async function exportCampanhaRelatorioPdf() {
     if (!campRelCampanha?.id) return;
-    setCampPdfLoading(true); setCampPdfErr(""); setCampPdfProgress(0); setCampPdfProgressEstimated(false);
-    let progressTimer = null;
-    let usingRealDownloadProgress = false;
-    const startProgress = () => {
-      setCampPdfProgressEstimated(true);
-      setCampPdfProgress(2);
-      progressTimer = window.setInterval(() => {
-        setCampPdfProgress((prev) => {
-          // Durante processamento/geracao no servidor, avanca gradualmente sem chegar em 100%.
-          if (usingRealDownloadProgress) return prev;
-          if (prev >= 90) return prev;
-          if (prev < 20) return prev + 4;
-          if (prev < 55) return prev + 2;
-          return prev + 1;
-        });
-      }, 280);
-    };
-    startProgress();
+    setCampPdfLoading(true); setCampPdfErr(""); setCampPdfProgress(0); setCampPdfProgressEstimated(true); setCampPdfPhase("preparing");
     try {
       const r = await fetch(`${API}/campanhas/${campRelCampanha.id}/relatorio/pdf/`, {
         headers: { Authorization: `Token ${token}` },
@@ -3656,9 +3709,9 @@ export default function App() {
         throw new Error(msg);
       }
       const totalBytes = Number(r.headers.get("content-length") || 0);
+      setCampPdfPhase("downloading");
       let blob;
       if (r.body && Number.isFinite(totalBytes) && totalBytes > 0) {
-        usingRealDownloadProgress = true;
         setCampPdfProgressEstimated(false);
         const reader = r.body.getReader();
         const chunks = [];
@@ -3674,8 +3727,10 @@ export default function App() {
         }
         blob = new Blob(chunks, { type: r.headers.get("content-type") || "application/pdf" });
       } else {
+        setCampPdfProgressEstimated(true);
         blob = await r.blob();
       }
+      setCampPdfPhase("saving");
       setCampPdfProgress(100);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -3688,11 +3743,11 @@ export default function App() {
     } catch (err) {
       setCampPdfErr(err.message);
     } finally {
-      if (progressTimer) window.clearInterval(progressTimer);
       setCampPdfLoading(false);
       window.setTimeout(() => {
         setCampPdfProgress(0);
         setCampPdfProgressEstimated(false);
+        setCampPdfPhase("idle");
       }, 700);
     }
   }
@@ -3784,11 +3839,13 @@ export default function App() {
     setCpInicio(item?.start_date || "");
     setCpFim(item?.end_date || "");
     setCpStatus(item?.status || "ATIVO");
+    setCpAceitarAposFim(item?.aceitar_respostas_apos_fim ?? false);
+    setCpAceitarAcimaLimite(item?.aceitar_respostas_acima_limite ?? false);
   }
 
   function closeCampanha() {
     setCpModal({ type: "", item: null }); setCpErr(""); setCpSaving(false);
-    setCpEmpresa(""); setCpTitulo(""); setCpInicio(""); setCpFim(""); setCpStatus("ATIVO");
+    setCpEmpresa(""); setCpTitulo(""); setCpInicio(""); setCpFim(""); setCpStatus("ATIVO"); setCpAceitarAposFim(false); setCpAceitarAcimaLimite(false);
   }
 
   function printCampanhaQr(item) {
@@ -3815,54 +3872,27 @@ export default function App() {
   }
 
   function printDenunciaQr(item) {
-    if (!item?.qr_code_data || !item?.url) {
+    if (!item?.empresa_id) {
       setDenErr("QR Code indisponivel para impressao.");
       return;
     }
-    const printWindow = window.open("", "_blank", "width=900,height=700");
-    if (!printWindow) {
-      setDenErr("Nao foi possivel abrir a janela de impressao.");
-      return;
-    }
-    const safeCompany = String(item.empresa_name || "Canal de denuncias").replace(/[<>&"]/g, "");
-    const safeUrl = String(item.url || "").replace(/[<>&"]/g, "");
-    printWindow.document.write(`
-      <!doctype html>
-      <html lang="pt-BR">
-        <head>
-          <meta charset="utf-8" />
-          <title>QR Code - Canal de denuncias</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 32px; color: #0f172a; }
-            .sheet { max-width: 760px; margin: 0 auto; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 28px; }
-            p { margin: 0 0 12px; line-height: 1.5; }
-            .meta { color: #475569; font-size: 14px; }
-            .qr { margin: 28px auto 20px; display: inline-flex; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; background: #fff; }
-            .qr img { width: 280px; height: 280px; object-fit: contain; }
-            .url { margin-top: 12px; font-size: 13px; word-break: break-all; color: #334155; }
-          </style>
-        </head>
-        <body>
-          <main class="sheet">
-            <h1>Canal de denuncias</h1>
-            <p class="meta">${safeCompany}</p>
-            <p>Escaneie o QR Code para acessar o canal de denuncias da empresa.</p>
-            <div class="qr">
-              <img src="${item.qr_code_data}" alt="QR Code do canal de denuncias" />
-            </div>
-            <p class="url">${safeUrl}</p>
-          </main>
-          <script>
-            window.addEventListener("load", () => {
-              window.print();
-              window.setTimeout(() => window.close(), 200);
-            });
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    const authToken = getAuthToken();
+    if (!authToken) { setDenErr("Sessao invalida."); return; }
+    setDenQrPdfLoading(true);
+    fetch(`${API}/empresas/${item.empresa_id}/canal-denuncias-link/qrcode/pdf/`, {
+      headers: { Authorization: `Token ${authToken}` },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Erro ao gerar PDF do QR Code.");
+        return r.blob();
+      })
+      .then((blob) => {
+        const objUrl = URL.createObjectURL(blob);
+        window.open(objUrl, "_blank");
+        setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+      })
+      .catch((err) => setDenErr(err.message))
+      .finally(() => setDenQrPdfLoading(false));
   }
 
   async function saveCampanha(e) {
@@ -3879,6 +3909,8 @@ export default function App() {
         start_date: cpInicio,
         end_date: cpFim,
         status: cpStatus,
+        aceitar_respostas_apos_fim: cpAceitarAposFim,
+        aceitar_respostas_acima_limite: cpAceitarAcimaLimite,
       };
       const r = await fetch(isEdit ? `${API}/campanhas/${cpModal.item.id}/` : `${API}/campanhas/`, {
         method: isEdit ? "PATCH" : "POST",
@@ -3925,6 +3957,7 @@ export default function App() {
 
   function onCampEmpresaBuscaChange(value) {
     setCampEmpresaBusca(value);
+    setCampEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setCampEmpresaFiltro(found ? String(found.id) : "");
     setCampPage(1);
@@ -3938,6 +3971,7 @@ export default function App() {
 
   function onCmpEmpresaBuscaChange(value) {
     setCmpEmpresaBusca(value);
+    setCmpEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     const nextEmpresa = found ? String(found.id) : "";
     setCmpEmpresaFiltro(nextEmpresa);
@@ -3960,6 +3994,7 @@ export default function App() {
 
   function onDenEmpresaBuscaChange(value) {
     setDenEmpresaBusca(value);
+    setDenEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setDenEmpresaFiltro(found ? String(found.id) : "");
     setDenLinkData(null);
@@ -3994,6 +4029,7 @@ export default function App() {
 
   function onDenListEmpresaBuscaChange(value) {
     setDenListEmpresaBusca(value);
+    setDenListEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setDenListEmpresaFiltro(found ? String(found.id) : "");
     setDenListData(null);
@@ -4011,6 +4047,7 @@ export default function App() {
 
   function onAjudaListEmpresaBuscaChange(value) {
     setAjudaListEmpresaBusca(value);
+    setAjudaEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setAjudaListEmpresaFiltro(found ? String(found.id) : "");
     setAjudaListData(null);
@@ -4182,6 +4219,7 @@ export default function App() {
 
   function onTotemEmpresaBuscaChange(value) {
     setTotemEmpresaBusca(value);
+    setTotemEmpresaVisibleCount(10);
     const found = empresas.find((emp) => `${emp.id} - ${emp.company_name}` === value);
     setTotemEmpresaFiltro(found ? String(found.id) : "");
     setTotemLinkData(null);
@@ -4624,10 +4662,9 @@ export default function App() {
       const histValues = dashData?.history?.values || [];
       const maxHist = Math.max(1, ...histValues.map((v) => Number(v || 0)));
       const termoDash = dashEmpresaBusca.trim().toLowerCase();
-      const dashEmpresaSugestoes = (termoDash
+      const dashEmpresaSugestoes = termoDash
         ? (dashData?.empresas || []).filter((emp) => String(emp.name || "").toLowerCase().includes(termoDash))
-        : (dashData?.empresas || [])
-      ).slice(0, 8);
+        : (dashData?.empresas || []);
       return <DashboardOverviewModern
         cards={cards}
         domains={domains}
@@ -5080,13 +5117,12 @@ export default function App() {
     if (section === "setor") {
       const termoEmpresa = setorEmpresaBusca.trim().toLowerCase();
       const termoNome = setorNomeBusca.trim().toLowerCase();
-      const setorEmpresaSugestoes = (setorEmpresaBusca.trim()
+      const setorEmpresaSugestoes = setorEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -5121,17 +5157,17 @@ export default function App() {
                     placeholder="Buscar empresa..."
                     autoComplete="off"
                     value={setorEmpresaBusca}
-                    onFocus={() => setSetorEmpresaMenuOpen(true)}
+                    onFocus={() => { setSetorEmpresaMenuOpen(true); setSetorEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setSetorEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { setSetorPage(1); onSetorEmpresaBuscaChange(e.target.value); setSetorEmpresaMenuOpen(true); }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                   />
                   {setorEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setSetorEmpresaVisibleCount((p) => p + 10); }}>
                       {setorEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
-                        setorEmpresaSugestoes.map((emp) => (
+                        setorEmpresaSugestoes.slice(0, setorEmpresaVisibleCount).map((emp) => (
                           <button
                             key={`setor-empresa-opt-${emp.id}`}
                             type="button"
@@ -5321,13 +5357,12 @@ export default function App() {
     if (section === "ghe") {
       const termoEmpresa = gheEmpresaBusca.trim().toLowerCase();
       const termoNome = gheNomeBusca.trim().toLowerCase();
-      const gheEmpresaSugestoes = (gheEmpresaBusca.trim()
+      const gheEmpresaSugestoes = gheEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -5363,17 +5398,17 @@ export default function App() {
                     placeholder="Buscar empresa..."
                     autoComplete="off"
                     value={gheEmpresaBusca}
-                    onFocus={() => setGheEmpresaMenuOpen(true)}
+                    onFocus={() => { setGheEmpresaMenuOpen(true); setGheEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setGheEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { setGhePage(1); onGheEmpresaBuscaChange(e.target.value); setGheEmpresaMenuOpen(true); }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                   />
                   {gheEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setGheEmpresaVisibleCount((p) => p + 10); }}>
                       {gheEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
-                        gheEmpresaSugestoes.map((emp) => (
+                        gheEmpresaSugestoes.slice(0, gheEmpresaVisibleCount).map((emp) => (
                           <button
                             key={`ghe-empresa-opt-${emp.id}`}
                             type="button"
@@ -5563,13 +5598,12 @@ export default function App() {
     if (section === "cargos") {
       const termoEmpresa = cargoEmpresaBusca.trim().toLowerCase();
       const termoNome = cargoNomeBusca.trim().toLowerCase();
-      const cargoEmpresaSugestoes = (cargoEmpresaBusca.trim()
+      const cargoEmpresaSugestoes = cargoEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       const empresasPorBusca = termoEmpresa
         ? empresas.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -5605,17 +5639,17 @@ export default function App() {
                     placeholder="Buscar empresa..."
                     autoComplete="off"
                     value={cargoEmpresaBusca}
-                    onFocus={() => setCargoEmpresaMenuOpen(true)}
+                    onFocus={() => { setCargoEmpresaMenuOpen(true); setCargoEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setCargoEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { setCargoPage(1); onCargoEmpresaBuscaChange(e.target.value); setCargoEmpresaMenuOpen(true); }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                   />
                   {cargoEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setCargoEmpresaVisibleCount((p) => p + 10); }}>
                       {cargoEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
-                        cargoEmpresaSugestoes.map((emp) => (
+                        cargoEmpresaSugestoes.slice(0, cargoEmpresaVisibleCount).map((emp) => (
                           <button
                             key={`cargo-empresa-opt-${emp.id}`}
                             type="button"
@@ -5912,11 +5946,17 @@ export default function App() {
               {campPdfLoading && (
                 <div className="pdf-progress-card" aria-live="polite">
                   <div className="pdf-progress-top">
-                    <span>{campPdfProgressEstimated ? "Progresso" : "Progresso do download"}</span>
-                    <strong>{Math.max(0, Math.min(100, campPdfProgress))}%</strong>
+                    <span>
+                      {campPdfPhase === "preparing"
+                        ? "Montando documento"
+                        : campPdfProgressEstimated
+                          ? "Baixando PDF"
+                          : "Progresso do download"}
+                    </span>
+                    <strong>{campPdfPhase === "preparing" ? "" : `${Math.max(0, Math.min(100, campPdfProgress))}%`}</strong>
                   </div>
-                  <div className="pdf-progress-track">
-                    <span className="pdf-progress-fill" style={{ width: `${Math.max(0, Math.min(100, campPdfProgress))}%` }} />
+                  <div className={`pdf-progress-track ${campPdfPhase === "preparing" ? "indeterminate" : ""}`}>
+                    <span className="pdf-progress-fill" style={{ width: `${campPdfPhase === "preparing" ? 38 : Math.max(0, Math.min(100, campPdfProgress))}%` }} />
                   </div>
                 </div>
               )}
@@ -6093,7 +6133,7 @@ export default function App() {
                         <div className="conclusion-question-list">
                           {items.map((item, idx) => {
                             const key = measureKey(item);
-                            const draft = campMeasureDrafts[key] || { open: false, whenOpen: false, text: "", whenMonths: [] };
+                            const draft = campMeasureDrafts[key] || { open: false, whenOpen: false, drafts: [], whenMonths: [] };
                             const savedWhen = prelimWhens.find((w) => (
                               Number(w.step_number) === Number(item.step_number)
                               && String(w.question_field) === String(item.question_field)
@@ -6238,35 +6278,35 @@ export default function App() {
                                 )}
                                 {!draft.open ? null : (
                                   <div className="conclusion-add-form">
-                                    <div className="conclusion-add-inline">
-                                      <input
-                                        value={draft.text || ""}
-                                        onChange={(e) => changeMeasureDraft(item, e.target.value)}
-                                        placeholder="Plano de acao preliminar..."
-                                        maxLength={500}
-                                      />
-                                      <div className="conclusion-add-actions">
-                                        <button
-                                          type="button"
-                                          className="campanha-icon-btn"
-                                          title="Cancelar"
-                                          aria-label="Cancelar"
-                                          onClick={() => closeMeasureDraft(item)}
-                                        >
-                                          {I.x}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="campanha-icon-btn danger"
-                                          title={campMeasureSavingKey === key ? "Salvando..." : "Salvar medida"}
-                                          aria-label={campMeasureSavingKey === key ? "Salvando medida" : "Salvar medida"}
-                                          disabled={campMeasureSavingKey === key}
-                                          onClick={() => addPreliminaryMeasure(item)}
-                                        >
-                                          {I.del}
-                                        </button>
-                                      </div>
-                                    </div>
+                                    {(Array.isArray(draft.drafts) ? draft.drafts : []).map((draftItem) => {
+                                      const draftSaveKey = `${key}|${draftItem.id}`;
+                                      return (
+                                        <div key={draftItem.id} className="conclusion-add-inline">
+                                          <input
+                                            value={draftItem.text || ""}
+                                            onChange={(e) => changeMeasureDraft(item, draftItem.id, e.target.value)}
+                                            placeholder="Plano de acao preliminar..."
+                                            maxLength={500}
+                                          />
+                                          <div className="conclusion-add-actions">
+                                            <button
+                                              type="button"
+                                              className="secondary"
+                                              onClick={() => closeMeasureDraft(item, draftItem.id)}
+                                            >
+                                              Cancelar
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={campMeasureSavingKey === draftSaveKey}
+                                              onClick={() => addPreliminaryMeasure(item, draftItem.id)}
+                                            >
+                                              {campMeasureSavingKey === draftSaveKey ? "Salvando..." : "Salvar medida"}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </article>
@@ -6338,13 +6378,13 @@ export default function App() {
         ? empresas.filter((emp) => String(emp.consultor_id) === campConsultoriaFilter)
         : empresas;
       const termoEmpresa = campEmpresaBusca.trim().toLowerCase();
-      const campEmpresaSugestoes = (campEmpresaBusca.trim()
+      const campEmpresaSugestoesAll = campEmpresaBusca.trim()
         ? empresasParaCamp.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoEmpresa)
         ))
-        : empresasParaCamp
-      ).slice(0, 8);
+        : empresasParaCamp;
+      const campEmpresaSugestoes = campEmpresaSugestoesAll.slice(0, campEmpresaVisibleCount);
       const empresasPorBusca = termoEmpresa
         ? empresasParaCamp.filter((emp) => String(emp.company_name || "").toLowerCase().includes(termoEmpresa)).map((emp) => String(emp.id))
         : [];
@@ -6383,12 +6423,12 @@ export default function App() {
                     autoComplete="off"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                     value={campEmpresaBusca}
-                    onFocus={() => setCampEmpresaMenuOpen(true)}
+                    onFocus={() => { setCampEmpresaMenuOpen(true); setCampEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setCampEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { onCampEmpresaBuscaChange(e.target.value); setCampEmpresaMenuOpen(true); }}
                   />
                   {campEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setCampEmpresaVisibleCount((p) => p + 10); }}>
                       {campEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
@@ -6562,6 +6602,16 @@ export default function App() {
                             >
                               {cp.status === "ATIVO" ? "Ativa" : "Encerrada"}
                             </span>
+                            {cp.aceitar_respostas_apos_fim && (
+                              <span className="inline-flex min-h-6 items-center self-start rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 sm:self-auto" title="Aceita respostas após a data fim">
+                                + após fim
+                              </span>
+                            )}
+                            {cp.aceitar_respostas_acima_limite && (
+                              <span className="inline-flex min-h-6 items-center self-start rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 sm:self-auto" title="Aceita respostas acima do limite de funcionários">
+                                + excedente
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -6726,37 +6776,37 @@ export default function App() {
                   <span className="cmp-consultoria-tag">{cmpConsultorias.find((c) => String(c.id) === cmpConsultoriaFilter)?.name}</span>
                 )}
               </h2>
-              <input
-                placeholder="Buscar empresa..."
-                value={cmpEmpresaBusca}
-                onChange={(e) => setCmpEmpresaBusca(e.target.value)}
-                className="cmp-empresa-search-input"
-              />
-            </div>
-            {cmpEmpresasVisiveis.length === 0 ? (
-              <p className="empty-state">Nenhuma empresa encontrada.</p>
-            ) : (
-              <div className="cmp-empresa-grid">
-                {cmpEmpresasVisiveis.map((emp) => {
-                  const isSelected = String(cmpEmpresaFiltro) === String(emp.id);
-                  return (
-                    <button
-                      key={emp.id}
-                      type="button"
-                      className={`cmp-empresa-card${isSelected ? " selected" : ""}`}
-                      onClick={() => {
-                        if (isSelected) { setCmpEmpresaFiltro(""); } else { setCmpEmpresaFiltro(String(emp.id)); }
-                        setCmpCamp1(""); setCmpCamp2(""); setCmpSubmitted(false); setCmpResult(null); setCmpErr("");
-                      }}
-                    >
-                      {isSelected && <span className="cmp-empresa-check">✓</span>}
-                      <span className="cmp-empresa-name">{emp.company_name}</span>
-                      {emp.document_number && <span className="cmp-empresa-doc">{emp.document_number}</span>}
-                    </button>
-                  );
-                })}
+              <div className="relative">
+                <input
+                  placeholder="Buscar empresa..."
+                  value={cmpEmpresaBusca}
+                  onFocus={() => { setCmpEmpresaMenuOpen(true); setCmpEmpresaVisibleCount(10); }}
+                  onBlur={() => setTimeout(() => setCmpEmpresaMenuOpen(false), 120)}
+                  onChange={(e) => { onCmpEmpresaBuscaChange(e.target.value); setCmpEmpresaMenuOpen(true); }}
+                  className="cmp-empresa-search-input"
+                />
+                {cmpEmpresaMenuOpen && (
+                  <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setCmpEmpresaVisibleCount((p) => p + 10); }}>
+                    {cmpEmpresasVisiveis.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
+                    ) : (
+                      cmpEmpresasVisiveis.slice(0, cmpEmpresaVisibleCount).map((emp) => (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          className="flex w-full flex-col items-start rounded-lg bg-transparent px-3 py-2 text-left transition hover:bg-slate-50"
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => selectCmpEmpresaBuscaOption(emp)}
+                        >
+                          <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
+                          {emp.document_number && <span className="text-xs text-slate-500">{emp.document_number}</span>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </section>
 
           {/* ── Campanhas ── */}
@@ -7032,13 +7082,12 @@ export default function App() {
     }
     if (section === "canal-denuncias" && canEmp(user)) {
       const termoDenEmpresa = denEmpresaBusca.trim().toLowerCase();
-      const denEmpresaSugestoes = (denEmpresaBusca.trim()
+      const denEmpresaSugestoes = denEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoDenEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoDenEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       return (
         <section className="admin-panel">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
@@ -7065,16 +7114,16 @@ export default function App() {
                     autoComplete="off"
                     className="w-full"
                     value={denEmpresaBusca}
-                    onFocus={() => setDenEmpresaMenuOpen(true)}
+                    onFocus={() => { setDenEmpresaMenuOpen(true); setDenEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setDenEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { onDenEmpresaBuscaChange(e.target.value); setDenEmpresaMenuOpen(true); }}
                   />
                   {denEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setDenEmpresaVisibleCount((p) => p + 10); }}>
                       {denEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
-                        denEmpresaSugestoes.map((emp) => (
+                        denEmpresaSugestoes.slice(0, denEmpresaVisibleCount).map((emp) => (
                           <button
                             key={`den-empresa-opt-${emp.id}`}
                             type="button"
@@ -7112,8 +7161,8 @@ export default function App() {
               <div className="empresas-toolbar">
                 <input value={denLinkData.url} readOnly />
                 <div className="empresas-pagination-actions">
-                  <button type="button" className="secondary" onClick={() => printDenunciaQr(denLinkData)}>
-                    Imprimir QR
+                  <button type="button" className="secondary" onClick={() => printDenunciaQr(denLinkData)} disabled={denQrPdfLoading}>
+                    {denQrPdfLoading ? "Gerando PDF..." : "Imprimir QR"}
                   </button>
                   <button type="button" className="secondary" onClick={async () => { try { await copyText(denLinkData.url); } catch (err) { setDenErr(err.message); } }}>
                     Copiar
@@ -7131,13 +7180,12 @@ export default function App() {
     }
     if (section === "denuncias-empresa" && canEmp(user)) {
       const termoDenListEmpresa = denListEmpresaBusca.trim().toLowerCase();
-      const denListEmpresaSugestoes = (denListEmpresaBusca.trim()
+      const denListEmpresaSugestoes = denListEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoDenListEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoDenListEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       const denuncias = denListData?.results || [];
       const denListEvaluationType = String(denListData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
       const denListRefLabel = denListEvaluationType === "SETOR" ? "Setor" : "GHE";
@@ -7161,16 +7209,16 @@ export default function App() {
                   autoComplete="off"
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                   value={denListEmpresaBusca}
-                  onFocus={() => setDenListEmpresaMenuOpen(true)}
+                  onFocus={() => { setDenListEmpresaMenuOpen(true); setDenListEmpresaVisibleCount(10); }}
                   onBlur={() => setTimeout(() => setDenListEmpresaMenuOpen(false), 120)}
                   onChange={(e) => { onDenListEmpresaBuscaChange(e.target.value); setDenListEmpresaMenuOpen(true); }}
                 />
                 {denListEmpresaMenuOpen && (
-                  <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setDenListEmpresaVisibleCount((p) => p + 10); }}>
                     {denListEmpresaSugestoes.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                     ) : (
-                      denListEmpresaSugestoes.map((emp) => (
+                      denListEmpresaSugestoes.slice(0, denListEmpresaVisibleCount).map((emp) => (
                         <button
                           key={`den-list-empresa-opt-${emp.id}`}
                           type="button"
@@ -7403,13 +7451,12 @@ export default function App() {
     }
     if (section === "pedidos-ajuda" && canEmp(user)) {
       const termoAjudaEmpresa = ajudaListEmpresaBusca.trim().toLowerCase();
-      const ajudaEmpresaSugestoes = (ajudaListEmpresaBusca.trim()
+      const ajudaEmpresaSugestoes = ajudaListEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoAjudaEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoAjudaEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       const pedidos = ajudaListData?.results || [];
       const pedidosFiltrados = ajudaListStatusFiltro === "TODOS"
         ? pedidos
@@ -7429,16 +7476,16 @@ export default function App() {
                     autoComplete="off"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                     value={ajudaListEmpresaBusca}
-                    onFocus={() => setAjudaListEmpresaMenuOpen(true)}
+                    onFocus={() => { setAjudaListEmpresaMenuOpen(true); setAjudaEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setAjudaListEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { onAjudaListEmpresaBuscaChange(e.target.value); setAjudaListEmpresaMenuOpen(true); }}
                   />
                   {ajudaListEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setAjudaEmpresaVisibleCount((p) => p + 10); }}>
                       {ajudaEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
-                        ajudaEmpresaSugestoes.map((emp) => (
+                        ajudaEmpresaSugestoes.slice(0, ajudaEmpresaVisibleCount).map((emp) => (
                           <button
                             key={`ajuda-list-empresa-opt-${emp.id}`}
                             type="button"
@@ -7644,13 +7691,12 @@ export default function App() {
     }
     if (section === "totem" && canEmp(user)) {
       const termoTotemEmpresa = totemEmpresaBusca.trim().toLowerCase();
-      const totemEmpresaSugestoes = (totemEmpresaBusca.trim()
+      const totemEmpresaSugestoes = totemEmpresaBusca.trim()
         ? empresas.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoTotemEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoTotemEmpresa)
         ))
-        : empresas
-      ).slice(0, 8);
+        : empresas;
       return (
         <section className="admin-panel">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm md:p-5">
@@ -7667,16 +7713,16 @@ export default function App() {
                     autoComplete="off"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                     value={totemEmpresaBusca}
-                    onFocus={() => setTotemEmpresaMenuOpen(true)}
+                    onFocus={() => { setTotemEmpresaMenuOpen(true); setTotemEmpresaVisibleCount(10); }}
                     onBlur={() => setTimeout(() => setTotemEmpresaMenuOpen(false), 120)}
                     onChange={(e) => { onTotemEmpresaBuscaChange(e.target.value); setTotemEmpresaMenuOpen(true); }}
                   />
                   {totemEmpresaMenuOpen && (
-                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg" onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setTotemEmpresaVisibleCount((p) => p + 10); }}>
                       {totemEmpresaSugestoes.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-slate-500">Nenhuma empresa encontrada.</div>
                       ) : (
-                        totemEmpresaSugestoes.map((emp) => (
+                        totemEmpresaSugestoes.slice(0, totemEmpresaVisibleCount).map((emp) => (
                           <button
                             key={`totem-empresa-opt-${emp.id}`}
                             type="button"
@@ -8247,6 +8293,8 @@ export default function App() {
   if (isPublicQuestionario) {
     const refLabel = pubData?.evaluation_type === "SETOR" ? "Setor" : "GHE";
     const refs = pubData?.evaluation_type === "SETOR" ? (pubData?.setores || []) : (pubData?.ghes || []);
+    const consultoriaNome = pubData?.consultoria_name || "Consultoria responsável";
+    const consultoriaLogoUrl = pubData?.consultoria_logo_url || "";
     const cargosOptions = publicCargoOptions();
     const step2Questions = pubData?.step2_questions || [];
     const step2Options = pubData?.step2_options || ["NUNCA", "RARAMENTE", "AS_VEZES", "FREQUENTEMENTE", "SEMPRE"];
@@ -8283,15 +8331,30 @@ export default function App() {
     };
 
     return (
-      <main className="app-shell public-shell">
+      <main className="app-shell public-shell public-questionario-shell">
         {toastViewport}
         <section className="card public-card">
-          <h1>Questionário de Campanha</h1>
+          <div className="public-questionario-hero">
+            <div className="public-questionario-brand">
+              <div className="public-questionario-brand-mark">
+                {consultoriaLogoUrl ? (
+                  <img src={consultoriaLogoUrl} alt={`Logo da consultoria ${consultoriaNome}`} className="public-questionario-logo" />
+                ) : (
+                  <span>{consultoriaNome.trim().charAt(0).toUpperCase() || "C"}</span>
+                )}
+              </div>
+              <div className="public-questionario-brand-copy">
+                <span className="public-questionario-chip">NR01</span>
+                <h1>Questionário de Campanha</h1>
+                <p>{pubData?.campaign?.title} | {pubData?.empresa_name}</p>
+                <strong>{consultoriaNome}</strong>
+              </div>
+            </div>
+          </div>
           {pubLoad && <LoadingSpinner label="Carregando..." />}
           {pubErr && <p className="error">{pubErr}</p>}
           {!pubLoad && pubData && (
             <>
-              <p className="subtitle">{pubData.campaign?.title} | {pubData.empresa_name}</p>
               <div className="wizard-steps">
                 {publicStepLabels.map((label, idx) => (
                   <span key={`pub-step-label-${idx + 1}`} className={pubStep === (idx + 1) ? "active" : ""}>{label}</span>
@@ -8364,8 +8427,8 @@ export default function App() {
               {pubStep === 2 && (
                 <form onSubmit={submitPublicStep2} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "NUNCA")}>Responder Nunca (para testes)</button> */}
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS2, step2Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step2Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8391,8 +8454,8 @@ export default function App() {
               {pubStep === 3 && (
                 <form onSubmit={submitPublicStep3} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS3, step3Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step3Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8418,8 +8481,8 @@ export default function App() {
               {pubStep === 4 && (
                 <form onSubmit={submitPublicStep4} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS4, step4Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step4Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8445,8 +8508,8 @@ export default function App() {
               {pubStep === 5 && (
                 <form onSubmit={submitPublicStep5} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS5, step5Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step5Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8472,8 +8535,8 @@ export default function App() {
               {pubStep === 6 && (
                 <form onSubmit={submitPublicStep6} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS6, step6Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step6Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8499,8 +8562,8 @@ export default function App() {
               {pubStep === 7 && (
                 <form onSubmit={submitPublicStep7} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS7, step7Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step7Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -8526,8 +8589,8 @@ export default function App() {
               {pubStep === 8 && (
                 <form onSubmit={submitPublicStep8} className="login-form">
                   <div className="public-actions">
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
-                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button>
+                    {/* <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "NUNCA")}>Responder Nunca (para testes)</button>
+                    <button type="button" className="secondary" onClick={() => fillPublicStepAnswers(setPubS8, step8Questions.length, "SEMPRE")}>Responder Sempre (para testes)</button> */}
                   </div>
                   {step8Questions.map((question, idx) => {
                     const key = `q${idx + 1}`;
@@ -9006,6 +9069,14 @@ export default function App() {
                 <label>Status</label>
                 <button type="button" className={`toggle-button ${cpStatus === "ATIVO" ? "on" : "off"}`} onClick={() => setCpStatus((s) => s === "ATIVO" ? "ENCERRADO" : "ATIVO")}>
                   {cpStatus === "ATIVO" ? "Ativo" : "Encerrado"}
+                </button>
+                <label>Aceitar respostas após a data fim?</label>
+                <button type="button" className={`toggle-button ${cpAceitarAposFim ? "on" : "off"}`} onClick={() => setCpAceitarAposFim((v) => !v)}>
+                  {cpAceitarAposFim ? "Sim" : "Não"}
+                </button>
+                <label>Aceitar respostas acima do limite de funcionários?</label>
+                <button type="button" className={`toggle-button ${cpAceitarAcimaLimite ? "on" : "off"}`} onClick={() => setCpAceitarAcimaLimite((v) => !v)}>
+                  {cpAceitarAcimaLimite ? "Sim" : "Não"}
                 </button>
                 {cpErr && <p className="error">{cpErr}</p>}
                 <div className="modal-actions">

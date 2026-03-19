@@ -1,0 +1,17 @@
+{
+  "name": "new-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "scripts/company-bot.js",
+  "scripts": {
+    "bot:empresa": "node scripts/company-bot.js",
+    "bot:empresa:once": "node scripts/company-bot.js --once"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

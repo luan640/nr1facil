@@ -395,20 +395,20 @@ class CampaignReportPdfTests(APITestCase):
                     'completed_responses': 20,
                     'company_mean_percent': 68.5,
                     'company_mean_score': 3.42,
-                    'company_zone': {'key': 'yellow', 'label': 'Atencao'},
+                    'company_zone': {'key': 'yellow', 'label': 'Atenção'},
                     'sample_percent': 40.0,
                     'sample_zone': {'key': 'green', 'label': 'Bom'},
                 },
                 'domains': [
                     {'domain': 'Demandas', 'percent': 72.0, 'zone': {'key': 'red', 'label': 'Critico'}},
-                    {'domain': 'Apoio', 'percent': 48.0, 'zone': {'key': 'yellow', 'label': 'Atencao'}},
+                    {'domain': 'Apoio', 'percent': 48.0, 'zone': {'key': 'yellow', 'label': 'Atenção'}},
                 ],
                 'steps': [],
             },
             'per_ref': [
                 {
                     'ref': {'id': 1, 'name': 'Administrativo'},
-                    'summary': {'company_mean_percent': 62.0, 'company_zone': {'key': 'yellow', 'label': 'Atencao'}},
+                    'summary': {'company_mean_percent': 62.0, 'company_zone': {'key': 'yellow', 'label': 'Atenção'}},
                     'steps': [],
                 },
             ],

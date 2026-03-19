@@ -632,6 +632,8 @@ class CampanhaSerializer(serializers.ModelSerializer):
             'start_date',
             'end_date',
             'review_recommendation_months',
+            'aceitar_respostas_apos_fim',
+            'aceitar_respostas_acima_limite',
             'status',
             'qr_code_data',
             'public_url',

@@ -25,5 +25,6 @@ class DevCorsMiddleware:
             response['Access-Control-Allow-Credentials'] = 'true'
             response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Skip-Toast'
             response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response['Access-Control-Expose-Headers'] = 'Content-Length, Content-Disposition, Content-Type'
 
         return response

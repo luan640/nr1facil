@@ -333,7 +333,7 @@ def _report_display_zone(percent, polarity='positive'):
         if percent < 40:
             return {'key': 'green', 'label': 'Bom'}
         if percent < 75:
-            return {'key': 'yellow', 'label': 'Atencao'}
+            return {'key': 'yellow', 'label': 'Atenção'}
         return {'key': 'red', 'label': 'Ruim'}
     return _report_zone(percent)
 
@@ -435,6 +435,139 @@ def _build_report_bundle(campanha, empresa, step1_qs):
         }
         for c in comments_qs if (c.comment or '').strip()
     ]
+
+    return {
+        'summary': {
+            'completed_responses': completed,
+            'company_mean_percent': round(company_percent, 1),
+            'company_mean_score': round(company_score, 2),
+            'company_zone': _report_zone(company_percent),
+            'sample_percent': round(sample_percent, 1),
+            'sample_zone': _report_zone(sample_percent),
+        },
+        'domains': domain_reports,
+        'steps': step_reports,
+        'step9_comments': comments,
+    }
+
+
+def _compute_step_report_from_rows(step_def, rows):
+    """Same logic as _build_step_report but accepts pre-fetched row dicts (no DB query)."""
+    response_count = len(rows)
+    question_reports = []
+    domain_score_sum = 0.0
+    domain_weight_sum = 0.0
+    display_score_sum = 0.0
+    display_weight_sum = 0.0
+
+    for idx, field in enumerate(step_def['question_fields']):
+        meta = _question_scoring_meta(step_def['key'], field, step_def.get('orientation', 'positive'))
+        score_map = FREQUENCY_SCORE_NEGATIVE if meta['polarity'] == 'negative' else FREQUENCY_SCORE_POSITIVE
+        display_score_map = FREQUENCY_SCORE_POSITIVE
+        scores = [score_map.get(row.get(field), 0) for row in rows if row.get(field) in score_map]
+        display_scores = [display_score_map.get(row.get(field), 0) for row in rows if row.get(field) in display_score_map]
+        avg_score = (sum(scores) / len(scores)) if scores else 0.0
+        display_avg_score = (sum(display_scores) / len(display_scores)) if display_scores else 0.0
+        percent = (avg_score / 5.0) * 100.0 if avg_score else 0.0
+        display_percent = (display_avg_score / 5.0) * 100.0 if display_avg_score else 0.0
+        zone = _report_zone(percent)
+        display_zone = _report_display_zone(display_percent, meta['polarity'])
+        if scores:
+            domain_score_sum += avg_score * meta['weight']
+            domain_weight_sum += meta['weight']
+        if display_scores:
+            display_score_sum += display_avg_score * meta['weight']
+            display_weight_sum += meta['weight']
+        question_reports.append(
+            {
+                'question': step_def['questions'][idx],
+                'field': field,
+                'response_count': len(scores),
+                'avg_score': round(avg_score, 2),
+                'percent': round(percent, 1),
+                'zone': zone,
+                'display_avg_score': round(display_avg_score, 2),
+                'display_percent': round(display_percent, 1),
+                'display_zone': display_zone,
+                'polarity': meta['polarity'],
+            }
+        )
+
+    domain_avg = (domain_score_sum / domain_weight_sum) if domain_weight_sum else 0.0
+    display_domain_avg = (display_score_sum / display_weight_sum) if display_weight_sum else 0.0
+    domain_percent = (domain_avg / 5.0) * 100.0 if domain_avg else 0.0
+    display_domain_percent = (display_domain_avg / 5.0) * 100.0 if display_domain_avg else 0.0
+    step_orientation = _step_scoring_orientation(step_def)
+    return {
+        'step': step_def['step'],
+        'key': step_def['key'],
+        'domain': step_def['domain'],
+        'orientation': step_orientation,
+        'response_count': response_count,
+        'avg_score': round(domain_avg, 2),
+        'percent': round(domain_percent, 1),
+        'zone': _report_zone(domain_percent),
+        'display_avg_score': round(display_domain_avg, 2),
+        'display_percent': round(display_domain_percent, 1),
+        'display_zone': _report_display_zone(
+            display_domain_percent,
+            step_orientation if step_orientation in ('positive', 'negative') else 'positive',
+        ),
+        'questions': question_reports,
+    }
+
+
+def _prefetch_campanha_step_data(step1_ids):
+    """Fetch all step answer rows for the given step1 IDs in one query per step model.
+    Returns dict: step_key -> list of row dicts (each includes 'step1_id').
+    """
+    result = {}
+    for step_def in REPORT_STEP_DEFS:
+        result[step_def['key']] = list(
+            step_def['model'].objects
+            .filter(step1_id__in=step1_ids)
+            .values('step1_id', *step_def['question_fields'])
+        )
+    return result
+
+
+def _build_bundle_from_prefetched(prefetched, ids_set, comment_rows, empresa):
+    """Build a report bundle from pre-fetched data for a subset of step1 IDs (no DB queries)."""
+    step_reports = []
+    for step_def in REPORT_STEP_DEFS:
+        rows = [r for r in prefetched[step_def['key']] if r['step1_id'] in ids_set]
+        step_reports.append(_compute_step_report_from_rows(step_def, rows))
+
+    domain_reports = [
+        {
+            'step': item['step'],
+            'key': item['key'],
+            'domain': item['domain'],
+            'response_count': item['response_count'],
+            'avg_score': item['avg_score'],
+            'percent': item['percent'],
+            'zone': item['zone'],
+            'display_avg_score': item.get('display_avg_score', item['avg_score']),
+            'display_percent': item.get('display_percent', item['percent']),
+            'display_zone': item.get('display_zone', item['zone']),
+        }
+        for item in step_reports
+    ]
+    domain_scores = [item['avg_score'] for item in domain_reports if item['response_count'] > 0]
+    company_score = (sum(domain_scores) / len(domain_scores)) if domain_scores else 0.0
+    company_percent = (company_score / 5.0) * 100.0 if company_score else 0.0
+    completed = len(ids_set)
+    sample_percent = (completed / empresa.employee_count * 100.0) if empresa.employee_count else 0.0
+
+    comments = [
+        {
+            'id': c['id'],
+            'first_name': c['step1__first_name'] or '',
+            'comment': c['comment'] or '',
+            'created_at': c['created_at'].isoformat(),
+        }
+        for c in comment_rows if (c['comment'] or '').strip()
+    ][:20]
 
     return {
         'summary': {
@@ -892,29 +1025,35 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
     if selected_empresa_id:
         empresa = empresas_qs.filter(id=selected_empresa_id).first()
 
-    page_size = landscape(A4)
+    page_size = A4
     w, h = page_size
     mx = 14 * mm
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=page_size)
     c.setTitle('Dashboard de Indicadores')
 
+    _timbrado_path = str(Path(__file__).resolve().parent.parent.parent / 'timbrado-page-1.png')
+    _timbrado_exists = os.path.isfile(_timbrado_path)
+
     empresa_nome = empresa.company_name if empresa else ('Visão consolidada' if all_companies else 'Empresa não identificada')
     periodo = f'{date_from.strftime("%d/%m/%Y") if date_from else "Inicio livre"} ate {date_to.strftime("%d/%m/%Y") if date_to else "Hoje"}'
-    generated_at = timezone.now().strftime('%d/%m/%Y %H:%M')
+    generated_at = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M')
 
-    c.setFillColor(colors.HexColor('#f5fbfb'))
-    c.rect(0, 0, w, h, fill=1, stroke=0)
-    c.setFillColor(colors.HexColor('#0b5f6b'))
-    c.roundRect(mx, h - (34 * mm), w - (2 * mx), 24 * mm, 12, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 21)
-    c.drawString(mx + 14, h - (20 * mm), 'Painel de Indicadores')
-    c.setFont('Helvetica', 10)
+    if _timbrado_exists:
+        c.drawImage(_timbrado_path, 0, 0, width=w, height=h, preserveAspectRatio=False, mask='auto')
+    else:
+        c.setFillColor(colors.HexColor('#f5fbfb'))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+    # c.setFillColor(colors.HexColor('#0b5f6b'))
+    # c.roundRect(mx, h - (34 * mm), w - (2 * mx), 24 * mm, 12, fill=1, stroke=0)
+    # c.setFillColor(colors.white)
+    # c.setFont('Helvetica-Bold', 21)
+    # c.drawString(mx + 14, h - (20 * mm), 'Painel de Indicadores')
+    # c.setFont('Helvetica', 10)
     # c.drawString(mx + 14, h - (26 * mm), 'Exportacao da visao atual da dashboard')
-    c.setFont('Helvetica', 9)
-    c.drawRightString(w - mx - 14, h - (20 * mm), f'Gerado em {generated_at}')
-    c.drawRightString(w - mx - 14, h - (26 * mm), periodo)
+    # c.setFont('Helvetica', 9)
+    # c.drawRightString(w - mx - 14, h - (20 * mm), f'Gerado em {generated_at}')
+    # c.drawRightString(w - mx - 14, h - (26 * mm), periodo)
 
     info_y = h - (46 * mm)
     info_h = 36 * mm
@@ -1067,44 +1206,50 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
         hist_items,
     )
 
-    # Denúncias por status list below the history chart
-    den_list_top = charts_top - hist_chart_h - (5 * mm)
-    _draw_dashboard_pdf_list(c, right_x, den_list_top, right_w, 'Denúncias por status', canal.get('den_por_status') or [])
+    # Linha abaixo: Denúncias por status + Humor por tipo em 2 colunas iguais
+    row2_top = charts_top - hist_chart_h - (8 * mm)
+    row2_h = row2_top - (30 * mm)  # margem para o rodapé do timbrado
+    row2_col_w = (info_w - (8 * mm)) / 2
+    _draw_dashboard_pdf_vertical_chart(c, left_x, row2_top - row2_h, row2_col_w, row2_h, 'Denúncias por status', canal.get('den_por_status') or [])
+    _draw_dashboard_pdf_vertical_chart(c, left_x + row2_col_w + (8 * mm), row2_top - row2_h, row2_col_w, row2_h, 'Humor por tipo', canal.get('humor_por_tipo') or [])
 
     c.showPage()
-    c.setFillColor(colors.HexColor('#f5fbfb'))
-    c.rect(0, 0, w, h, fill=1, stroke=0)
-    c.setFillColor(colors.HexColor('#0f172a'))
-    c.setFont('Helvetica-Bold', 20)
-    c.drawString(mx, h - (18 * mm), 'Indicadores complementares')
-    c.setFont('Helvetica', 10)
-    c.setFillColor(colors.HexColor('#5f7b83'))
-    c.drawString(mx, h - (24 * mm), f'{empresa_nome}  |  Período: {periodo}')
+    if _timbrado_exists:
+        c.drawImage(_timbrado_path, 0, 0, width=w, height=h, preserveAspectRatio=False, mask='auto')
+    else:
+        c.setFillColor(colors.HexColor('#f5fbfb'))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+    # c.setFillColor(colors.HexColor('#0f172a'))
+    # c.setFont('Helvetica-Bold', 16)
+    # c.drawString(mx, h - (38 * mm), 'Indicadores complementares')
+    # c.setFont('Helvetica', 9)
+    # c.setFillColor(colors.HexColor('#5f7b83'))
+    # c.drawString(mx, h - (44 * mm), f'{empresa_nome}  |  Período: {periodo}')
 
-    top_y = h - (34 * mm)
+    top_y = h - (52 * mm)
     col_gap = 8 * mm
-    col_w = (w - (2 * mx) - (2 * col_gap)) / 3
-    col1_x = mx
-    col2_x = mx + col_w + col_gap
-    col3_x = mx + 2 * (col_w + col_gap)
+    info_w = w - (2 * mx)
+    col_w_2 = (info_w - col_gap) / 2
 
-    chart_h = 60 * mm
-    _draw_dashboard_pdf_vertical_chart(c, col1_x, top_y - chart_h, col_w, chart_h, 'Denúncias por status', canal.get('den_por_status') or [])
-    _draw_dashboard_pdf_vertical_chart(c, col2_x, top_y - chart_h, col_w, chart_h, 'Humor por tipo', canal.get('humor_por_tipo') or [])
+    # Linha 1: 2 hbar charts
+    list_top = top_y
+    y1 = _draw_dashboard_pdf_hbar_chart(c, mx, list_top, col_w_2, 'Denúncias por tipo', canal.get('den_por_tipo') or [])
+    y2 = _draw_dashboard_pdf_hbar_chart(c, mx + col_w_2 + col_gap, list_top, col_w_2, 'Denúncias por GHE', canal.get('den_por_ghe') or [])
 
+    # Linha 3: Histórico de humor (maior) + card Pedidos de ajuda lado a lado
     humor_trend = canal.get('humor_trend') or {}
     humor_trend_items = [{'label': label, 'value': value} for label, value in zip(humor_trend.get('labels') or [], humor_trend.get('values') or [])]
-    _draw_dashboard_pdf_vertical_chart(c, col3_x, top_y - chart_h, col_w, chart_h, 'Histórico de humor', humor_trend_items)
-
-    list_top = top_y - chart_h - 10 * mm
-    y1 = _draw_dashboard_pdf_hbar_chart(c, col1_x, list_top, col_w, 'Denúncias por tipo', canal.get('den_por_tipo') or [])
-    y2 = _draw_dashboard_pdf_hbar_chart(c, col2_x, list_top, col_w, 'Denúncias por GHE', canal.get('den_por_ghe') or [])
+    row3_top = min(y1, y2) - 10 * mm
+    row3_h = 52 * mm
+    humor_w = (info_w - col_gap) * 0.68
+    card_col_w = info_w - humor_w - col_gap
+    _draw_dashboard_pdf_vertical_chart(c, mx, row3_top - row3_h, humor_w, row3_h, 'Histórico de humor', humor_trend_items)
     _draw_dashboard_pdf_card(
         c,
-        col3_x,
-        list_top - (26 * mm),
-        col_w,
-        24 * mm,
+        mx + humor_w + col_gap,
+        row3_top - row3_h,
+        card_col_w,
+        row3_h,
         'Pedidos de ajuda',
         canal.get('total_pedidos_ajuda', 0),
         detail='Registros contabilizados no período atual',
@@ -1719,13 +1864,13 @@ def _draw_pdf_domain_detail_pages(c, report_data):
         if str(orientation or 'positive').lower() == 'negative':
             items = [
                 (colors.HexColor('#22c55e'), 'NUNCA - BOM'),
-                (colors.HexColor('#facc15'), 'AS VEZES - ATENCAO'),
+                (colors.HexColor('#facc15'), 'AS VEZES - ATENÇÃO'),
                 (colors.HexColor('#ef4444'), 'SEMPRE - RUIM'),
             ]
         else:
             items = [
                 (colors.HexColor('#ef4444'), 'NUNCA - RUIM'),
-                (colors.HexColor('#facc15'), 'AS VEZES - ATENCAO'),
+                (colors.HexColor('#facc15'), 'AS VEZES - ATENÇÃO'),
                 (colors.HexColor('#22c55e'), 'SEMPRE - BOM'),
             ]
         c.setFont('Helvetica', 7)
@@ -2027,12 +2172,12 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         y -= 5.2 * mm
 
     y -= 2 * mm
+    planos_acao = report_data.get('planos_acao', []) or []
+    plano_title = 'Plano de Ação Recomendado' if planos_acao else 'Nenhum Plano de Ação Recomendado'
     c.setFillColor(colors.HexColor('#9a3412'))
     c.setFont('Helvetica-Bold', 8)
-    c.drawString(margin_x, y, 'Plano de Ação Recomendado')
+    c.drawString(margin_x, y, plano_title)
     y -= 8 * mm
-
-    planos_acao = report_data.get('planos_acao', []) or []
 
     if not measures and not planos_acao:
         c.showPage()
@@ -2225,70 +2370,57 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
                     y = draw_wrapped_text(box_x + 7 * mm, y, texto, font='Helvetica', size=8.8, max_width=box_w - 9 * mm, leading=11.5)
                     y -= 2 * mm
 
-            if when_range:
-                # y -= 1 * mm
-                # c.setFillColor(colors.HexColor('#111827'))
-                # c.setFont('Helvetica-Bold', 9)
-                # c.drawString(box_x + 2 * mm, y, 'Quando')
-                # y -= 4.5 * mm
+            table_x = box_x + 2 * mm
+            table_w = box_w - 4 * mm
+            header_h = 5 * mm
+            body_h = 6 * mm
+            cols = [
+                ('Responsavel', 0.24),
+                ('Data de\nImplantacao', 0.19),
+                ('A\nFazer', 0.08),
+                ('Fazendo', 0.10),
+                ('Adiado', 0.10),
+                ('Concluido', 0.12),
+                ('Concluido em', 0.17),
+            ]
+            widths = [table_w * p for _, p in cols]
+            c.setStrokeColor(colors.HexColor('#d1d5db'))
+            c.setFillColor(colors.HexColor('#f3f4f6'))
+            c.rect(table_x, y - header_h, table_w, header_h, stroke=1, fill=1)
+            x = table_x
+            c.setFillColor(colors.HexColor('#111827'))
+            for (label, _), w in zip(cols, widths):
+                parts = label.split('\n')
+                c.setFont('Helvetica-Bold', 6.7)
+                if len(parts) == 1:
+                    c.drawCentredString(x + w / 2, y - 3.2 * mm, parts[0])
+                else:
+                    c.drawCentredString(x + w / 2, y - 2.4 * mm, parts[0])
+                    c.drawCentredString(x + w / 2, y - 4.7 * mm, parts[1])
+                x += w
 
-                # c.setFont('Helvetica-Bold', 6.6)
-                # c.drawString(box_x + 2 * mm, y, 'Aplicar em:')
-                # c.setFont('Helvetica', 6.4)
-                # c.drawString(box_x + 18 * mm, y, when_list_pt or '-')
-                # y -= 5.5 * mm
-
-                table_x = box_x + 2 * mm
-                table_w = box_w - 4 * mm
-                header_h = 5 * mm
-                body_h = 6 * mm
-                cols = [
-                    ('Responsavel', 0.24),
-                    ('Data de\nImplantacao', 0.19),
-                    ('A\nFazer', 0.08),
-                    ('Fazendo', 0.10),
-                    ('Adiado', 0.10),
-                    ('Concluido', 0.12),
-                    ('Concluido em', 0.17),
-                ]
-                widths = [table_w * p for _, p in cols]
-                c.setStrokeColor(colors.HexColor('#d1d5db'))
-                c.setFillColor(colors.HexColor('#f3f4f6'))
-                c.rect(table_x, y - header_h, table_w, header_h, stroke=1, fill=1)
-                x = table_x
+            row_y = y - header_h
+            c.setFillColor(colors.white)
+            c.rect(table_x, row_y - body_h, table_w, body_h, stroke=1, fill=1)
+            x = table_x
+            values = [empresa_name, when_range or '', '', '', '', '', '__/__/____']
+            for idx, w in enumerate(widths):
                 c.setFillColor(colors.HexColor('#111827'))
-                for (label, _), w in zip(cols, widths):
-                    parts = label.split('\n')
-                    c.setFont('Helvetica-Bold', 6.7)
-                    if len(parts) == 1:
-                        c.drawCentredString(x + w / 2, y - 3.2 * mm, parts[0])
-                    else:
-                        c.drawCentredString(x + w / 2, y - 2.4 * mm, parts[0])
-                        c.drawCentredString(x + w / 2, y - 4.7 * mm, parts[1])
-                    x += w
-
-                row_y = y - header_h
-                c.setFillColor(colors.white)
-                c.rect(table_x, row_y - body_h, table_w, body_h, stroke=1, fill=1)
-                x = table_x
-                values = [empresa_name, when_range, '', '', '', '', '__/__/____']
-                for idx, w in enumerate(widths):
-                    c.setFillColor(colors.HexColor('#111827'))
-                    if 2 <= idx <= 5:
-                        cx = x + w / 2 - 1.4 * mm
-                        cy = row_y - 4.6 * mm
-                        c.setStrokeColor(colors.HexColor('#9ca3af'))
-                        c.rect(cx, cy, 2.8 * mm, 2.8 * mm, stroke=1, fill=0)
-                    else:
-                        c.setFont('Helvetica', 6.8)
-                        c.drawCentredString(x + w / 2, row_y - 3.8 * mm, values[idx])
-                    x += w
-                x = table_x
-                total_h = header_h + body_h
-                for w in widths[:-1]:
-                    x += w
-                    c.line(x, y, x, y - total_h)
-                y = row_y - body_h - 4 * mm
+                if 2 <= idx <= 5:
+                    cx = x + w / 2 - 1.4 * mm
+                    cy = row_y - 4.6 * mm
+                    c.setStrokeColor(colors.HexColor('#9ca3af'))
+                    c.rect(cx, cy, 2.8 * mm, 2.8 * mm, stroke=1, fill=0)
+                else:
+                    c.setFont('Helvetica', 6.8)
+                    c.drawCentredString(x + w / 2, row_y - 3.8 * mm, values[idx])
+                x += w
+            x = table_x
+            total_h = header_h + body_h
+            for w in widths[:-1]:
+                x += w
+                c.line(x, y, x, y - total_h)
+            y = row_y - body_h - 4 * mm
 
             c.setStrokeColor(colors.HexColor('#d1d5db'))
             c.roundRect(box_x, y + 2 * mm, box_w, (box_top - (y + 2 * mm)) + 1.5 * mm, 3, stroke=1, fill=0)
@@ -2332,7 +2464,7 @@ def _draw_pdf_limitacoes_page(c):
     text_obj.setTextOrigin(margin_x, y)
     body_font = 9
     body_leading = 12.5
-    text_obj.setFont('Helvetica-Bold', body_font)
+    text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
     max_width = width - (2 * margin_x)
@@ -2524,12 +2656,13 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
             c.drawCentredString(x + (cell_w / 2.0), baseline_y, text)
 
     def pastel_risk_fill(order_index):
+        # 0=Crítico (vermelho) → 1=Alto → 2=Médio → 3=Baixo → 4=Irrelevante (verde)
         palette = [
-            colors.HexColor('#fee2e2'),
-            colors.HexColor('#ffedd5'),
-            colors.HexColor('#fef9c3'),
-            colors.HexColor('#dcfce7'),
-            colors.HexColor('#e0f2fe'),
+            colors.HexColor('#fecaca'),  # Crítico
+            colors.HexColor('#fed7aa'),  # Alto
+            colors.HexColor('#fef08a'),  # Médio
+            colors.HexColor('#bbf7d0'),  # Baixo
+            colors.HexColor('#dcfce7'),  # Irrelevante
         ]
         try:
             idx = max(0, min(len(palette) - 1, int(order_index)))
@@ -2599,14 +2732,13 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     probability_title_gap = 6 * mm
     probability_text_gap = 4 * mm
     table_gap = 4 * mm
-    probability_text = 'A probabilidade representa a chance de o problema ocorrer ou estar presente no ambiente de trabalho.'
+    probability_text = 'A probabilidade representa a frequência com que as condições desfavoráveis ocorrem ou estão presentes no ambiente de trabalho.'
 
     table_rows = [
-        ('90-100%', 'ambiente muito saudável', '1'),
-        ('75-89%', 'boa condição', '2'),
-        ('60-74%', 'atenção', '3'),
-        ('40-59%', 'problema frequente', '4'),
-        ('< 40%', 'problema crítico', '5'),
+        ('75-100%', 'Ambiente saudável / boa condição',   'Ocasional'),
+        ('50-74%',  'Condição em atenção',                'Intermitente'),
+        ('25-49%',  'Problema frequente',                 'Habitual'),
+        ('< 25%',   'Problema crítico',                   'Permanente'),
     ]
 
     title_needed = 6 * mm
@@ -2665,13 +2797,12 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     severity_title_gap = 8 * mm
     severity_text_gap = 4 * mm
     severity_table_gap = 4 * mm
-    severity_text = 'A severidade representa o impacto do risco na saúde do trabalhador caso ele ocorra.'
+    severity_text = 'A severidade representa o impacto do risco na saúde do trabalhador caso ele ocorra ou se prolongue.'
     severity_rows = [
-        ('1', 'desconforto leve'),
-        ('2', 'fadiga mental leve'),
-        ('3', 'estresse ocupacional'),
-        ('4', 'transtornos psicológicos'),
-        ('5', 'adoecimento grave'),
+        ('Leve',     'Desconforto leve e transitório'),
+        ('Moderado', 'Fadiga mental / estresse moderado'),
+        ('Sério',    'Estresse ocupacional / transtornos psicológicos'),
+        ('Severo',   'Adoecimento grave / afastamento prolongado'),
     ]
     severity_col_widths = [0.34 * table_w, 0.66 * table_w]
     severity_text_needed = len(wrap_text(severity_text, font='Helvetica', size=8.3)) * 10.5
@@ -2723,13 +2854,13 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
     control_title_gap = 8 * mm
     control_text_gap = 4 * mm
     control_table_gap = 4 * mm
-    control_text = 'Os m?todos de controle devem ser definidos de acordo com o n?vel de risco identificado na avalia??o, e que a prioriza??o das a??es segue a hierarquia da criticidade, onde riscos mais elevados exigem interven??es imediatas e rigorosas, enquanto riscos menores podem ser apenas monitorados ou receber a??es adicionais quando necess?rio.'
+    control_text = 'Os métodos de controle devem ser definidos de acordo com o nível de risco identificado na avaliação. A priorização das ações segue a hierarquia da criticidade: riscos mais elevados exigem intervenções imediatas e rigorosas, enquanto riscos menores podem ser monitorados ou receber ações adicionais quando necessário.'
     control_rows = [
-        ('INTOLERAVEL', 'Ações imediatas'),
-        ('SUBSTANCIAL', 'Controle necess?rio'),
-        ('MODERADO', 'Controle adicional, se poss?vel / vi?vel'),
-        ('TOLER?VEL', 'Nenhum controle adicional necess?rio'),
-        ('TRIVIAL', 'Nenhuma ação necessária'),
+        ('RISCO CRÍTICO',     'Ações imediatas e urgentes — intervenção obrigatória'),
+        ('RISCO ALTO',        'Controle necessário — plano de ação prioritário'),
+        ('RISCO MÉDIO',       'Controle adicional, se possível/viável'),
+        ('RISCO BAIXO',       'Monitoramento periódico'),
+        ('RISCO IRRELEVANTE', 'Nenhuma ação necessária'),
     ]
     control_col_widths = [0.46 * table_w, 0.54 * table_w]
     control_text_needed = len(wrap_text(control_text, font='Helvetica', size=8.3)) * 10.5
@@ -2793,43 +2924,43 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
             'label': 'Demandas de trabalho',
             'agent': 'Excesso de trabalho / falta de apoio',
             'damages': 'Transtorno mental; DORT; estresse ocupacional; fadiga',
-            'severity': 4,
+            'severity': 3,  # Sério
         },
         'controle': {
             'label': 'Controle sobre o trabalho',
             'agent': 'Baixo controle e pouca autonomia / falta de autonomia',
             'damages': 'Transtorno mental; DORT; ansiedade',
-            'severity': 3,
+            'severity': 2,  # Moderado
         },
         'apoio da gestão': {
             'label': 'Apoio da gestão',
             'agent': 'Falta de cooperação no trabalho',
             'damages': 'Transtorno mental',
-            'severity': 3,
+            'severity': 2,  # Moderado
         },
         'suporte dos colegas': {
             'label': 'Suporte dos colegas',
             'agent': 'Maus relacionamentos no local de trabalho',
             'damages': 'Transtorno mental; DORT',
-            'severity': 2,
+            'severity': 2,  # Moderado
         },
         'relacionamentos': {
             'label': 'Relacionamentos no trabalho',
             'agent': 'Conflitos frequentes na equipe',
             'damages': 'Transtorno mental',
-            'severity': 4,
+            'severity': 3,  # Sério
         },
         'clareza de papel | função': {
             'label': 'Clareza de Papel/Função',
             'agent': 'Baixa clareza de papel/função',
             'damages': 'Transtorno mental',
-            'severity': 2,
+            'severity': 2,  # Moderado
         },
         'gerenciamento de mudancas': {
-            'label': 'Gerenciamento de Mudanas',
+            'label': 'Gerenciamento de Mudanças',
             'agent': 'Má gestão de mudanças organizacionais',
             'damages': 'Transtorno mental; DORT',
-            'severity': 3,
+            'severity': 2,  # Moderado
         },
     }
 
@@ -2849,36 +2980,47 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
         return value
 
     def calc_probability(percent):
+        # Returns 1=Ocasional, 2=Intermitente, 3=Habitual, 4=Permanente
         pct = float(percent or 0)
-        if pct >= 90:
-            return 1
         if pct >= 75:
+            return 1
+        if pct >= 50:
             return 2
-        if pct >= 60:
+        if pct >= 25:
             return 3
-        if pct >= 40:
-            return 4
-        return 5
+        return 4
 
     def calc_risk_label(probability, severity):
-        score = int(probability) * int(severity)
-        if score <= 4:
-            return 'TRIVIAL'
-        if score <= 8:
-            return 'TOLERAVEL'
-        if score <= 12:
-            return 'MODERADO'
-        if score <= 16:
-            return 'SUBSTANCIAL'
-        return 'INTOLERAVEL'
+        # Lookup table from the new 4x4 risk matrix
+        # probability: 1=Ocasional … 4=Permanente
+        # severity:    1=Leve      … 4=Severo
+        _matrix = {
+            (1, 1): 'IRRELEVANTE',
+            (2, 1): 'BAIXO',
+            (3, 1): 'BAIXO',
+            (4, 1): 'MEDIO',
+            (1, 2): 'BAIXO',
+            (2, 2): 'BAIXO',
+            (3, 2): 'MEDIO',
+            (4, 2): 'ALTO',
+            (1, 3): 'BAIXO',
+            (2, 3): 'MEDIO',
+            (3, 3): 'ALTO',
+            (4, 3): 'ALTO',
+            (1, 4): 'MEDIO',
+            (2, 4): 'ALTO',
+            (3, 4): 'ALTO',
+            (4, 4): 'CRITICO',
+        }
+        return _matrix.get((int(probability), int(severity)), 'BAIXO')
 
     def risk_fill(label):
         palette = {
-            'TRIVIAL': colors.HexColor('#bfdbfe'),
-            'TOLERAVEL': colors.HexColor('#bbf7d0'),
-            'MODERADO': colors.HexColor('#fde047'),
-            'SUBSTANCIAL': colors.HexColor('#fdba74'),
-            'INTOLERAVEL': colors.HexColor('#fca5a5'),
+            'IRRELEVANTE': colors.HexColor('#bbf7d0'),
+            'BAIXO':       colors.HexColor('#86efac'),
+            'MEDIO':       colors.HexColor('#fde047'),
+            'ALTO':        colors.HexColor('#fdba74'),
+            'CRITICO':     colors.HexColor('#fca5a5'),
         }
         return palette.get(label, colors.white)
 
@@ -2947,14 +3089,25 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
             percent = float(item.get('percent', 0) or 0)
             probability = calc_probability(percent)
             severity = int(meta['severity'])
+            risk_key = calc_risk_label(probability, severity)
+            risk_display = {
+                'IRRELEVANTE': 'Irrelevante',
+                'BAIXO': 'Baixo',
+                'MEDIO': 'Médio',
+                'ALTO': 'Alto',
+                'CRITICO': 'Crítico',
+            }.get(risk_key, risk_key)
+            prob_display = {1: 'Ocasional', 2: 'Intermitente', 3: 'Habitual', 4: 'Permanente'}.get(probability, str(probability))
+            sev_display  = {1: 'Leve', 2: 'Moderado', 3: 'Sério', 4: 'Severo'}.get(severity, str(severity))
             rows.append({
                 'domain': meta['label'],
                 'percent': f'{percent:.1f}%',
                 'agent': meta['agent'],
                 'damages': meta['damages'],
-                'probability': str(probability),
-                'severity': str(severity),
-                'risk': calc_risk_label(probability, severity),
+                'probability': prob_display,
+                'severity': sev_display,
+                'risk': risk_display,
+                '_risk_key': risk_key,
             })
         return rows
 
@@ -2968,8 +3121,8 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
             ('%', 0.07, 'center'),
             ('AGENTE NOCIVO', 0.19, 'left'),
             ('POSSÍVEIS DANOS', 0.19, 'left'),
-            ('PROBABILIDADE\n(1 a 5)', 0.12, 'center'),
-            ('SEVERIDADE\n(Fixa)', 0.11, 'center'),
+            ('PROBABILIDADE', 0.12, 'center'),
+            ('SEVERIDADE', 0.11, 'center'),
             ('NÍVEL DE\nRISCO', 0.16, 'center'),
         ]
         col_widths = [table_w * ratio for _, ratio, _ in col_defs]
@@ -3028,7 +3181,7 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
                 if key == 'percent':
                     fill = percent_fill(row[key])
                 if key == 'risk':
-                    fill = risk_fill(row[key])
+                    fill = risk_fill(row.get('_risk_key', row[key]))
                 c.setStrokeColor(colors.HexColor('#cbd5e1'))
                 c.setFillColor(fill)
                 c.rect(x, row_top - row_h, col_w, row_h, stroke=1, fill=1)
@@ -3531,8 +3684,8 @@ def _draw_pdf_objetivo_page(c):
 
     text_obj = c.beginText()
     text_obj.setTextOrigin(margin_x, y)
-    body_font = 12
-    body_leading = 12.9
+    body_font = 9
+    body_leading = 12.5
     text_obj.setFont('Helvetica', body_font)
     text_obj.setLeading(body_leading)
     text_obj.setFillColor(colors.HexColor('#111827'))
@@ -3873,6 +4026,7 @@ def _build_report_pdf_response(campanha, rel_payload):
     response = HttpResponse(pdf, content_type='application/pdf')
     safe_name = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in campanha.title)[:80] or 'relatorio'
     response['Content-Disposition'] = f'attachment; filename=\"{safe_name}.pdf\"'
+    response['Content-Length'] = str(len(pdf))
     return response
 
 
@@ -4467,6 +4621,111 @@ class EmpresaCanalDenunciasLinkView(APIView):
         })
 
 
+class EmpresaCanalDenunciasQrCodePdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get_object(self, request, empresa_id):
+        return empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+
+    def get(self, request, empresa_id):
+        empresa = self.get_object(request, empresa_id)
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Ensure token exists
+        if not empresa.canal_denuncias_token:
+            empresa.canal_denuncias_token = uuid.uuid4()
+            empresa.save(update_fields=['canal_denuncias_token', 'updated_at'])
+
+        base = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/') or 'http://localhost:5173'
+        public_url = f'{base}/#/canal-denuncias/{empresa.canal_denuncias_token}/'
+
+        try:
+            import qrcode as qrcode_lib
+            qr_buffer = BytesIO()
+            qrcode_lib.make(public_url).save(qr_buffer, format='PNG')
+            qr_bytes = qr_buffer.getvalue()
+        except Exception:
+            qr_bytes = None
+
+        # Draw PDF (A4 portrait)
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        page_w, page_h = A4
+
+        top_margin = REPORT_SOURCE_TOP_MARGIN
+        side_margin = 20 * mm
+        content_w = page_w - 2 * side_margin
+        cx = page_w / 2
+
+        # Background
+        c.setFillColor(colors.HexColor('#f8fafb'))
+        c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
+        # Header band
+        band_h = 18 * mm
+        band_y = page_h - top_margin - band_h
+        c.setFillColor(colors.HexColor('#0b5f6b'))
+        c.roundRect(side_margin, band_y, content_w, band_h, 8, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 16)
+        c.drawCentredString(cx, band_y + (band_h - 16) / 2 + 2, 'Canal de Denúncias')
+
+        # Company name
+        y = band_y - 10 * mm
+        empresa_nome = empresa.company_name or ''
+        if empresa_nome:
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica-Bold', 9)
+            c.drawCentredString(cx, y, 'EMPRESA')
+            y -= 6 * mm
+            c.setFillColor(colors.HexColor('#0f172a'))
+            c.setFont('Helvetica-Bold', 13)
+            c.drawCentredString(cx, y, empresa_nome[:60])
+            y -= 9 * mm
+
+        # Instruction text
+        c.setFillColor(colors.HexColor('#475569'))
+        c.setFont('Helvetica', 10)
+        c.drawCentredString(cx, y, 'Escaneie o QR Code abaixo para acessar o canal de denúncias da empresa.')
+        y -= 4 * mm
+
+        # QR code image (centered, large)
+        qr_size = 72 * mm
+        qr_x = cx - qr_size / 2
+        qr_y = y - qr_size - 4 * mm
+
+        # QR code card background
+        card_pad = 6 * mm
+        c.setFillColor(colors.white)
+        c.setStrokeColor(colors.HexColor('#d1dce0'))
+        c.roundRect(qr_x - card_pad, qr_y - card_pad, qr_size + 2 * card_pad, qr_size + 2 * card_pad, 10, fill=1, stroke=1)
+
+        if qr_bytes:
+            from reportlab.lib.utils import ImageReader
+            c.drawImage(ImageReader(BytesIO(qr_bytes)), qr_x, qr_y, width=qr_size, height=qr_size, mask='auto')
+        else:
+            c.setFillColor(colors.HexColor('#94a3b8'))
+            c.setFont('Helvetica', 9)
+            c.drawCentredString(cx, qr_y + qr_size / 2, 'QR Code indisponível')
+
+        y = qr_y - card_pad - 8 * mm
+
+        # URL below QR
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica', 7.5)
+        c.drawCentredString(cx, y, public_url[:90])
+
+        c.save()
+        pdf = _apply_pdf_letterhead(buffer.getvalue())
+        buffer.close()
+
+        safe_name = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in str(empresa.company_name or 'denuncia'))[:60]
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="canal_denuncias_{safe_name}.pdf"'
+        return response
+
+
 class EmpresaTotemLinkView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
@@ -4750,24 +5009,14 @@ def _build_ajuda_pdf_response(pedido):
 
     def draw_page_frame():
         page_num[0] += 1
-        c.setFillColor(colors.HexColor('#111827'))
-        c.rect(0, h - 18 * mm, w, 18 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 10)
-        c.drawString(mx, h - 11 * mm, 'RELATÓRIO DE AUDITORIA — PEDIDOS DE AJUDA')
-        c.setFont('Helvetica', 8)
-        c.drawRightString(w - mx, h - 11 * mm, f'CONFIDENCIAL  •  Pág. {page_num[0]}')
-        c.setFillColor(colors.HexColor('#f1f5f9'))
-        c.rect(0, 0, w, 12 * mm, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#9ca3af'))
         c.setFont('Helvetica', 7)
-        c.drawString(mx, 6.5 * mm, f'Gerado em: {now_str}  •  Documento confidencial para auditoria interna')
-        c.drawRightString(w - mx, 6.5 * mm, f'Pedido #{pedido.id}  •  {pedido.empresa.company_name}')
+        c.drawRightString(w - mx, REPORT_SOURCE_BOTTOM_MARGIN + 4 * mm, f'Pedido #{pedido.id}  •  Pág. {page_num[0]}')
 
     def new_page():
         c.showPage()
         draw_page_frame()
-        return h - 24 * mm
+        return h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
     def wrap_text(text, font_name, font_size, max_width):
         paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
@@ -4802,7 +5051,7 @@ def _build_ajuda_pdf_response(pedido):
 
     def draw_text_block(y, lines, font_size=9, lh=5.5):
         for line in lines:
-            if y < 20 * mm:
+            if y < REPORT_SOURCE_BOTTOM_MARGIN + 5 * mm:
                 y = new_page()
             c.setFillColor(slate)
             c.setFont('Helvetica', font_size)
@@ -4812,7 +5061,7 @@ def _build_ajuda_pdf_response(pedido):
         return y
 
     draw_page_frame()
-    y = h - 24 * mm
+    y = h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
     c.setFillColor(blue)
     c.setFont('Helvetica-Bold', 15)
@@ -4883,6 +5132,8 @@ def _build_ajuda_pdf_response(pedido):
 
     y -= box_h + 8 * mm
 
+    _pb = REPORT_SOURCE_BOTTOM_MARGIN + 5 * mm  # page-break threshold
+
     atualizacoes = list(pedido.atualizacoes.order_by('created_at').all())
     if atualizacoes:
         if y < 60 * mm:
@@ -4900,7 +5151,7 @@ def _build_ajuda_pdf_response(pedido):
             body_h = len(atu_lines) * 5.2 * mm + 3 * mm
             card_h = header_h + body_h
 
-            if y - card_h < 20 * mm:
+            if y - card_h < _pb:
                 y = new_page()
 
             card_y = y - card_h
@@ -4938,7 +5189,7 @@ def _build_ajuda_pdf_response(pedido):
             y = card_y - 4 * mm
 
     c.save()
-    pdf = buffer.getvalue()
+    pdf = _apply_pdf_letterhead(buffer.getvalue())
     buffer.close()
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="pedido-ajuda-{pedido.id}-auditoria.pdf"'
@@ -5145,24 +5396,14 @@ def _build_denuncia_pdf_response(denuncia):
 
     def draw_page_frame():
         page_num[0] += 1
-        c.setFillColor(colors.HexColor('#111827'))
-        c.rect(0, h - 18 * mm, w, 18 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.white)
-        c.setFont('Helvetica-Bold', 10)
-        c.drawString(mx, h - 11 * mm, 'RELATÓRIO DE AUDITORIA — CANAL DE DENÚNCIAS')
-        c.setFont('Helvetica', 8)
-        c.drawRightString(w - mx, h - 11 * mm, f'CONFIDENCIAL  •  Pág. {page_num[0]}')
-        c.setFillColor(colors.HexColor('#f1f5f9'))
-        c.rect(0, 0, w, 12 * mm, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#9ca3af'))
         c.setFont('Helvetica', 7)
-        c.drawString(mx, 6.5 * mm, f'Gerado em: {now_str}  •  Documento confidencial para auditoria interna')
-        c.drawRightString(w - mx, 6.5 * mm, f'Denúncia #{denuncia.id}  •  {denuncia.empresa.company_name}')
+        c.drawRightString(w - mx, REPORT_SOURCE_BOTTOM_MARGIN + 4 * mm, f'Denúncia #{denuncia.id}  •  Pág. {page_num[0]}')
 
     def new_page():
         c.showPage()
         draw_page_frame()
-        return h - 24 * mm
+        return h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
     def wrap_text(text, font_name, font_size, max_width):
         paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
@@ -5197,7 +5438,7 @@ def _build_denuncia_pdf_response(denuncia):
 
     def draw_text_block(y, lines, font_size=9, lh=5.5):
         for line in lines:
-            if y < 20 * mm:
+            if y < REPORT_SOURCE_BOTTOM_MARGIN + 5 * mm:
                 y = new_page()
             c.setFillColor(slate)
             c.setFont('Helvetica', font_size)
@@ -5208,7 +5449,7 @@ def _build_denuncia_pdf_response(denuncia):
 
     # ── Page 1 ──
     draw_page_frame()
-    y = h - 24 * mm
+    y = h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
     # Company name
     c.setFillColor(blue)
@@ -5297,6 +5538,8 @@ def _build_denuncia_pdf_response(denuncia):
 
     y -= box_h + 8 * mm
 
+    _pb = REPORT_SOURCE_BOTTOM_MARGIN + 5 * mm  # page-break threshold
+
     # ── Relato ──
     if y < 50 * mm:
         y = new_page()
@@ -5332,7 +5575,7 @@ def _build_denuncia_pdf_response(denuncia):
             body_h = len(atu_lines) * 5.2 * mm + 3 * mm
             card_h = header_h + body_h
 
-            if y - card_h < 20 * mm:
+            if y - card_h < _pb:
                 y = new_page()
 
             card_y = y - card_h  # bottom edge of the full card
@@ -5375,7 +5618,7 @@ def _build_denuncia_pdf_response(denuncia):
             y = card_y - 4 * mm  # gap between cards
 
     c.save()
-    pdf = buffer.getvalue()
+    pdf = _apply_pdf_letterhead(buffer.getvalue())
     buffer.close()
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="denuncia-{denuncia.id}-auditoria.pdf"'
@@ -5405,26 +5648,14 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
     def draw_page_frame():
         page_num[0] += 1
-        c.setFillColor(colors.white)
-        c.rect(0, 0, w, h, stroke=0, fill=1)
-        c.setStrokeColor(black)
-        c.setLineWidth(0.8)
-        c.line(mx, h - 16 * mm, w - mx, h - 16 * mm)
-        c.setFillColor(black)
-        c.setFont('Helvetica-Bold', 10)
-        c.drawString(mx, h - 11.5 * mm, 'RELATÓRIO DOCUMENTAL - CANAL DE DENÚNCIAS')
-        c.setFont('Helvetica', 8)
-        c.drawRightString(w - mx, h - 11.5 * mm, f'Página {page_num[0]}')
-        c.line(mx, 14 * mm, w - mx, 14 * mm)
-        c.setFillColor(gray)
+        c.setFillColor(colors.HexColor('#9ca3af'))
         c.setFont('Helvetica', 7)
-        c.drawString(mx, 9 * mm, f'Gerado em: {now_str}')
-        c.drawRightString(w - mx, 9 * mm, f'Denúncia #{denuncia.id} | {denuncia.empresa.company_name}')
+        c.drawRightString(w - mx, REPORT_SOURCE_BOTTOM_MARGIN + 4 * mm, f'Denúncia #{denuncia.id}  •  Pág. {page_num[0]}')
 
     def new_page():
         c.showPage()
         draw_page_frame()
-        return h - 24 * mm
+        return h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
     def wrap_text(text, font_name, font_size, max_width):
         paragraphs = str(text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
@@ -5459,7 +5690,7 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
     def draw_text_block(y, lines, font_size=9, lh=5.5):
         for line in lines:
-            if y < 22 * mm:
+            if y < REPORT_SOURCE_BOTTOM_MARGIN + 5 * mm:
                 y = new_page()
             c.setFillColor(dark)
             c.setFont('Helvetica', font_size)
@@ -5539,7 +5770,7 @@ def _build_denuncia_documental_pdf_response(denuncia):
         return card_y - 6 * mm
 
     draw_page_frame()
-    y = h - 24 * mm
+    y = h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
     c.setFillColor(black)
     c.setFont('Helvetica-Bold', 14)
@@ -5618,6 +5849,8 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
     y -= box_h + 8 * mm
 
+    _pb = REPORT_SOURCE_BOTTOM_MARGIN + 5 * mm  # page-break threshold
+
     if y < 50 * mm:
         y = new_page()
     y = draw_section_title(y, 'Relato', ul_width_mm=18)
@@ -5647,7 +5880,7 @@ def _build_denuncia_documental_pdf_response(denuncia):
             body_h = len(atu_lines) * 5.2 * mm + 3 * mm
             card_h = header_h + body_h
 
-            if y - card_h < 22 * mm:
+            if y - card_h < _pb:
                 y = new_page()
 
             card_y = y - card_h
@@ -5679,10 +5912,10 @@ def _build_denuncia_documental_pdf_response(denuncia):
             y = card_y - 4 * mm
 
     c.save()
-    pdf = buffer.getvalue()
+    pdf = _apply_pdf_letterhead(buffer.getvalue())
     buffer.close()
     response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename=\"denuncia-{denuncia.id}-auditoria.pdf\"'
+    response['Content-Disposition'] = f'attachment; filename="denuncia-{denuncia.id}-documental.pdf"'
     return response
 
 
@@ -6389,7 +6622,6 @@ class CampanhaRelatorioView(APIView):
         ref_id = (request.query_params.get('ref_id') or '').strip()  # compatibilidade
 
         base_step1 = CampanhaRespostaStep1.objects.filter(campanha=campanha, is_completed=True)
-        total_completed = base_step1.count()
 
         if empresa.evaluation_type == 'SETOR':
             available_refs_qs = (
@@ -6406,14 +6638,38 @@ class CampanhaRelatorioView(APIView):
 
         available_refs = [{'id': x.id, 'name': x.name, 'response_count': x.response_count} for x in available_refs_qs]
 
-        overall_bundle = _build_report_bundle(campanha, empresa, base_step1)
+        # --- Optimized: fetch all step data in one pass (7 queries total regardless of N setores/GHEs) ---
+        step1_pairs = list(base_step1.values_list('id', ref_field))
+        step1_ids = [p[0] for p in step1_pairs]
+        step1_ref_map = {p[0]: p[1] for p in step1_pairs}  # step1_id -> ref_id
+        total_completed = len(step1_ids)
+
+        prefetched = _prefetch_campanha_step_data(step1_ids)
+
+        # Pre-fetch comments once for all step1_ids
+        all_comments = list(
+            CampanhaRespostaStep9.objects
+            .filter(step1_id__in=step1_ids)
+            .exclude(comment='')
+            .values('id', 'step1_id', 'comment', 'created_at', 'step1__first_name')
+            .order_by('-created_at')
+        )
+        # Group comments by ref_id for quick lookup
+        comments_by_ref = {}
+        for c in all_comments:
+            r = step1_ref_map.get(c['step1_id'])
+            comments_by_ref.setdefault(r, []).append(c)
+
+        all_ids_set = set(step1_ids)
+        overall_bundle = _build_bundle_from_prefetched(prefetched, all_ids_set, all_comments, empresa)
 
         per_ref = []
         for ref in available_refs:
             if not ref.get('response_count'):
                 continue
-            ref_qs = base_step1.filter(**{ref_field: ref['id']})
-            bundle = _build_report_bundle(campanha, empresa, ref_qs)
+            ref_ids_set = {s1_id for s1_id, r_id in step1_ref_map.items() if r_id == ref['id']}
+            ref_comments = comments_by_ref.get(ref['id'], [])
+            bundle = _build_bundle_from_prefetched(prefetched, ref_ids_set, ref_comments, empresa)
             per_ref.append(
                 {
                     'ref': ref,
@@ -6431,12 +6687,13 @@ class CampanhaRelatorioView(APIView):
                 return Response({'detail': f'{ref_label} invalido.'}, status=status.HTTP_400_BAD_REQUEST)
             if not any(x['id'] == ref_id_int for x in available_refs):
                 return Response({'detail': f'{ref_label} nao encontrado para esta campanha.'}, status=status.HTTP_404_NOT_FOUND)
-            filtered_qs = base_step1.filter(**{ref_field: ref_id_int})
+            filtered_ids_set = {s1_id for s1_id, r_id in step1_ref_map.items() if r_id == ref_id_int}
+            filtered_comments = comments_by_ref.get(ref_id_int, [])
+            filtered_bundle = _build_bundle_from_prefetched(prefetched, filtered_ids_set, filtered_comments, empresa)
         else:
             ref_id_int = None
-            filtered_qs = base_step1
+            filtered_bundle = overall_bundle
 
-        filtered_bundle = _build_report_bundle(campanha, empresa, filtered_qs)
         filtered_completed = filtered_bundle['summary']['completed_responses']
         medidas = campanha.medidas_preliminares.select_related('setor', 'ghe').all()
         medidas_data = CampanhaMedidaPreliminarSerializer(medidas, many=True).data
@@ -6482,8 +6739,8 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
     margin_x = 20 * mm
-    top_y = height - 22 * mm
-    bottom_y = 18 * mm
+    top_y = height - 55 * mm
+    bottom_y = 30 * mm
 
     black = colors.black
     dark = colors.HexColor('#202020')
@@ -6560,17 +6817,16 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         except Exception:
             return
 
+    _timbrado_path = str(Path(__file__).resolve().parent.parent.parent / 'timbrado-page-1.png')
+    _timbrado_exists = os.path.isfile(_timbrado_path)
+
     def draw_page_frame(title):
         page_num[0] += 1
-        c.setFillColor(colors.white)
-        c.rect(0, 0, width, height, stroke=0, fill=1)
-        c.setStrokeColor(black)
-        c.setLineWidth(0.8)
-        c.line(margin_x, height - 15 * mm, width - margin_x, height - 15 * mm)
-        c.line(margin_x, 14 * mm, width - margin_x, 14 * mm)
-        c.setFillColor(black)
-        c.setFont('Helvetica-Bold', 10)
-        c.drawString(margin_x, height - 10.5 * mm, title)
+        if _timbrado_exists:
+            c.drawImage(_timbrado_path, 0, 0, width=width, height=height, preserveAspectRatio=False, mask='auto')
+        else:
+            c.setFillColor(colors.white)
+            c.rect(0, 0, width, height, stroke=0, fill=1)
         c.setFont('Helvetica', 7)
         c.setFillColor(gray)
         c.drawString(margin_x, 9 * mm, f'Gerado em: {generated_at}')
@@ -6790,14 +7046,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
     draw_logo(width - margin_x, height - 20 * mm)
 
-    c.setFillColor(black)
-    c.setFont('Helvetica-Bold', 15)
-    # c.drawString(margin_x, y, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
-    y -= 7 * mm
-    c.setFont('Helvetica', 9)
-    c.setFillColor(gray)
-    c.drawString(margin_x, y, 'Avaliação comparativa de fatores de risco psicossociais no trabalho')
-    y -= 10 * mm
+    y -= 5 * mm
 
     y = draw_section_title(y, '1. Identificação da empresa')
     empresa_rows = [
@@ -7135,33 +7384,15 @@ class CampanhaRelatorioPdfView(APIView):
         anexos = campanha.relatorio_anexos.all()
         planos_ativos = CampanhaPlanoAcao.objects.filter(campanha=campanha, ativo=True)
         medidas_data = CampanhaMedidaPreliminarSerializer(medidas, many=True).data
+        planos_acao_data = []
         for p in planos_ativos:
             step_plans = _PLANOS_ACAO.get(p.step_key, {})
             q_plans = step_plans.get(p.question_field, [])
             texto = q_plans[p.plano_index] if 0 <= p.plano_index < len(q_plans) else ''
             if texto:
-                try:
-                    step_number = int(str(p.step_key).replace('step', ''))
-                except Exception:
-                    step_number = 0
-                if step_number not in [2, 3, 4, 5, 6, 7, 8]:
-                    continue
-                # Toggles selecionados entram no PDF no mesmo formato das medidas preenchidas manualmente.
-                medidas_data.append(
-                    {
-                        'id': f'plan-{p.id}',
-                        'step_number': step_number,
-                        'question_field': p.question_field,
-                        'scope_type': 'GERAL',
-                        'setor': None,
-                        'setor_name': '',
-                        'ghe': None,
-                        'ghe_name': '',
-                        'action_text': texto,
-                        'when_months': [],
-                        'created_at': None,
-                    }
-                )
+                item = CampanhaPlanoAcaoSerializer(p).data
+                item['texto'] = texto
+                planos_acao_data.append(item)
         rel_payload = {
             'empresa': {'name': empresa.company_name},
             'overall': overall_bundle,
@@ -7171,7 +7402,7 @@ class CampanhaRelatorioPdfView(APIView):
             'preliminary_whens': CampanhaQuandoPreliminarSerializer(quandos, many=True).data,
             'review_recommendation_months': campanha.review_recommendation_months,
             'attachments': CampanhaRelatorioAnexoSerializer(anexos, many=True).data,
-            'planos_acao': [],
+            'planos_acao': planos_acao_data,
         }
         return _build_report_pdf_response(campanha, rel_payload)
 
@@ -7352,12 +7583,19 @@ class CampanhaPublicView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, share_token):
+        from django.utils import timezone as tz
         campanha = Campanha.objects.select_related('empresa').filter(share_token=share_token).first()
         if not campanha:
             return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         if campanha.status != CampaignStatus.ATIVO:
             return Response({'detail': 'Este link de campanha nao esta ativo.'}, status=status.HTTP_403_FORBIDDEN)
+        if not campanha.aceitar_respostas_apos_fim and campanha.end_date and campanha.end_date < tz.localdate():
+            return Response({'detail': 'O prazo de respostas desta campanha foi encerrado.'}, status=status.HTTP_403_FORBIDDEN)
         empresa = campanha.empresa
+        if not campanha.aceitar_respostas_acima_limite and empresa.employee_count > 0:
+            respostas_count = campanha.step1_respostas.count()
+            if respostas_count >= empresa.employee_count:
+                return Response({'detail': 'O limite de respostas desta campanha já foi atingido.'}, status=status.HTTP_403_FORBIDDEN)
         setores = []
         ghes = []
 
@@ -7376,12 +7614,26 @@ class CampanhaPublicView(APIView):
             }
             for c in cargos
         ]
+        consultoria_logo_url = ''
+        consultoria_nome = ''
+        try:
+            cfg = get_system_team_owner(empresa.consultor).consultoria_configuracao
+            consultoria_nome = cfg.nome_consultoria or ''
+            if cfg.logo:
+                try:
+                    consultoria_logo_url = request.build_absolute_uri(cfg.logo.url)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         serializer = CampanhaSerializer(campanha, context={'request': request})
         return Response(
             {
                 'campaign': serializer.data,
                 'empresa_name': empresa.company_name,
+                'consultoria_name': consultoria_nome,
+                'consultoria_logo_url': consultoria_logo_url,
                 'evaluation_type': empresa.evaluation_type,
                 'setores': setores,
                 'ghes': ghes,
@@ -7452,11 +7704,19 @@ class CampanhaPublicStep1SubmitView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, share_token):
+        from django.utils import timezone as tz
         campanha = Campanha.objects.select_related('empresa').filter(share_token=share_token).first()
         if not campanha:
             return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         if campanha.status != CampaignStatus.ATIVO:
             return Response({'detail': 'Este link de campanha nao esta ativo.'}, status=status.HTTP_403_FORBIDDEN)
+        if not campanha.aceitar_respostas_apos_fim and campanha.end_date and campanha.end_date < tz.localdate():
+            return Response({'detail': 'O prazo de respostas desta campanha foi encerrado.'}, status=status.HTTP_403_FORBIDDEN)
+        empresa = campanha.empresa
+        if not campanha.aceitar_respostas_acima_limite and empresa.employee_count > 0:
+            respostas_count = campanha.step1_respostas.count()
+            if respostas_count >= empresa.employee_count:
+                return Response({'detail': 'O limite de respostas desta campanha já foi atingido.'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = CampanhaStep1RespostaSerializer(data=request.data, context={'campanha': campanha})
         serializer.is_valid(raise_exception=True)

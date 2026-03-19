@@ -325,6 +325,8 @@ class Campanha(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     review_recommendation_months = models.PositiveSmallIntegerField(default=3)
+    aceitar_respostas_apos_fim = models.BooleanField(default=False)
+    aceitar_respostas_acima_limite = models.BooleanField(default=False)
     status = models.CharField(max_length=10, choices=CampaignStatus.choices, default=CampaignStatus.ATIVO)
     share_token = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
     qr_code_data = models.TextField(blank=True)
