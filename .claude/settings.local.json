@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(grep -n \"section === ''empresas''\" /c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/frontend/src/App.jsx)",
-      "Bash(grep -v \"//\\\\|^$\")"
+      "Bash(grep -v \"//\\\\|^$\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"^button,\\\\|^button {\" \"/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/frontend/src/styles.css\")",
+      "Bash(./venv/Scripts/python manage.py migrate core 0052_empresa_phone)"
     ]
   }
 }

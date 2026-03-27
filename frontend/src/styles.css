@@ -5669,6 +5669,7 @@ h3 {
   width: auto;
   min-width: max-content;
   white-space: nowrap;
+  padding: 0 14px;
 }
 
 .conclusion-when-panel .conclusion-add-actions {
@@ -6626,9 +6627,11 @@ h3 {
     flex-direction: column;
   }
 
-  .conclusion-when-panel .conclusion-add-actions button {
+  .conclusion-when-panel .conclusion-add-actions button,
+  .conclusion-add-actions button {
     width: 100%;
     min-width: 0;
+    padding: 0 14px;
   }
 
   .conclusion-add-inline {

@@ -144,6 +144,7 @@ class Empresa(models.Model):
     risk_level = models.CharField(max_length=20)
     employee_count = models.PositiveIntegerField(default=0)
     logo = models.FileField(upload_to='empresa_logos/', blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True)
     postal_code = models.CharField(max_length=12, blank=True)
     state = models.CharField(max_length=2, blank=True)
     city = models.CharField(max_length=120, blank=True)

@@ -278,6 +278,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'employee_count',
             'logo',
             'logo_url',
+            'phone',
             'postal_code',
             'state',
             'city',

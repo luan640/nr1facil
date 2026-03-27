@@ -113,6 +113,7 @@ const INIT_EMPRESA = {
   street: "",
   number: "",
   complement: "",
+  phone: "",
   is_active: true,
 };
 
@@ -617,6 +618,12 @@ function DashboardOverviewModern({
   dashDateTo = "",
   onDashboardDateChange,
   canFilter = false,
+  dashConsultorias = [],
+  dashConsultoriaFilter = "",
+  setDashConsultoriaFilter,
+  dashConsultoriaMenuOpen = false,
+  setDashConsultoriaMenuOpen,
+  isSuperUserDash = false,
   dashLoad = false,
   dashPdfLoading = false,
   dashErr = "",
@@ -738,6 +745,58 @@ function DashboardOverviewModern({
             </div>
           )}
         </div>
+        {isSuperUserDash && dashConsultorias.length > 0 && (
+          <div className="emp-cf-wrap">
+            <button
+              type="button"
+              className={`emp-cf-btn${dashConsultoriaFilter ? " active" : ""}`}
+              onClick={() => setDashConsultoriaMenuOpen((v) => !v)}
+              onBlur={() => setTimeout(() => setDashConsultoriaMenuOpen(false), 150)}
+            >
+              <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+              </svg>
+              <span className="emp-cf-label">
+                {dashConsultoriaFilter
+                  ? (dashConsultorias.find((c) => String(c.id) === dashConsultoriaFilter)?.name || "Consultoria")
+                  : "Consultoria"}
+              </span>
+              {dashConsultoriaFilter ? (
+                <span
+                  className="emp-cf-clear"
+                  role="button"
+                  aria-label="Limpar filtro"
+                  onMouseDown={(ev) => { ev.stopPropagation(); setDashConsultoriaFilter(""); setDashConsultoriaMenuOpen(false); }}
+                >×</span>
+              ) : (
+                <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                  <path d={dashConsultoriaMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                </svg>
+              )}
+            </button>
+            {dashConsultoriaMenuOpen && (
+              <div className="emp-cf-menu">
+                <button
+                  type="button"
+                  className={`emp-cf-option${!dashConsultoriaFilter ? " selected" : ""}`}
+                  onMouseDown={() => { setDashConsultoriaFilter(""); setDashConsultoriaMenuOpen(false); }}
+                >
+                  Todas as consultorias
+                </button>
+                {dashConsultorias.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`emp-cf-option${String(c.id) === dashConsultoriaFilter ? " selected" : ""}`}
+                    onMouseDown={() => { setDashConsultoriaFilter(String(c.id)); setDashConsultoriaMenuOpen(false); }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="dashboard-topbar-actions">
           <button type="button" className="dashboard-ghost-btn" onClick={exportDashboardPdf} disabled={dashPdfLoading || dashLoad}>
@@ -1133,6 +1192,7 @@ export default function App() {
   const [cadOpen, setCadOpen] = useState(() => ["setor", "ghe", "cargos"].includes(getCachedSection()));
   const [dashData, setDashData] = useState(null), [dashLoad, setDashLoad] = useState(false), [dashPdfLoading, setDashPdfLoading] = useState(false), [dashErr, setDashErr] = useState(""), [dashEmpresa, setDashEmpresa] = useState(""), [dashDateFrom, setDashDateFrom] = useState(""), [dashDateTo, setDashDateTo] = useState("");
   const [dashEmpresaBusca, setDashEmpresaBusca] = useState(""), [dashEmpresaMenuOpen, setDashEmpresaMenuOpen] = useState(false);
+  const [dashConsultoriaFilter, setDashConsultoriaFilter] = useState(""), [dashConsultoriaMenuOpen, setDashConsultoriaMenuOpen] = useState(false);
   const [cfgData, setCfgData] = useState(null), [cfgLoad, setCfgLoad] = useState(false), [cfgErr, setCfgErr] = useState(""), [cfgSaving, setCfgSaving] = useState(false);
   const [cfgForm, setCfgForm] = useState({ cnpj: "", nome_consultoria: "", responsavel_legal: "", representante_legal_relatorio: "", cidade: "", uf: "" });
   const [cfgLogoFile, setCfgLogoFile] = useState(null);
@@ -1184,8 +1244,10 @@ export default function App() {
   const [campConsultoriaFilter, setCampConsultoriaFilter] = useState(""), [campConsultoriaMenuOpen, setCampConsultoriaMenuOpen] = useState(false);
   const [denEmpresaBusca, setDenEmpresaBusca] = useState(""), [denEmpresaFiltro, setDenEmpresaFiltro] = useState(""), [denLinkData, setDenLinkData] = useState(null), [denLoad, setDenLoad] = useState(false), [denErr, setDenErr] = useState(""), [denEmpresaMenuOpen, setDenEmpresaMenuOpen] = useState(false), [denEmpresaVisibleCount, setDenEmpresaVisibleCount] = useState(10), [denQrPdfLoading, setDenQrPdfLoading] = useState(false);
   const [denListEmpresaBusca, setDenListEmpresaBusca] = useState(""), [denListEmpresaFiltro, setDenListEmpresaFiltro] = useState(""), [denListLoad, setDenListLoad] = useState(false), [denListErr, setDenListErr] = useState(""), [denListData, setDenListData] = useState(null), [denListStatusFiltro, setDenListStatusFiltro] = useState("TODAS"), [denListEmpresaMenuOpen, setDenListEmpresaMenuOpen] = useState(false), [denListEmpresaVisibleCount, setDenListEmpresaVisibleCount] = useState(10);
+  const [denListConsultoriaFilter, setDenListConsultoriaFilter] = useState(""), [denListConsultoriaMenuOpen, setDenListConsultoriaMenuOpen] = useState(false);
   const [ajudaListEmpresaBusca, setAjudaListEmpresaBusca] = useState(""), [ajudaListEmpresaFiltro, setAjudaListEmpresaFiltro] = useState(""), [ajudaListLoad, setAjudaListLoad] = useState(false), [ajudaListErr, setAjudaListErr] = useState(""), [ajudaListData, setAjudaListData] = useState(null), [ajudaListEmpresaMenuOpen, setAjudaListEmpresaMenuOpen] = useState(false), [ajudaEmpresaVisibleCount, setAjudaEmpresaVisibleCount] = useState(10);
   const [ajudaListStatusFiltro, setAjudaListStatusFiltro] = useState("TODOS");
+  const [ajudaConsultoriaFilter, setAjudaConsultoriaFilter] = useState(""), [ajudaConsultoriaMenuOpen, setAjudaConsultoriaMenuOpen] = useState(false);
   const [ajudaRowMenuOpenId, setAjudaRowMenuOpenId] = useState(null);
   const [ajudaPdfLoadingId, setAjudaPdfLoadingId] = useState(null);
   const [ajudaRowMenuItem, setAjudaRowMenuItem] = useState(null);
@@ -1734,6 +1796,38 @@ export default function App() {
   function fmtPct(v) {
     const n = Number(v || 0);
     return `${n.toFixed(1)}%`;
+  }
+
+  function maskDoc(type, value) {
+    const d = String(value || "").replace(/\D/g, "");
+    if (type === "CNPJ") {
+      const s = d.slice(0, 14);
+      if (s.length <= 2) return s;
+      if (s.length <= 5) return s.slice(0, 2) + "." + s.slice(2);
+      if (s.length <= 8) return s.slice(0, 2) + "." + s.slice(2, 5) + "." + s.slice(5);
+      if (s.length <= 12) return s.slice(0, 2) + "." + s.slice(2, 5) + "." + s.slice(5, 8) + "/" + s.slice(8);
+      return s.slice(0, 2) + "." + s.slice(2, 5) + "." + s.slice(5, 8) + "/" + s.slice(8, 12) + "-" + s.slice(12);
+    }
+    if (type === "CPF") {
+      const s = d.slice(0, 11);
+      if (s.length <= 3) return s;
+      if (s.length <= 6) return s.slice(0, 3) + "." + s.slice(3);
+      if (s.length <= 9) return s.slice(0, 3) + "." + s.slice(3, 6) + "." + s.slice(6);
+      return s.slice(0, 3) + "." + s.slice(3, 6) + "." + s.slice(6, 9) + "-" + s.slice(9);
+    }
+    return String(value || "");
+  }
+
+  function fmtDoc(type, num) {
+    return maskDoc(type, String(num || ""));
+  }
+
+  function maskPhone(value) {
+    const d = String(value || "").replace(/\D/g, "").slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : "";
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
   }
 
   function fmtScore(v) {
@@ -3821,7 +3915,7 @@ export default function App() {
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
-      if (!r.ok) throw new Error("Nao foi possivel salvar o plano de acao.");
+      if (!r.ok) throw new Error("Nao foi possível salvar o plano de ação.");
     } catch (_) {
       // Rollback otimista se persistencia falhar.
       setPlanosAcaoAtivos((prev) => ({ ...prev, [key]: !newAtivo }));
@@ -4456,7 +4550,7 @@ export default function App() {
   function openEmpresaCreate() { setEMode("create"); setEEdit(null); setEForm(INIT_EMPRESA); setELogoFile(null); setEStep(1); setEErr(""); setEInvalidFields({}); setEModalOpen(true); }
   function openEmpresaEdit(x) {
     setEMode("edit"); setEEdit(x); setELogoFile(null); setEStep(1); setEErr(""); setEInvalidFields({}); setEModalOpen(true);
-    setEForm({ ...INIT_EMPRESA, document_type: x.document_type, establishment_type: x.establishment_type, establishment_custom_name: x.establishment_custom_name || "", company_name: x.company_name || "", cnae: x.cnae || "", document_number: x.document_number || "", responsible_name: x.responsible_name || "", responsible_email: x.responsible_user_email || "", responsible_password: "", establishment_name: x.establishment_name || "", evaluation_type: x.evaluation_type || "SETOR", risk_level: x.risk_level || "", employee_count: String(x.employee_count ?? ""), postal_code: x.postal_code || "", state: x.state || "", city: x.city || "", neighborhood: x.neighborhood || "", street: x.street || "", number: x.number || "", complement: x.complement || "", is_active: Boolean(x.is_active) });
+    setEForm({ ...INIT_EMPRESA, document_type: x.document_type, establishment_type: x.establishment_type, establishment_custom_name: x.establishment_custom_name || "", company_name: x.company_name || "", cnae: x.cnae || "", document_number: maskDoc(x.document_type, x.document_number || ""), phone: maskPhone(x.phone || ""), responsible_name: x.responsible_name || "", responsible_email: x.responsible_user_email || "", responsible_password: "", establishment_name: x.establishment_name || "", evaluation_type: x.evaluation_type || "SETOR", risk_level: x.risk_level || "", employee_count: String(x.employee_count ?? ""), postal_code: x.postal_code || "", state: x.state || "", city: x.city || "", neighborhood: x.neighborhood || "", street: x.street || "", number: x.number || "", complement: x.complement || "", is_active: Boolean(x.is_active) });
   }
   function closeEmpresa() { setEModalOpen(false); setEEdit(null); setEErr(""); setECepErr(""); setECepLoading(false); setESaving(false); setEInactivate(null); setEActing(false); setELogoFile(null); setEInvalidFields({}); setEForm(INIT_EMPRESA); }
   function eChange(k, v) {
@@ -4469,7 +4563,7 @@ export default function App() {
     if (k === "postal_code") {
       const cep = String(v || "").replace(/\D/g, "").slice(0, 8);
       setECepErr("");
-      setEForm((p) => ({ ...p, postal_code: cep }));
+      setEForm((p) => ({ ...p, postal_code: cep, state: "", city: "", neighborhood: "", street: "" }));
       return;
     }
     setEForm((p) => ({ ...p, [k]: v }));
@@ -4600,6 +4694,7 @@ export default function App() {
     if (eMode === "create") form.append("create_default_structure", eForm.create_default_structure ? "true" : "false");
     form.append("risk_level", eForm.risk_level);
     form.append("employee_count", String(Number(eForm.employee_count || 0)));
+    form.append("phone", eForm.phone || "");
     form.append("postal_code", eForm.postal_code || "");
     form.append("state", eForm.state || "");
     form.append("city", eForm.city || "");
@@ -4620,6 +4715,7 @@ export default function App() {
       });
       const d = await r.json(); if (!r.ok) throw new Error(pErr(d));
       setEmpresas((prev) => isEdit ? prev.map((x) => x.id === d.id ? d : x) : [d, ...prev]); resourceCacheRef.current.empresas.loaded = true; invalidateResourceCache("dashboard"); closeEmpresa();
+      pushToast("success", isEdit ? "Empresa atualizada" : "Empresa criada", isEdit ? `${d.company_name} foi atualizada com sucesso.` : `${d.company_name} foi cadastrada com sucesso.`);
     } catch (err) { setEErr(err.message); } finally { setESaving(false); }
   }
 
@@ -4661,10 +4757,19 @@ export default function App() {
       const histLabels = dashData?.history?.labels || [];
       const histValues = dashData?.history?.values || [];
       const maxHist = Math.max(1, ...histValues.map((v) => Number(v || 0)));
+      const isSuperUserDash = isAdm(user);
+      const dashConsultorias = isSuperUserDash
+        ? [...new Map((dashData?.empresas || []).map((e) => [e.consultor_id, { id: e.consultor_id, name: e.consultor_name }])).values()]
+            .filter((c) => c.id && c.name)
+            .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        : [];
+      const byConsultoriaDash = isSuperUserDash && dashConsultoriaFilter
+        ? (dashData?.empresas || []).filter((e) => String(e.consultor_id) === dashConsultoriaFilter)
+        : (dashData?.empresas || []);
       const termoDash = dashEmpresaBusca.trim().toLowerCase();
       const dashEmpresaSugestoes = termoDash
-        ? (dashData?.empresas || []).filter((emp) => String(emp.name || "").toLowerCase().includes(termoDash))
-        : (dashData?.empresas || []);
+        ? byConsultoriaDash.filter((emp) => String(emp.name || "").toLowerCase().includes(termoDash))
+        : byConsultoriaDash;
       return <DashboardOverviewModern
         cards={cards}
         domains={domains}
@@ -4684,6 +4789,12 @@ export default function App() {
         dashDateTo={dashDateTo}
         onDashboardDateChange={onDashboardDateChange}
         canFilter={canEmp(user)}
+        dashConsultorias={dashConsultorias}
+        dashConsultoriaFilter={dashConsultoriaFilter}
+        setDashConsultoriaFilter={setDashConsultoriaFilter}
+        dashConsultoriaMenuOpen={dashConsultoriaMenuOpen}
+        setDashConsultoriaMenuOpen={setDashConsultoriaMenuOpen}
+        isSuperUserDash={isSuperUserDash}
         dashLoad={dashLoad}
         dashPdfLoading={dashPdfLoading}
         dashErr={dashErr}
@@ -5045,7 +5156,7 @@ export default function App() {
                     </span>
                   </div>
 
-                  <p className="empresa-doc-row"><strong>{e.document_type === "CNPJ" ? "CNPJ" : "CPF"}:</strong> {e.document_number}</p>
+                  <p className="empresa-doc-row"><strong>{e.document_type === "CNPJ" ? "CNPJ" : "CPF"}:</strong> {fmtDoc(e.document_type, e.document_number)}</p>
                   <p className="empresa-doc-row"><strong>Criada em:</strong> {e.created_at ? fDate(e.created_at) : "-"}</p>
                   {isSuperUser && e.consultor_name && (
                     <p className="empresa-consultoria-badge">
@@ -5176,7 +5287,7 @@ export default function App() {
                             onClick={() => selectSetorEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -5417,7 +5528,7 @@ export default function App() {
                             onClick={() => selectGheEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -5658,7 +5769,7 @@ export default function App() {
                             onClick={() => selectCargoEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -6285,7 +6396,7 @@ export default function App() {
                                           <input
                                             value={draftItem.text || ""}
                                             onChange={(e) => changeMeasureDraft(item, draftItem.id, e.target.value)}
-                                            placeholder="Plano de acao preliminar..."
+                                            placeholder="Plano de ação preliminar..."
                                             maxLength={500}
                                           />
                                           <div className="conclusion-add-actions">
@@ -6441,7 +6552,7 @@ export default function App() {
                             onClick={() => selectCampEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -6799,7 +6910,7 @@ export default function App() {
                           onClick={() => selectCmpEmpresaBuscaOption(emp)}
                         >
                           <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                          {emp.document_number && <span className="text-xs text-slate-500">{emp.document_number}</span>}
+                          {emp.document_number && <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number)}</span>}
                         </button>
                       ))
                     )}
@@ -7132,7 +7243,7 @@ export default function App() {
                             onClick={() => selectDenEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -7179,13 +7290,22 @@ export default function App() {
       );
     }
     if (section === "denuncias-empresa" && canEmp(user)) {
+      const isSuperUserDenList = isAdm(user);
+      const denListConsultorias = isSuperUserDenList
+        ? [...new Map(empresas.map((e) => [e.consultor_id, { id: e.consultor_id, name: e.consultor_name }])).values()]
+            .filter((c) => c.id && c.name)
+            .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        : [];
+      const empresasByConsultoriaDenList = isSuperUserDenList && denListConsultoriaFilter
+        ? empresas.filter((e) => String(e.consultor_id) === denListConsultoriaFilter)
+        : empresas;
       const termoDenListEmpresa = denListEmpresaBusca.trim().toLowerCase();
       const denListEmpresaSugestoes = denListEmpresaBusca.trim()
-        ? empresas.filter((emp) => (
+        ? empresasByConsultoriaDenList.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoDenListEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoDenListEmpresa)
         ))
-        : empresas;
+        : empresasByConsultoriaDenList;
       const denuncias = denListData?.results || [];
       const denListEvaluationType = String(denListData?.evaluation_type || "").toUpperCase() === "SETOR" ? "SETOR" : "GHE";
       const denListRefLabel = denListEvaluationType === "SETOR" ? "Setor" : "GHE";
@@ -7200,8 +7320,59 @@ export default function App() {
               {/* <h2 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900">Denuncias por Empresa</h2> */}
               <p className="text-sm font-medium text-slate-500">Visualize as denúncias recebidas no canal por empresa.</p>
             </div>
-            <div className="w-full md:max-w-sm">
-              {/* <label htmlFor="den-list-empresa-search" className="mb-1.5 block text-sm font-semibold text-slate-600">Empresa</label> */}
+            <div className="flex w-full flex-col gap-2 md:max-w-lg md:flex-row md:items-start">
+              {isSuperUserDenList && denListConsultorias.length > 0 && (
+                <div className="emp-cf-wrap flex-shrink-0">
+                  <button
+                    type="button"
+                    className={`emp-cf-btn${denListConsultoriaFilter ? " active" : ""}`}
+                    onClick={() => setDenListConsultoriaMenuOpen((v) => !v)}
+                    onBlur={() => setTimeout(() => setDenListConsultoriaMenuOpen(false), 150)}
+                  >
+                    <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+                    </svg>
+                    <span className="emp-cf-label">
+                      {denListConsultoriaFilter
+                        ? (denListConsultorias.find((c) => String(c.id) === denListConsultoriaFilter)?.name || "Consultoria")
+                        : "Consultoria"}
+                    </span>
+                    {denListConsultoriaFilter ? (
+                      <span
+                        className="emp-cf-clear"
+                        role="button"
+                        aria-label="Limpar filtro"
+                        onMouseDown={(ev) => { ev.stopPropagation(); setDenListConsultoriaFilter(""); setDenListConsultoriaMenuOpen(false); setDenListEmpresaBusca(""); setDenListEmpresaFiltro(""); setDenListData(null); }}
+                      >×</span>
+                    ) : (
+                      <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                        <path d={denListConsultoriaMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                      </svg>
+                    )}
+                  </button>
+                  {denListConsultoriaMenuOpen && (
+                    <div className="emp-cf-menu">
+                      <button
+                        type="button"
+                        className={`emp-cf-option${!denListConsultoriaFilter ? " selected" : ""}`}
+                        onMouseDown={() => { setDenListConsultoriaFilter(""); setDenListConsultoriaMenuOpen(false); setDenListEmpresaBusca(""); setDenListEmpresaFiltro(""); setDenListData(null); }}
+                      >
+                        Todas as consultorias
+                      </button>
+                      {denListConsultorias.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`emp-cf-option${String(c.id) === denListConsultoriaFilter ? " selected" : ""}`}
+                          onMouseDown={() => { setDenListConsultoriaFilter(String(c.id)); setDenListConsultoriaMenuOpen(false); setDenListEmpresaBusca(""); setDenListEmpresaFiltro(""); setDenListData(null); }}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="relative w-full">
                 <input
                   id="den-list-empresa-search"
@@ -7227,7 +7398,7 @@ export default function App() {
                           onClick={() => selectDenListEmpresaBuscaOption(emp)}
                         >
                           <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                          <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                          <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                         </button>
                       ))
                     )}
@@ -7450,13 +7621,22 @@ export default function App() {
       );
     }
     if (section === "pedidos-ajuda" && canEmp(user)) {
+      const isSuperUserAjuda = isAdm(user);
+      const ajudaConsultorias = isSuperUserAjuda
+        ? [...new Map(empresas.map((e) => [e.consultor_id, { id: e.consultor_id, name: e.consultor_name }])).values()]
+            .filter((c) => c.id && c.name)
+            .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        : [];
+      const empresasByConsultoria = isSuperUserAjuda && ajudaConsultoriaFilter
+        ? empresas.filter((e) => String(e.consultor_id) === ajudaConsultoriaFilter)
+        : empresas;
       const termoAjudaEmpresa = ajudaListEmpresaBusca.trim().toLowerCase();
       const ajudaEmpresaSugestoes = ajudaListEmpresaBusca.trim()
-        ? empresas.filter((emp) => (
+        ? empresasByConsultoria.filter((emp) => (
           String(emp.company_name || "").toLowerCase().includes(termoAjudaEmpresa)
           || String(emp.document_number || "").toLowerCase().includes(termoAjudaEmpresa)
         ))
-        : empresas;
+        : empresasByConsultoria;
       const pedidos = ajudaListData?.results || [];
       const pedidosFiltrados = ajudaListStatusFiltro === "TODOS"
         ? pedidos
@@ -7468,7 +7648,59 @@ export default function App() {
               <div>
                 <p className="text-sm font-medium text-slate-500">Visualize os pedidos de ajuda recebidos pelo totem por empresa.</p>
               </div>
-              <div className="w-full md:max-w-sm">
+              <div className="flex w-full flex-col gap-2 md:max-w-lg md:flex-row md:items-start">
+                {isSuperUserAjuda && ajudaConsultorias.length > 0 && (
+                  <div className="emp-cf-wrap flex-shrink-0">
+                    <button
+                      type="button"
+                      className={`emp-cf-btn${ajudaConsultoriaFilter ? " active" : ""}`}
+                      onClick={() => setAjudaConsultoriaMenuOpen((v) => !v)}
+                      onBlur={() => setTimeout(() => setAjudaConsultoriaMenuOpen(false), 150)}
+                    >
+                      <svg className="emp-cf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+                      </svg>
+                      <span className="emp-cf-label">
+                        {ajudaConsultoriaFilter
+                          ? (ajudaConsultorias.find((c) => String(c.id) === ajudaConsultoriaFilter)?.name || "Consultoria")
+                          : "Consultoria"}
+                      </span>
+                      {ajudaConsultoriaFilter ? (
+                        <span
+                          className="emp-cf-clear"
+                          role="button"
+                          aria-label="Limpar filtro"
+                          onMouseDown={(ev) => { ev.stopPropagation(); setAjudaConsultoriaFilter(""); setAjudaConsultoriaMenuOpen(false); setAjudaListEmpresaBusca(""); setAjudaListEmpresaFiltro(""); setAjudaListData(null); }}
+                        >×</span>
+                      ) : (
+                        <svg className="emp-cf-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                          <path d={ajudaConsultoriaMenuOpen ? "M1 7l4-4 4 4" : "M1 3l4 4 4-4"}/>
+                        </svg>
+                      )}
+                    </button>
+                    {ajudaConsultoriaMenuOpen && (
+                      <div className="emp-cf-menu">
+                        <button
+                          type="button"
+                          className={`emp-cf-option${!ajudaConsultoriaFilter ? " selected" : ""}`}
+                          onMouseDown={() => { setAjudaConsultoriaFilter(""); setAjudaConsultoriaMenuOpen(false); setAjudaListEmpresaBusca(""); setAjudaListEmpresaFiltro(""); setAjudaListData(null); }}
+                        >
+                          Todas as consultorias
+                        </button>
+                        {ajudaConsultorias.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className={`emp-cf-option${String(c.id) === ajudaConsultoriaFilter ? " selected" : ""}`}
+                            onMouseDown={() => { setAjudaConsultoriaFilter(String(c.id)); setAjudaConsultoriaMenuOpen(false); setAjudaListEmpresaBusca(""); setAjudaListEmpresaFiltro(""); setAjudaListData(null); }}
+                          >
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="relative w-full">
                   <input
                     id="ajuda-list-empresa-search"
@@ -7494,7 +7726,7 @@ export default function App() {
                             onClick={() => selectAjudaListEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -7731,7 +7963,7 @@ export default function App() {
                             onClick={() => selectTotemEmpresaBuscaOption(emp)}
                           >
                             <span className="text-sm font-medium text-slate-800">{emp.company_name}</span>
-                            <span className="text-xs text-slate-500">{emp.document_number || "Sem documento"}</span>
+                            <span className="text-xs text-slate-500">{fmtDoc(emp.document_type, emp.document_number) || "Sem documento"}</span>
                           </button>
                         ))
                       )}
@@ -9180,9 +9412,10 @@ export default function App() {
                   )}
                 </div>
                 <div><label>CNAE (Opcional)</label><input value={eForm.cnae} onChange={(e) => eChange("cnae", e.target.value)} placeholder="Ex.: 47.11-3-02" /></div>
-                <div><label>{eForm.document_type} (Obrigatório)</label><input className={empresaFieldClass("document_number")} value={eForm.document_number} onChange={(e) => eChange("document_number", e.target.value)} /></div>
+                <div><label>{eForm.document_type} (Obrigatório)</label><input className={empresaFieldClass("document_number")} value={eForm.document_number} placeholder={eForm.document_type === "CNPJ" ? "00.000.000/0000-00" : "000.000.000-00"} onChange={(e) => eChange("document_number", maskDoc(eForm.document_type, e.target.value))} /></div>
                 <div><label>Nome do responsável (Obrigatório)</label><input className={empresaFieldClass("responsible_name")} value={eForm.responsible_name} onChange={(e) => eChange("responsible_name", e.target.value)} /></div>
                 <div><label>E-mail do responsável (Obrigatório)</label><input className={empresaFieldClass("responsible_email")} type="email" value={eForm.responsible_email} onChange={(e) => eChange("responsible_email", e.target.value)} /></div>
+                <div><label>Telefone (Opcional)</label><input value={eForm.phone} placeholder="(00) 00000-0000" onChange={(e) => eChange("phone", maskPhone(e.target.value))} /></div>
                 {/* <div><label>Senha do responsável {eMode === "edit" ? "(opcional)" : ""}</label><input type="password" value={eForm.responsible_password} onChange={(e) => eChange("responsible_password", e.target.value)} /></div> */}
                 <div><label>Nome do estabelecimento (Obrigatório)</label><input className={empresaFieldClass("establishment_name")} value={eForm.establishment_name} onChange={(e) => eChange("establishment_name", e.target.value)} /></div>
                 <div><label>Tipo de avaliação (Obrigatório)</label><select className={empresaFieldClass("evaluation_type")} value={eForm.evaluation_type} onChange={(e) => eChange("evaluation_type", e.target.value)}><option value="SETOR">Setor</option><option value="GHE">GHE</option></select></div>
@@ -9219,9 +9452,9 @@ export default function App() {
                   {eCepLoading && <small>Buscando endereço automaticamente...</small>}
                   {!eCepLoading && eCepErr && <small className="error">{eCepErr}</small>}
                 </div>
-                <div><label>UF (Obrigatório)</label><input className={empresaFieldClass("state")} maxLength={2} value={eForm.state} disabled readOnly /></div>
-                <div><label>Cidade (Obrigatório)</label><input className={empresaFieldClass("city")} value={eForm.city} disabled readOnly /></div>
-                <div><label>Bairro (Obrigatório)</label><input className={empresaFieldClass("neighborhood")} value={eForm.neighborhood} disabled readOnly /></div>
+                <div><label>UF (Obrigatório)</label><input className={empresaFieldClass("state")} maxLength={2} value={eForm.state} onChange={(e) => eChange("state", e.target.value.toUpperCase().slice(0, 2))} placeholder="Ex: SP" /></div>
+                <div><label>Cidade (Obrigatório)</label><input className={empresaFieldClass("city")} value={eForm.city} onChange={(e) => eChange("city", e.target.value)} placeholder="Ex: São Paulo" /></div>
+                <div><label>Bairro (Obrigatório)</label><input className={empresaFieldClass("neighborhood")} value={eForm.neighborhood} onChange={(e) => eChange("neighborhood", e.target.value)} placeholder="Ex: Centro" /></div>
                 <div><label>Rua (Opcional)</label><input value={eForm.street} onChange={(e) => eChange("street", e.target.value)} /></div>
                 <div><label>Número (Opcional)</label><input value={eForm.number} onChange={(e) => eChange("number", e.target.value)} /></div>
                 <div><label>Complemento (Opcional)</label><input value={eForm.complement} onChange={(e) => eChange("complement", e.target.value)} /></div>

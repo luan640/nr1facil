@@ -584,6 +584,24 @@ def _build_bundle_from_prefetched(prefetched, ids_set, comment_rows, empresa):
     }
 
 
+def _fmt_phone(phone):
+    d = ''.join(c for c in str(phone or '') if c.isdigit())
+    if len(d) == 11:
+        return f'({d[:2]}) {d[2:7]}-{d[7:]}'
+    if len(d) == 10:
+        return f'({d[:2]}) {d[2:6]}-{d[6:]}'
+    return str(phone or '').strip()
+
+
+def _fmt_doc(doc_type, doc_number):
+    d = ''.join(c for c in str(doc_number or '') if c.isdigit())
+    if doc_type == 'CNPJ' and len(d) == 14:
+        return f'{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}'
+    if doc_type == 'CPF' and len(d) == 11:
+        return f'{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}'
+    return doc_number or ''
+
+
 def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=None, all_companies=False):
     from datetime import datetime, timezone as dt_timezone
     def _dt_from(d):
@@ -599,7 +617,7 @@ def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=Non
         empresas_qs = Empresa.objects.filter(consultor=consultoria_owner)
         campanhas_qs = Campanha.objects.select_related('empresa').filter(empresa__consultor=consultoria_owner)
 
-    available_empresas = list(empresas_qs.order_by('company_name').values('id', 'company_name'))
+    available_empresas = list(empresas_qs.order_by('company_name').values('id', 'company_name', 'consultor_id', 'consultor__full_name'))
     if not all_companies and empresa_id is None and available_empresas:
         empresa_id = min(e['id'] for e in available_empresas)
     if empresa_id:
@@ -714,7 +732,7 @@ def _build_dashboard_overview(user, empresa_id=None, date_from=None, date_to=Non
 
     return {
         'selected_empresa_id': empresa_id,
-        'empresas': [{'id': e['id'], 'name': e['company_name']} for e in available_empresas],
+        'empresas': [{'id': e['id'], 'name': e['company_name'], 'consultor_id': e['consultor_id'], 'consultor_name': e['consultor__full_name'] or ''} for e in available_empresas],
         'summary_cards': [
             {'key': 'empresas', 'label': 'Total de Empresas', 'value': total_empresas, 'color': 'blue'},
             {'key': 'questionarios_abertos', 'label': 'Questionários em aberto', 'value': questionarios_em_aberto, 'color': 'green'},
@@ -1061,7 +1079,7 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
     info_bottom = info_y - info_h
 
     doc_label = 'CNPJ' if getattr(empresa, 'document_type', '') == 'CNPJ' else 'DOC.'
-    doc_value = getattr(empresa, 'document_number', '') or '-'
+    doc_value = _fmt_doc(getattr(empresa, 'document_type', ''), getattr(empresa, 'document_number', '')) or '-'
     employee_value = str(getattr(empresa, 'employee_count', 0) if empresa else 0)
     responsible_name = getattr(empresa, 'responsible_name', '') or '-'
     logo_area_w = 52 * mm if empresa else 0
@@ -2891,7 +2909,7 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
 
     control_row_y = control_header_y - table_header_h
     for idx, row in enumerate(control_rows):
-        fill = pastel_risk_fill(len(control_rows) - idx - 1)
+        fill = pastel_risk_fill(idx)
         c.setFillColor(fill)
         c.rect(table_x, control_row_y - table_row_h, table_w, table_row_h, stroke=1, fill=1)
         x = table_x
@@ -3205,8 +3223,8 @@ def _draw_pdf_pgr_inventory_page(c, campanha, empresa, report_data):
 
     y = draw_section_header()
     paragraphs = [
-        'Os dominios avaliados foram incorporados ao inventario de Riscos Ocupacionais, permitindo a identificacao dos fatores psicossociais relevantes no ambiente de trabalho e subsidiando a elaboracao do Plano de Acao do PGR, no qual e definido o monitoramento necessario para a mitigacao dos riscos identificados.',
-        'Ressalta-se que os resultados obtidos refletem a percepcao dos trabalhadores no momento da avaliacao e devem ser considerados periodicamente, revisando o ciclo de melhoria continua do Gerenciamento de Riscos Ocupacionais (GRO), garantindo a atualizacao das informacoes e a efetividade das medidas preventivas adotadas pela organizacao.',
+        'Os domínios avaliados foram incorporados ao inventário de Riscos Ocupacionais, permitindo a identificação dos fatores psicossociais relevantes no ambiente de trabalho e subsidiando a elaboração do Plano de Ação do PGR, no qual é definido o monitoramento necessário para a mitigação dos riscos identificados.',
+        'Ressalta-se que os resultados obtidos refletem a percepção dos trabalhadores no momento da avaliação e devem ser considerados periodicamente, revisando o ciclo de melhoria contínua do Gerenciamento de Riscos Ocupacionais (GRO), garantindo a atualização das informações e a efetividade das medidas preventivas adotadas pela organização.',
     ]
     for paragraph in paragraphs:
         needed = len(wrap_text(paragraph, 'Helvetica', 8.6, width - (2 * margin_x))) * 11 + (4 * mm)
@@ -3418,7 +3436,8 @@ def _draw_pdf_identificacao_page(c, campanha, empresa, report_data, consultoria_
     c.setFont('Helvetica-Bold', 9)
     ident_lines = [
         ('Empresa', empresa.company_name or '-'),
-        ('CNPJ', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('CNPJ', _fmt_doc(getattr(empresa, 'document_type', ''), empresa.document_number) if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('Telefone', _fmt_phone(empresa.phone) or '-'),
         ('Endereço', f"{empresa.street or '-'}, {empresa.number or '-'} - {empresa.city or '-'} / {empresa.state or '-'}"),
         ('CNAE', '-'),
         ('Classe de risco', empresa.risk_level or '-'),
@@ -3523,7 +3542,8 @@ def _draw_pdf_identificacao_page_card(c, campanha, empresa, report_data, consult
 
     card_lines = [
         ('Cliente:', empresa.company_name or '-'),
-        ('CNPJ:', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('CNPJ:', _fmt_doc(getattr(empresa, 'document_type', ''), empresa.document_number) if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('Telefone:', _fmt_phone(empresa.phone) or '-'),
         ('Endereço:', f"{empresa.street or '-'}, {empresa.number or '-'} - {empresa.city or '-'} / {empresa.state or '-'}"),
     ]
     for label, value in card_lines:
@@ -4990,7 +5010,6 @@ def _build_ajuda_pdf_response(pedido):
     dark = colors.HexColor('#111827')
     gray = colors.HexColor('#6b7280')
     slate = colors.HexColor('#374151')
-    blue = colors.HexColor('#1e40af')
     border_col = colors.HexColor('#e5e7eb')
     bg_light = colors.HexColor('#f8fafc')
 
@@ -5044,7 +5063,7 @@ def _build_ajuda_pdf_response(pedido):
         c.setFont('Helvetica-Bold', 11)
         c.drawString(mx, y, title)
         y -= 2 * mm
-        c.setStrokeColor(blue)
+        c.setStrokeColor(dark)
         c.setLineWidth(1.5)
         c.line(mx, y, mx + ul_width_mm * mm, y)
         return y - 5 * mm
@@ -5063,7 +5082,7 @@ def _build_ajuda_pdf_response(pedido):
     draw_page_frame()
     y = h - REPORT_SOURCE_TOP_MARGIN - 6 * mm
 
-    c.setFillColor(blue)
+    c.setFillColor(dark)
     c.setFont('Helvetica-Bold', 15)
     c.drawString(mx, y, pedido.empresa.company_name)
     y -= 6 * mm
@@ -5076,6 +5095,80 @@ def _build_ajuda_pdf_response(pedido):
     c.setLineWidth(0.8)
     c.line(mx, y, w - mx, y)
     y -= 8 * mm
+
+    # --- Tabela de dados da empresa ---
+    empresa = pedido.empresa
+
+    addr_parts = []
+    if empresa.street:
+        num_str = f', {empresa.number}' if empresa.number else ''
+        compl_str = f' ({empresa.complement})' if empresa.complement else ''
+        addr_parts.append(empresa.street + num_str + compl_str)
+    if empresa.neighborhood:
+        addr_parts.append(empresa.neighborhood)
+    city_state = ''
+    if empresa.city and empresa.state:
+        city_state = f'{empresa.city} - {empresa.state}'
+    elif empresa.city or empresa.state:
+        city_state = empresa.city or empresa.state
+    if empresa.postal_code:
+        city_state = (city_state + '  |  CEP: ' + empresa.postal_code) if city_state else 'CEP: ' + empresa.postal_code
+    if city_state:
+        addr_parts.append(city_state)
+    addr_str = ', '.join(addr_parts) if addr_parts else '—'
+
+    estab_label = empresa.get_establishment_type_display() if empresa.establishment_type else ''
+    estab_value = f'{estab_label} — {empresa.establishment_name}' if empresa.establishment_name else (estab_label or '—')
+
+    empresa_rows = [
+        ('Razão Social', empresa.company_name or '—'),
+        (empresa.document_type or 'Documento', _fmt_doc(empresa.document_type, empresa.document_number) or '—'),
+        ('Estabelecimento', estab_value),
+        ('CNAE', empresa.cnae or '—'),
+        ('Grau de Risco', empresa.risk_level or '—'),
+        ('Nº de Funcionários', str(empresa.employee_count)),
+        ('Responsável', empresa.responsible_name or '—'),
+        ('Telefone', _fmt_phone(empresa.phone) or '—'),
+        ('Endereço', addr_str),
+    ]
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(mx, y, 'Dados da Empresa')
+    y -= 2 * mm
+    c.setStrokeColor(dark)
+    c.setLineWidth(1.5)
+    c.line(mx, y, mx + 40 * mm, y)
+    y -= 4 * mm
+
+    table_w = w - 2 * mx
+    label_col_w = 45 * mm
+    value_col_w = table_w - label_col_w
+    row_h = 7 * mm
+    table_top = y
+
+    for i, (lbl, val) in enumerate(empresa_rows):
+        row_y = y - row_h
+        c.setFillColor(colors.HexColor('#f8fafc') if i % 2 == 0 else colors.white)
+        c.rect(mx, row_y, table_w, row_h, stroke=0, fill=1)
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7.5)
+        c.drawString(mx + 3 * mm, row_y + 2.5 * mm, lbl.upper())
+        c.setFillColor(dark)
+        c.setFont('Helvetica', 8.5)
+        val_str = str(val)
+        while c.stringWidth(val_str, 'Helvetica', 8.5) > value_col_w - 4 * mm and len(val_str) > 4:
+            val_str = val_str[:-1]
+        if val_str != str(val):
+            val_str = val_str[:-3] + '...'
+        c.drawString(mx + label_col_w, row_y + 2.5 * mm, val_str)
+        y -= row_h
+
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.5)
+    c.rect(mx, y, table_w, table_top - y, stroke=1, fill=0)
+    y -= 10 * mm
+    # --- Fim da tabela de dados da empresa ---
 
     c.setFillColor(dark)
     c.setFont('Helvetica-Bold', 20)
@@ -5162,7 +5255,7 @@ def _build_ajuda_pdf_response(pedido):
             c.setLineWidth(0.5)
             c.rect(mx, card_y, w - 2 * mx, card_h, stroke=1, fill=0)
 
-            c.setFillColor(blue)
+            c.setFillColor(dark)
             c.rect(mx, card_y, 2.5 * mm, card_h, stroke=0, fill=1)
 
             sep_y = y - header_h
@@ -5171,7 +5264,7 @@ def _build_ajuda_pdf_response(pedido):
             c.line(mx + 2.5 * mm, sep_y, w - mx, sep_y)
 
             text_x = mx + 5 * mm
-            c.setFillColor(blue)
+            c.setFillColor(dark)
             c.setFont('Helvetica-Bold', 8.5)
             c.drawString(text_x, y - 4 * mm, atu_date)
             c.setFillColor(gray)
@@ -5466,6 +5559,80 @@ def _build_denuncia_pdf_response(denuncia):
     c.line(mx, y, w - mx, y)
     y -= 8 * mm
 
+    # --- Tabela de dados da empresa ---
+    empresa = denuncia.empresa
+
+    addr_parts = []
+    if empresa.street:
+        num_str = f', {empresa.number}' if empresa.number else ''
+        compl_str = f' ({empresa.complement})' if empresa.complement else ''
+        addr_parts.append(empresa.street + num_str + compl_str)
+    if empresa.neighborhood:
+        addr_parts.append(empresa.neighborhood)
+    city_state = ''
+    if empresa.city and empresa.state:
+        city_state = f'{empresa.city} - {empresa.state}'
+    elif empresa.city or empresa.state:
+        city_state = empresa.city or empresa.state
+    if empresa.postal_code:
+        city_state = (city_state + '  |  CEP: ' + empresa.postal_code) if city_state else 'CEP: ' + empresa.postal_code
+    if city_state:
+        addr_parts.append(city_state)
+    addr_str = ', '.join(addr_parts) if addr_parts else '—'
+
+    estab_label = empresa.get_establishment_type_display() if empresa.establishment_type else ''
+    estab_value = f'{estab_label} — {empresa.establishment_name}' if empresa.establishment_name else (estab_label or '—')
+
+    empresa_rows = [
+        ('Razão Social', empresa.company_name or '—'),
+        (empresa.document_type or 'Documento', empresa.document_number or '—'),
+        ('Estabelecimento', estab_value),
+        ('CNAE', empresa.cnae or '—'),
+        ('Grau de Risco', empresa.risk_level or '—'),
+        ('Nº de Funcionários', str(empresa.employee_count)),
+        ('Responsável', empresa.responsible_name or '—'),
+        ('Telefone', _fmt_phone(empresa.phone) or '—'),
+        ('Endereço', addr_str),
+    ]
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(mx, y, 'Dados da Empresa')
+    y -= 2 * mm
+    c.setStrokeColor(blue)
+    c.setLineWidth(1.5)
+    c.line(mx, y, mx + 40 * mm, y)
+    y -= 4 * mm
+
+    table_w = w - 2 * mx
+    label_col_w = 45 * mm
+    value_col_w = table_w - label_col_w
+    row_h = 7 * mm
+    table_top = y
+
+    for i, (lbl, val) in enumerate(empresa_rows):
+        row_y = y - row_h
+        c.setFillColor(colors.HexColor('#f8fafc') if i % 2 == 0 else colors.white)
+        c.rect(mx, row_y, table_w, row_h, stroke=0, fill=1)
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7.5)
+        c.drawString(mx + 3 * mm, row_y + 2.5 * mm, lbl.upper())
+        c.setFillColor(dark)
+        c.setFont('Helvetica', 8.5)
+        val_str = str(val)
+        while c.stringWidth(val_str, 'Helvetica', 8.5) > value_col_w - 4 * mm and len(val_str) > 4:
+            val_str = val_str[:-1]
+        if val_str != str(val):
+            val_str = val_str[:-3] + '...'
+        c.drawString(mx + label_col_w, row_y + 2.5 * mm, val_str)
+        y -= row_h
+
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.5)
+    c.rect(mx, y, table_w, table_top - y, stroke=1, fill=0)
+    y -= 10 * mm
+    # --- Fim da tabela de dados da empresa ---
+
     # ID
     c.setFillColor(dark)
     c.setFont('Helvetica-Bold', 20)
@@ -5720,7 +5887,7 @@ def _build_denuncia_documental_pdf_response(denuncia):
 
         info_lines = [
             ('Cliente:', denuncia.empresa.company_name or '-'),
-            ('CNPJ:', (denuncia.empresa.document_number or '-') if getattr(denuncia.empresa, 'document_type', '') == 'CNPJ' else '-'),
+            ('CNPJ:', _fmt_doc(getattr(denuncia.empresa, 'document_type', ''), denuncia.empresa.document_number) if getattr(denuncia.empresa, 'document_type', '') == 'CNPJ' else '-'),
             ('Endereço:', f"{denuncia.empresa.street or '-'}, {denuncia.empresa.number or '-'} - {denuncia.empresa.city or '-'} / {denuncia.empresa.state or '-'}"),
         ]
 
@@ -5786,6 +5953,81 @@ def _build_denuncia_documental_pdf_response(denuncia):
     c.line(mx, y, w - mx, y)
     y -= 8 * mm
 
+    # --- Tabela de dados da empresa ---
+    empresa = denuncia.empresa
+    _blue = colors.HexColor('#1e40af')
+
+    addr_parts = []
+    if empresa.street:
+        num_str = f', {empresa.number}' if empresa.number else ''
+        compl_str = f' ({empresa.complement})' if empresa.complement else ''
+        addr_parts.append(empresa.street + num_str + compl_str)
+    if empresa.neighborhood:
+        addr_parts.append(empresa.neighborhood)
+    city_state = ''
+    if empresa.city and empresa.state:
+        city_state = f'{empresa.city} - {empresa.state}'
+    elif empresa.city or empresa.state:
+        city_state = empresa.city or empresa.state
+    if empresa.postal_code:
+        city_state = (city_state + '  |  CEP: ' + empresa.postal_code) if city_state else 'CEP: ' + empresa.postal_code
+    if city_state:
+        addr_parts.append(city_state)
+    addr_str = ', '.join(addr_parts) if addr_parts else '—'
+
+    estab_label = empresa.get_establishment_type_display() if empresa.establishment_type else ''
+    estab_value = f'{estab_label} — {empresa.establishment_name}' if empresa.establishment_name else (estab_label or '—')
+
+    empresa_rows = [
+        ('Razão Social', empresa.company_name or '—'),
+        (empresa.document_type or 'Documento', empresa.document_number or '—'),
+        ('Estabelecimento', estab_value),
+        ('CNAE', empresa.cnae or '—'),
+        ('Grau de Risco', empresa.risk_level or '—'),
+        ('Nº de Funcionários', str(empresa.employee_count)),
+        ('Responsável', empresa.responsible_name or '—'),
+        ('Telefone', _fmt_phone(empresa.phone) or '—'),
+        ('Endereço', addr_str),
+    ]
+
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(mx, y, 'Dados da Empresa')
+    y -= 2 * mm
+    c.setStrokeColor(_blue)
+    c.setLineWidth(1.5)
+    c.line(mx, y, mx + 40 * mm, y)
+    y -= 4 * mm
+
+    table_w = w - 2 * mx
+    label_col_w = 45 * mm
+    value_col_w = table_w - label_col_w
+    row_h = 7 * mm
+    table_top = y
+
+    for i, (lbl, val) in enumerate(empresa_rows):
+        row_y = y - row_h
+        c.setFillColor(colors.HexColor('#f8fafc') if i % 2 == 0 else colors.white)
+        c.rect(mx, row_y, table_w, row_h, stroke=0, fill=1)
+        c.setFillColor(gray)
+        c.setFont('Helvetica', 7.5)
+        c.drawString(mx + 3 * mm, row_y + 2.5 * mm, lbl.upper())
+        c.setFillColor(dark)
+        c.setFont('Helvetica', 8.5)
+        val_str = str(val)
+        while c.stringWidth(val_str, 'Helvetica', 8.5) > value_col_w - 4 * mm and len(val_str) > 4:
+            val_str = val_str[:-1]
+        if val_str != str(val):
+            val_str = val_str[:-3] + '...'
+        c.drawString(mx + label_col_w, row_y + 2.5 * mm, val_str)
+        y -= row_h
+
+    c.setStrokeColor(border_col)
+    c.setLineWidth(0.5)
+    c.rect(mx, y, table_w, table_top - y, stroke=1, fill=0)
+    y -= 10 * mm
+    # --- Fim da tabela de dados da empresa ---
+
     c.setFillColor(dark)
     c.setFont('Helvetica-Bold', 16)
     c.drawString(mx, y, f'Denúncia #{denuncia.id}')
@@ -5797,8 +6039,6 @@ def _build_denuncia_documental_pdf_response(denuncia):
     c.setFont('Helvetica', 9)
     c.drawString(mx, y, f'Registrada em: {date_str} | Origem: {origem_label}')
     y -= 10 * mm
-
-    y = draw_identification_card(y)
 
     ref_label = 'Setor' if getattr(denuncia.empresa, 'evaluation_type', '') == 'SETOR' else 'GHE'
     ref_value = denuncia.setor.name if ref_label == 'Setor' and denuncia.setor else (denuncia.ghe.name if denuncia.ghe else '-')
@@ -7051,13 +7291,14 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     y = draw_section_title(y, '1. Identificação da empresa')
     empresa_rows = [
         ('Empresa', empresa.company_name or '-'),
-        ('CNPJ', (empresa.document_number or '-') if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
+        ('CNPJ', _fmt_doc(getattr(empresa, 'document_type', ''), empresa.document_number) if getattr(empresa, 'document_type', '') == 'CNPJ' else '-'),
         ('Estabelecimento', empresa.establishment_name or '-'),
         ('Tipo de avaliação', 'Setor' if str(empresa.evaluation_type or '').upper() == 'SETOR' else 'GHE'),
         ('CNAE', empresa.cnae or '-'),
         ('Grau de risco', empresa.risk_level or '-'),
         ('N° de colaboradores', str(empresa.employee_count or 0)),
         ('Responsável', empresa.responsible_name or '-'),
+        ('Telefone', _fmt_phone(empresa.phone) or '-'),
         ('Endereço', company_address()),
     ]
     y = draw_two_col_table(y, empresa_rows)
