@@ -2469,6 +2469,7 @@ button:disabled {
   justify-content: flex-end;
 }
 
+
 .config-tech-form {
   display: grid;
   grid-template-columns: 1.2fr 1fr 0.8fr;

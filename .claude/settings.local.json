@@ -5,7 +5,14 @@
       "Bash(grep -v \"//\\\\|^$\")",
       "Bash(xargs grep:*)",
       "Bash(grep -n \"^button,\\\\|^button {\" \"/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/frontend/src/styles.css\")",
-      "Bash(./venv/Scripts/python manage.py migrate core 0052_empresa_phone)"
+      "Bash(./venv/Scripts/python manage.py migrate core 0052_empresa_phone)",
+      "Bash(grep -r \"send_mail\\\\|celery\\\\|async\" C:UsersLuanClientescissconsultoriaprojetosnr1facilbackendcore --include=*.py)",
+      "Bash(./venv/Scripts/python manage.py migrate core 0053_consultoriaconfiguracao_notify_fields)",
+      "Bash(source ../venv/Scripts/activate)",
+      "Bash(python manage.py makemigrations)",
+      "Bash(python manage.py migrate)",
+      "Bash(/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/venv/Scripts/python.exe manage.py makemigrations)",
+      "Bash(/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/venv/Scripts/python.exe manage.py migrate)"
     ]
   }
 }
