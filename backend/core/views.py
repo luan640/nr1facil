@@ -34,6 +34,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from urllib.request import urlopen
+from botocore.config import Config as BotocoreConfig
 try:
     from openpyxl import Workbook, load_workbook
 except Exception:  # pragma: no cover
@@ -1285,12 +1286,18 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
 def _supabase_s3_client():
     if not settings.SUPABASE_STORAGE_ACCESS_KEY or not settings.SUPABASE_STORAGE_SECRET_KEY:
         raise RuntimeError('Credenciais do Supabase Storage S3 nao configuradas.')
+    client_config = getattr(settings, 'AWS_S3_CLIENT_CONFIG', None) or BotocoreConfig(
+        s3={'addressing_style': 'path'},
+        request_checksum_calculation='when_required',
+        response_checksum_validation='when_required',
+    )
     return boto3.client(
         's3',
         region_name=settings.SUPABASE_STORAGE_REGION,
         endpoint_url=settings.SUPABASE_STORAGE_S3_ENDPOINT,
         aws_access_key_id=settings.SUPABASE_STORAGE_ACCESS_KEY,
         aws_secret_access_key=settings.SUPABASE_STORAGE_SECRET_KEY,
+        config=client_config,
     )
 
 
@@ -7067,6 +7074,9 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         else:
             c.setFillColor(colors.white)
             c.rect(0, 0, width, height, stroke=0, fill=1)
+        c.setFont('Helvetica-Bold', 9)
+        c.setFillColor(dark)
+        c.drawCentredString(width / 2, height - 48 * mm, title)
         c.setFont('Helvetica', 7)
         c.setFillColor(gray)
         c.drawString(margin_x, 9 * mm, f'Gerado em: {generated_at}')
@@ -7081,7 +7091,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         return y
 
     def draw_section_title(y, text):
-        y = ensure_space(y, 14 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        y = ensure_space(y, 14 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(dark)
         c.setFont('Helvetica-Bold', 11)
         c.drawString(margin_x, y, text.upper())
@@ -7097,7 +7107,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         c.setFont(font, size)
         c.setFillColor(color)
         for line in lines:
-            y = ensure_space(y, leading + 2 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            y = ensure_space(y, leading + 2 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             if line:
                 c.drawString(x, y, line)
             y -= leading
@@ -7111,7 +7121,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         if max_width is None:
             max_width = width - margin_x - value_x
         lines = wrap_text(value, 'Helvetica', 9, max_width)
-        y = ensure_space(y, max(8 * mm, len(lines) * 5 * mm + 2 * mm), 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        y = ensure_space(y, max(8 * mm, len(lines) * 5 * mm + 2 * mm), 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(dark)
         c.setFont('Helvetica-Bold', 9)
         c.drawString(x, y, label)
@@ -7125,7 +7135,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         col1_w = 44 * mm
         row_pad = 2.2 * mm
         header_h = 8 * mm
-        y = ensure_space(y, header_h + 12 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        y = ensure_space(y, header_h + 12 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(light_gray)
         c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
         c.setStrokeColor(border)
@@ -7140,7 +7150,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         for label, value in rows:
             value_lines = wrap_text(value, 'Helvetica', 8.5, table_w - col1_w - 6 * mm)
             row_h = max(7 * mm, len(value_lines) * 4.5 * mm + 2 * row_pad)
-            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            y = ensure_space(y, row_h + 4 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             c.setFillColor(colors.white)
             c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
             c.setStrokeColor(border)
@@ -7167,7 +7177,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         col_label = 46 * mm
         col_cmp = (table_w - col_label) / 2
         header_h = 8 * mm
-        y = ensure_space(y, 40 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        y = ensure_space(y, 40 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(light_gray)
         c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
         c.setStrokeColor(border)
@@ -7185,7 +7195,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
             value1_lines = wrap_text(value1, 'Helvetica', 8.5, col_cmp - 4 * mm)
             value2_lines = wrap_text(value2, 'Helvetica', 8.5, col_cmp - 4 * mm)
             row_h = max(7 * mm, max(len(value1_lines), len(value2_lines)) * 4.5 * mm + 4 * mm)
-            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            y = ensure_space(y, row_h + 4 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             c.setFillColor(colors.white)
             c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
             c.setStrokeColor(border)
@@ -7211,7 +7221,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         x1 = margin_x + label_w
         x2 = x1 + value_w
         x3 = x2 + value_w
-        y = ensure_space(y, 28 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        y = ensure_space(y, 28 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(light_gray)
         c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
         c.setStrokeColor(border)
@@ -7230,7 +7240,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         for label, v1, v2, delta in rows:
             label_lines = wrap_text(label, 'Helvetica', 8.2, label_w - 4 * mm)
             row_h = max(7 * mm, len(label_lines) * 4.4 * mm + 4 * mm)
-            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO COMPARATIVO DE CAMPANHAS')
+            y = ensure_space(y, row_h + 4 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             c.setFillColor(colors.white)
             c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
             c.setStrokeColor(border)
@@ -7283,7 +7293,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     domains2_by_key = {d.get('key'): d for d in domains2}
     steps2_by_key = {s.get('key'): s for s in steps2}
 
-    y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
+    y = draw_page_frame('LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
     draw_logo(width - margin_x, height - 20 * mm)
 
     y -= 5 * mm
@@ -7315,7 +7325,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     y = draw_text_lines(y, intro_lines, size=9)
 
     c.showPage()
-    y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
+    y = draw_page_frame('LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
 
     y = draw_section_title(y, '4. Resumo executivo comparativo')
     exec_rows = [
@@ -7374,7 +7384,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     for idx, step1 in enumerate(steps1, start=1):
         step2 = steps2_by_key.get(step1.get('key'), {}) or {}
         c.showPage()
-        y = draw_page_frame('RELATÓRIO COMPARATIVO DE CAMPANHAS')
+        y = draw_page_frame('LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         domain_name = str(step1.get('domain') or step_names.get(step1.get('step'), f'Domínio {idx}'))
 
         y = draw_section_title(y, f'6.{idx}. Análise detalhada do domínio - {domain_name}')

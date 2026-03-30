@@ -1,8 +1,19 @@
 import os
 from pathlib import Path
 from urllib.parse import urlparse
+from botocore.config import Config as BotocoreConfig
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def build_s3_compatible_client_config():
+    # Supabase's S3-compatible endpoint rejects SDK-managed checksum headers and
+    # expects bucket addressing in the request path for custom endpoints.
+    return BotocoreConfig(
+        s3={'addressing_style': 'path'},
+        request_checksum_calculation='when_required',
+        response_checksum_validation='when_required',
+    )
 
 
 def load_env_file(env_path):
@@ -215,7 +226,7 @@ SUPABASE_STORAGE_PUBLIC_BASE_URL = os.getenv(
 if SUPABASE_STORAGE_ACCESS_KEY and SUPABASE_STORAGE_SECRET_KEY:
     STORAGES = {
         'default': {
-            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+            'BACKEND': 'core.storage.SupabaseNoHeadS3Storage',
         },
         'staticfiles': {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
@@ -231,4 +242,5 @@ if SUPABASE_STORAGE_ACCESS_KEY and SUPABASE_STORAGE_SECRET_KEY:
     AWS_S3_CUSTOM_DOMAIN = SUPABASE_STORAGE_PUBLIC_BASE_URL.split('://', 1)[-1]
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_FILE_OVERWRITE = False
+    AWS_S3_CLIENT_CONFIG = build_s3_compatible_client_config()
     MEDIA_URL = SUPABASE_STORAGE_PUBLIC_BASE_URL + '/'

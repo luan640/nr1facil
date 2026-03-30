@@ -2,7 +2,20 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+import os
 import uuid
+
+from .storage import SupabaseNoHeadS3Storage
+
+
+uuid_file_storage = SupabaseNoHeadS3Storage()
+
+
+def _uuid_upload(folder):
+    def upload_to(instance, filename):
+        ext = os.path.splitext(filename)[1].lower()
+        return f'{folder}/{uuid.uuid4().hex}{ext}'
+    return upload_to
 
 
 class UserType(models.TextChoices):
@@ -143,7 +156,7 @@ class Empresa(models.Model):
     responsible_name = models.CharField(max_length=255)
     risk_level = models.CharField(max_length=20)
     employee_count = models.PositiveIntegerField(default=0)
-    logo = models.FileField(upload_to='empresa_logos/', blank=True, null=True)
+    logo = models.FileField(upload_to=_uuid_upload('empresa_logos'), storage=uuid_file_storage, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True)
     postal_code = models.CharField(max_length=12, blank=True)
     state = models.CharField(max_length=2, blank=True)
@@ -209,7 +222,7 @@ class CanalDenuncia(models.Model):
     testemunhas = models.TextField(blank=True)
     aceita_devolutiva = models.BooleanField(default=False)
     email_devolutiva = models.EmailField(blank=True)
-    evidencia_arquivo = models.FileField(upload_to='canal_denuncias_evidencias/', blank=True, null=True)
+    evidencia_arquivo = models.FileField(upload_to=_uuid_upload('canal_denuncias_evidencias'), storage=uuid_file_storage, blank=True, null=True)
     origem = models.CharField(max_length=20, choices=Origem.choices, default=Origem.LINK)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ABERTA)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -365,7 +378,7 @@ class ConsultoriaConfiguracao(models.Model):
     representante_legal_relatorio = models.CharField(max_length=255, blank=True)
     cidade = models.CharField(max_length=120, blank=True)
     uf = models.CharField(max_length=2, blank=True)
-    logo = models.FileField(upload_to='consultoria_logos/', blank=True, null=True)
+    logo = models.FileField(upload_to=_uuid_upload('consultoria_logos'), storage=uuid_file_storage, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

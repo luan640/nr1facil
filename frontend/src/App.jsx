@@ -4834,7 +4834,7 @@ export default function App() {
               <form onSubmit={saveConsultoriaConfig} className="config-form-grid">
                 <div>
                   <label>CNPJ</label>
-                  <input value={cfgForm.cnpj} onChange={(e) => setCfgForm((p) => ({ ...p, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+                  <input value={cfgForm.cnpj} onChange={(e) => setCfgForm((p) => ({ ...p, cnpj: maskDoc("CNPJ", e.target.value) }))} placeholder="00.000.000/0000-00" />
                 </div>
                 <div>
                   <label>Nome da consultoria</label>

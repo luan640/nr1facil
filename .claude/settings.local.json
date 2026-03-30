@@ -12,7 +12,18 @@
       "Bash(python manage.py makemigrations)",
       "Bash(python manage.py migrate)",
       "Bash(/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/venv/Scripts/python.exe manage.py makemigrations)",
-      "Bash(/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/venv/Scripts/python.exe manage.py migrate)"
+      "Bash(/c/Users/Luan/Clientes/cissconsultoria/projetos/nr1facil/venv/Scripts/python.exe manage.py migrate)",
+      "Bash(python manage.py check)",
+      "Bash(venv/Scripts/python manage.py check)",
+      "Bash(venv/Scripts/python -c \"\nfrom django.contrib.auth import get_user_model\nUser = get_user_model\\(\\)\nu = User.objects.get\\(email='luan640@gmail.com'\\)\nu.set_password\\('admin123'\\)\nu.save\\(\\)\nprint\\('Password reset to admin123'\\)\n\" 2>&1)",
+      "Bash(venv/Scripts/python -c \"\nimport django, os\nos.environ.setdefault\\('DJANGO_SETTINGS_MODULE', 'config.settings'\\)\ndjango.setup\\(\\)\nfrom django.contrib.auth import get_user_model\nUser = get_user_model\\(\\)\nu = User.objects.get\\(email='luan640@gmail.com'\\)\nu.set_password\\('admin123'\\)\nu.save\\(\\)\nprint\\('Password reset'\\)\n\")",
+      "Bash(TOKEN=\"a163679cd5bfc837f640efc01be7e0aca9a0cc6d\" curl -s -X PATCH http://localhost:8001/api/consultoria-configuracao/ -H \"Authorization: Token $TOKEN\" -F \"logo=@/tmp/test_logo.png;type=image/png\")",
+      "Bash(venv/Scripts/pip show:*)",
+      "Bash(cd:*)",
+      "Bash(pkill -f \"runserver\")",
+      "Bash(venv/Scripts/python -c \":*)",
+      "Bash(python:*)",
+      "Bash(USE_SUPABASE_POSTGRES=1 venv/Scripts/python manage.py shell -c \":*)"
     ]
   }
 }
