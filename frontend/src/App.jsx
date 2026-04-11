@@ -1213,6 +1213,7 @@ export default function App() {
   const [empConsultoriaFilter, setEmpConsultoriaFilter] = useState("");
   const [empConsultoriaMenuOpen, setEmpConsultoriaMenuOpen] = useState(false);
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false), [eInvalidFields, setEInvalidFields] = useState({});
+  const [eDeleteModal, setEDeleteModal] = useState({ empresa: null, deleting: false, err: "" });
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
@@ -4730,6 +4731,23 @@ export default function App() {
     } catch (err) { setEErr(err.message); } finally { setEActing(false); }
   }
 
+  async function excluirEmpresa() {
+    const { empresa } = eDeleteModal;
+    if (!empresa) return;
+    setEDeleteModal((prev) => ({ ...prev, deleting: true, err: "" }));
+    try {
+      const authToken = getAuthToken();
+      if (!authToken) throw new Error("Sessao invalida. Faca login novamente.");
+      const r = await fetch(`${API}/empresas/${empresa.id}/excluir/`, { method: "DELETE", headers: { Authorization: `Token ${authToken}` } });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(pErr(d) || "Erro ao excluir empresa."); }
+      setEmpresas((prev) => prev.filter((x) => x.id !== empresa.id));
+      resourceCacheRef.current.empresas.loaded = true;
+      invalidateResourceCache("dashboard");
+      setEDeleteModal({ empresa: null, deleting: false, err: "" });
+      pushToast("success", "Empresa excluida com sucesso.");
+    } catch (err) { setEDeleteModal((prev) => ({ ...prev, deleting: false, err: err.message })); }
+  }
+
   async function reativarEmpresa(x) {
     try {
       const authToken = getAuthToken();
@@ -5195,6 +5213,20 @@ export default function App() {
                         onClick={() => reativarEmpresa(e)}
                       >
                         {I.power}
+                      </button>
+                    )}
+                    {isSuperUser && (
+                      <button
+                        type="button"
+                        className="campanha-icon-btn danger"
+                        title="Excluir empresa permanentemente"
+                        aria-label="Excluir empresa permanentemente"
+                        onClick={() => setEDeleteModal({ empresa: e, deleting: false, err: "" })}
+                        style={{ opacity: 0.85 }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/><line x1="4" y1="4" x2="20" y2="20"/>
+                        </svg>
                       </button>
                     )}
                   </div>
@@ -9474,6 +9506,32 @@ export default function App() {
 
       {toastViewport}
       {eInactivate && <div className="modal-backdrop"><div className="modal-card"><h3>Inativar empresa</h3><p>Deseja inativar {eInactivate.company_name}?</p>{eErr && <p className="error">{eErr}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setEInactivate(null)}>Cancelar</button><button className="danger" onClick={inativarEmpresa} disabled={eActing}>{eActing ? "Inativando..." : "Inativar"}</button></div></div></div>}
+
+      {eDeleteModal.empresa && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3 style={{ color: "#dc2626" }}>Excluir empresa permanentemente</h3>
+            <p style={{ marginBottom: "0.5rem" }}>
+              Voce esta prestes a excluir permanentemente a empresa <strong>{eDeleteModal.empresa.company_name}</strong>.
+            </p>
+            <p style={{ marginBottom: "0.75rem" }}>
+              <strong>Esta ação não pode ser desfeita.</strong> Todos os dados relacionados a esta empresa serão excluídos, incluindo:
+            </p>
+            <ul style={{ paddingLeft: "1.25rem", marginBottom: "1rem", lineHeight: "1.7", fontSize: "0.93rem", color: "#374151" }}>
+              <li>Campanhas e todos os relatorios gerados</li>
+              <li>Respostas dos questionarios</li>
+              <li>Setores, GHEs e Cargos</li>
+              <li>Denuncias e pedidos de ajuda</li>
+              <li>Usuario responsavel pela empresa</li>
+            </ul>
+            {eDeleteModal.err && <p className="error">{eDeleteModal.err}</p>}
+            <div className="modal-actions">
+              <button className="secondary" onClick={() => setEDeleteModal({ empresa: null, deleting: false, err: "" })} disabled={eDeleteModal.deleting}>Cancelar</button>
+              <button className="danger" onClick={excluirEmpresa} disabled={eDeleteModal.deleting}>{eDeleteModal.deleting ? "Excluindo..." : "Excluir permanentemente"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Pedidos de Ajuda modals ── */}
       {ajudaHistModal && (

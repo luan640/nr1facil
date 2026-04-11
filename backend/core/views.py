@@ -4559,6 +4559,25 @@ class EmpresaDetailView(APIView):
         return Response(EmpresaSerializer(empresa).data)
 
 
+class EmpresaExcluirView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def delete(self, request, empresa_id):
+        if not (request.user.is_superuser or request.user.user_type == UserType.ADM):
+            return Response({'detail': 'Permissão negada.'}, status=status.HTTP_403_FORBIDDEN)
+
+        empresa = Empresa.objects.select_related('responsavel_usuario').filter(id=empresa_id).first()
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        responsavel = empresa.responsavel_usuario
+        empresa.delete()
+        if responsavel:
+            responsavel.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class EmpresaInativarView(APIView):
     permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
 
