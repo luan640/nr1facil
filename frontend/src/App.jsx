@@ -1210,9 +1210,10 @@ export default function App() {
 
   const [empresas, setEmpresas] = useState([]), [empErr, setEmpErr] = useState(""), [empLoad, setEmpLoad] = useState(false);
   const [empBusca, setEmpBusca] = useState(""), [empPageSize, setEmpPageSize] = useState("9"), [empPage, setEmpPage] = useState(1);
+  const [empStatusFiltro, setEmpStatusFiltro] = useState("todos");
   const [empConsultoriaFilter, setEmpConsultoriaFilter] = useState("");
   const [empConsultoriaMenuOpen, setEmpConsultoriaMenuOpen] = useState(false);
-  const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eActing, setEActing] = useState(false), [eInvalidFields, setEInvalidFields] = useState({});
+  const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eReativar, setEReativar] = useState(null), [eActing, setEActing] = useState(false), [eInvalidFields, setEInvalidFields] = useState({});
   const [eDeleteModal, setEDeleteModal] = useState({ empresa: null, deleting: false, err: "" });
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
@@ -4760,6 +4761,15 @@ export default function App() {
     } catch (err) { setEmpErr(err.message); }
   }
 
+  async function confirmarReativarEmpresa() {
+    if (!eReativar) return; setEActing(true); setEmpErr("");
+    try {
+      await reativarEmpresa(eReativar);
+      setEReativar(null);
+    } catch (err) { setEmpErr(err.message); }
+    finally { setEActing(false); }
+  }
+
   function empresaInitials(name) {
     const n = String(name || "").trim();
     if (!n) return "EM";
@@ -5064,14 +5074,19 @@ export default function App() {
               const byConsultoria = isSuperUser && empConsultoriaFilter
                 ? empresas.filter((e) => String(e.consultor_id) === empConsultoriaFilter)
                 : empresas;
+              const byStatus = empStatusFiltro === "ativa"
+                ? byConsultoria.filter((e) => e.is_active)
+                : empStatusFiltro === "inativa"
+                  ? byConsultoria.filter((e) => !e.is_active)
+                  : byConsultoria;
               const termo = empBusca.trim().toLowerCase();
               const filtradas = termo
-                ? byConsultoria.filter((e) =>
+                ? byStatus.filter((e) =>
                     [e.company_name, e.document_number, e.description]
                       .filter(Boolean)
                       .some((v) => String(v).toLowerCase().includes(termo))
                   )
-                : byConsultoria;
+                : byStatus;
               const pageSize = Math.max(1, Number(empPageSize || 6));
               const totalPages = Math.max(1, Math.ceil(filtradas.length / pageSize));
               const currentPage = Math.min(Math.max(1, empPage), totalPages);
@@ -5087,6 +5102,15 @@ export default function App() {
                       value={empBusca}
                       onChange={(e) => { setEmpBusca(e.target.value); setEmpPage(1); }}
                     />
+                    <select
+                      value={empStatusFiltro}
+                      onChange={(e) => { setEmpStatusFiltro(e.target.value); setEmpPage(1); }}
+                      className="emp-status-select"
+                    >
+                      <option value="todos">Todas</option>
+                      <option value="ativa">Ativas</option>
+                      <option value="inativa">Inativas</option>
+                    </select>
                     {isSuperUser && (
                       <div className="emp-cf-wrap">
                         <button
@@ -5170,9 +5194,14 @@ export default function App() {
                         <h3>{e.company_name}</h3>
                       </div>
                     </div>
-                    <span className={`empresa-type-pill ${String(e.evaluation_type || "").toUpperCase() === "SETOR" ? "setor" : "ghe"}`}>
-                      {String(e.evaluation_type || "").toUpperCase()}
-                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                      <span className={`empresa-type-pill ${String(e.evaluation_type || "").toUpperCase() === "SETOR" ? "setor" : "ghe"}`}>
+                        {String(e.evaluation_type || "").toUpperCase()}
+                      </span>
+                      <span className={`empresa-status-flag ${e.is_active ? "ativa" : "inativa"}`}>
+                        {e.is_active ? "Ativa" : "Inativa"}
+                      </span>
+                    </div>
                   </div>
 
                   <p className="empresa-doc-row"><strong>{e.document_type === "CNPJ" ? "CNPJ" : "CPF"}:</strong> {fmtDoc(e.document_type, e.document_number)}</p>
@@ -5210,7 +5239,7 @@ export default function App() {
                         className="campanha-icon-btn"
                         title="Reativar empresa"
                         aria-label="Reativar empresa"
-                        onClick={() => reativarEmpresa(e)}
+                        onClick={() => setEReativar(e)}
                       >
                         {I.power}
                       </button>
@@ -9506,6 +9535,7 @@ export default function App() {
 
       {toastViewport}
       {eInactivate && <div className="modal-backdrop"><div className="modal-card"><h3>Inativar empresa</h3><p>Deseja inativar {eInactivate.company_name}?</p>{eErr && <p className="error">{eErr}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setEInactivate(null)}>Cancelar</button><button className="danger" onClick={inativarEmpresa} disabled={eActing}>{eActing ? "Inativando..." : "Inativar"}</button></div></div></div>}
+      {eReativar && <div className="modal-backdrop"><div className="modal-card"><h3>Reativar empresa</h3><p>Deseja reativar <strong>{eReativar.company_name}</strong>? A empresa voltará a estar ativa no sistema.</p>{empErr && <p className="error">{empErr}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setEReativar(null)} disabled={eActing}>Cancelar</button><button onClick={confirmarReativarEmpresa} disabled={eActing}>{eActing ? "Reativando..." : "Reativar"}</button></div></div></div>}
 
       {eDeleteModal.empresa && (
         <div className="modal-backdrop">

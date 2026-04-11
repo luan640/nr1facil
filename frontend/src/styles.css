@@ -2819,6 +2819,36 @@ h3 {
   border-color: #e5e7eb;
 }
 
+.empresa-status-flag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.empresa-status-flag.ativa {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.empresa-status-flag.inativa {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.emp-status-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .empresas-toolbar > input {
   max-width: 430px;
   width: 100%;
