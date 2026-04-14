@@ -3680,56 +3680,105 @@ def _draw_pdf_objetivo_page(c):
     margin_x = 15 * mm
     y = height - 18 * mm
     blue = colors.HexColor('#14532d')
+    color = colors.HexColor('#111827')
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
 
-    c.setFillColor(blue)
-    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
-    c.setFillColor(colors.HexColor('#111827'))
+    c.setFillColor(color)
     c.setFont('Helvetica-Bold', 9)
     c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '2')
-    c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica-Bold', 9)
     c.drawString(margin_x + 5.2 * mm, y - 0.5, 'OBJETIVO')
     c.setStrokeColor(blue)
     c.setLineWidth(1)
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
     y -= 11 * mm
 
-    text = (
-        'Esta Avaliação Ergonômica Preliminar (AEP) tem por finalidade identificar e examinar tecnicamente os fatores de '
-        'risco psicossociais existentes no contexto de trabalho, que possam contribuir para o estresse ocupacional e afetar '
-        'a saúde, o bem-estar e o desempenho dos colaboradores. O presente relatório encontra-se em plena conformidade com '
-        'a NR-17 e a NR-1 (GRO e PGR), observando o Guia de Informações sobre Fatores de Riscos Psicossociais Relacionados '
-        'ao Trabalho (MTE) e as diretrizes da HSE-SIT-UK, assegurando alinhamento com as melhores práticas nacionais e '
-        'internacionais em saúde e segurança do trabalho. Além de atender às exigências legais, esta AEP-FRPRT fornece '
-        'fundamentos técnicos consistentes para subsidiar decisões quanto às necessidades de aprofundamento por meio da '
-        'Análise Ergonômica do Trabalho (AET), a priorização de medidas de controle e a definição de planos de ação '
-        'integrados ao PGR, com o propósito de promover ambientes laborais mais seguros, saudáveis e produtivos.'
-    )
-
-    text_obj = c.beginText()
-    text_obj.setTextOrigin(margin_x, y)
-    body_font = 9
-    body_leading = 12.5
-    text_obj.setFont('Helvetica', body_font)
-    text_obj.setLeading(body_leading)
-    text_obj.setFillColor(colors.HexColor('#111827'))
-
+    body_font_size = 9
+    body_leading = 13
     max_width = width - (2 * margin_x)
-    words = text.split()
-    line = ''
-    for word in words:
-        test = f'{line} {word}'.strip()
-        if c.stringWidth(test, 'Helvetica', body_font) <= max_width:
-            line = test
-        else:
-            text_obj.textLine(line)
-            line = word
-    if line:
-        text_obj.textLine(line)
-    c.drawText(text_obj)
+
+    def build_word_list(segments):
+        tokens = []
+        pending_space = False
+        for seg_text, bold in segments:
+            parts = re.split(r'( +)', seg_text)
+            for part in parts:
+                if not part:
+                    continue
+                if part.strip() == '':
+                    pending_space = True
+                else:
+                    tokens.append((part, bold, pending_space))
+                    pending_space = False
+        return tokens
+
+    def draw_mixed_paragraph(y, segments):
+        tokens = build_word_list(segments)
+        lines = []
+        current_line = []
+        current_width = 0
+        for word, bold, space_before in tokens:
+            font_name = 'Helvetica-Bold' if bold else 'Helvetica'
+            word_width = c.stringWidth(word, font_name, body_font_size)
+            space_width = c.stringWidth(' ', 'Helvetica', body_font_size) if (space_before and current_line) else 0
+            test_width = current_width + space_width + word_width
+            if not current_line or test_width <= max_width:
+                current_line.append((word, bold, space_before and bool(current_line)))
+                current_width += space_width + word_width
+            else:
+                lines.append(current_line)
+                current_line = [(word, bold, False)]
+                current_width = word_width
+        if current_line:
+            lines.append(current_line)
+        for line_words in lines:
+            x = margin_x
+            for word, bold, space_before in line_words:
+                if space_before:
+                    x += c.stringWidth(' ', 'Helvetica', body_font_size)
+                font_name = 'Helvetica-Bold' if bold else 'Helvetica'
+                c.setFont(font_name, body_font_size)
+                c.setFillColor(color)
+                c.drawString(x, y, word)
+                x += c.stringWidth(word, font_name, body_font_size)
+            y -= body_leading
+        return y - 3 * mm
+
+    y = draw_mixed_paragraph(y, [
+        ('Esta Avaliação Ergonômica Preliminar (AEP) tem por finalidade identificar, analisar e classificar tecnicamente os fatores de risco psicossociais existentes no contexto de trabalho que possam contribuir para o estresse ocupacional, impactar a saúde mental, o bem-estar e o desempenho dos colaboradores.', False),
+    ])
+
+    y = draw_mixed_paragraph(y, [
+        ('O presente relatório foi desenvolvido pela ', False),
+        ('CISS Gestão Ocupacional', True),
+        (', utilizando ', False),
+        ('metodologia própria de avaliação psicossocial', True),
+        (' e ', False),
+        ('software exclusivo de diagnóstico organizacional', True),
+        (', criados para atender às exigências legais brasileiras e proporcionar maior precisão, rastreabilidade e inteligência na gestão dos riscos ocupacionais relacionados aos fatores psicossociais.', False),
+    ])
+
+    y = draw_mixed_paragraph(y, [
+        ('A metodologia aplicada pela CISS incorpora critérios técnicos compatíveis com a ', False),
+        ('NR-01 (GRO e PGR)', True),
+        (', ', False),
+        ('NR-17 (Ergonomia)', True),
+        (', o ', False),
+        ('Guia de Informações sobre Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE)', True),
+        (', além de referências internacionais reconhecidas, como o modelo ', False),
+        ('HSE-SIT-UK', True),
+        (', adaptadas à realidade das organizações brasileiras.', False),
+    ])
+
+    y = draw_mixed_paragraph(y, [
+        ('Mais do que atender às obrigações normativas, esta AEP-FRPRT oferece fundamentos técnicos consistentes para subsidiar decisões estratégicas da empresa, apoiar a priorização de medidas de controle, orientar planos de ação integrados ao PGR e indicar, quando necessário, a realização de estudos complementares, como a Análise Ergonômica do Trabalho (AET).', False),
+    ])
+
+    y = draw_mixed_paragraph(y, [
+        ('Por meio da solução tecnológica desenvolvida pela CISS, a organização passa a contar com uma ferramenta moderna, segura e baseada em dados para promover ambientes laborais mais saudáveis, produtivos e sustentáveis.', False),
+    ])
+
     c.showPage()
 
 

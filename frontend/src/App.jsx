@@ -9067,7 +9067,7 @@ export default function App() {
                 <div className="nav-sublist">
                   <button className={`nav-subitem ${section === "setor" ? "active" : ""}`} onClick={() => goSection("setor")}>Setor</button>
                   <button className={`nav-subitem ${section === "ghe" ? "active" : ""}`} onClick={() => goSection("ghe")}>GHE</button>
-                  <button className={`nav-subitem ${section === "cargos" ? "active" : ""}`} onClick={() => goSection("cargos")}>Cargos</button>
+                  <button className={`nav-subitem ${section === "cargos" ? "active" : ""}`} onClick={() => goSection("cargos")}>Funções</button>
                 </div>
               )}
             </nav>
