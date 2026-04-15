@@ -1977,7 +1977,7 @@ export default function App() {
       if (!pubCargo) throw new Error("Selecione o cargo.");
 
       const payload = {
-        cpf: pubCpf,
+        cpf: pubCpf.replace(/\D/g, ""),
         first_name: pubNome,
         age: Number(pubIdade),
         sex: pubSexo,
@@ -8671,7 +8671,7 @@ export default function App() {
                   <div className="public-step1-grid">
                     <div className="public-field">
                       <label>CPF (obrigatório)</label>
-                      <input value={pubCpf} onChange={(e) => setPubCpf(e.target.value)} required />
+                      <input value={pubCpf} onChange={(e) => setPubCpf(maskDoc("CPF", e.target.value))} maxLength={14} inputMode="numeric" required />
                     </div>
 
                     <div className="public-field">

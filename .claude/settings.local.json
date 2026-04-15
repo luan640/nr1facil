@@ -23,7 +23,8 @@
       "Bash(pkill -f \"runserver\")",
       "Bash(venv/Scripts/python -c \":*)",
       "Bash(python:*)",
-      "Bash(USE_SUPABASE_POSTGRES=1 venv/Scripts/python manage.py shell -c \":*)"
+      "Bash(USE_SUPABASE_POSTGRES=1 venv/Scripts/python manage.py shell -c \":*)",
+      "Bash(awk -F: '{print $1\": \"$2}')"
     ]
   }
 }

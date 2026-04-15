@@ -778,6 +778,8 @@ class CampanhaStep1RespostaSerializer(serializers.ModelSerializer):
             cpf_hash = self._cpf_hash(cpf_digits, campanha.id)
             if CampanhaRespostaStep1.objects.filter(campanha=campanha, cpf_hash=cpf_hash, is_completed=True).exists():
                 raise serializers.ValidationError({'cpf': 'Este CPF ja respondeu esta campanha.'})
+            # Apaga respostas incompletas anteriores do mesmo CPF para evitar duplicatas
+            CampanhaRespostaStep1.objects.filter(campanha=campanha, cpf_hash=cpf_hash, is_completed=False).delete()
 
         return attrs
 

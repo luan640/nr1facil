@@ -2459,16 +2459,15 @@ def _draw_pdf_limitacoes_page(c):
     margin_x = 15 * mm
     y = height - 18 * mm
     blue = colors.HexColor('#14532d')
+    size = 9.0
+    leading = 12.5
+    max_width = width - (2 * margin_x)
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
-
-    c.setFillColor(blue)
-    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '7')
-    c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'LIMITAÇÕES')
     c.setStrokeColor(blue)
@@ -2476,36 +2475,95 @@ def _draw_pdf_limitacoes_page(c):
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
     y -= 11 * mm
 
-    paragraphs = [
-        'Esta Avaliação Ergonômica Preliminar (AEP) possui caráter preliminar, sendo realizada em conformidade com os requisitos da NR-17 (Portaria MTP nº 423/2021), item 17.3.2, que determina a necessidade de avaliação inicial para subsidiar o gerenciamento dos fatores de risco relacionados à ergonomia no ambiente de trabalho.',
-        'A AEP tem como objetivo identificar indícios de fatores de risco, subsidiar o Programa de Gerenciamento de Riscos (PGR) e o Gerenciamento de Riscos Ocupacionais (GRO), conforme exigido pela NR-1 (Portaria SEPRT nº 6.730/2020), e auxiliar na priorização de medidas corretivas e preventivas no ambiente laboral. No entanto, este instrumento não substitui a Análise Ergonômica do Trabalho (AET), que possui caráter aprofundado e investigativo, exigindo observações diretas em campo, medições ambientais e biomecânicas, entrevistas e avaliações detalhadas das condições de trabalho.',
-        'A NR-17 dispõe que "as condições de trabalho que possam afetar a saúde dos trabalhadores devem ser objeto de AET", especialmente quando forem identificados riscos significativos ou quando houver indícios de que os fatores psicossociais, físicos ou organizacionais estão impactando de forma relevante a saúde e a produtividade dos trabalhadores. Nesse sentido, a AET torna-se obrigatória em situações em que a AEP aponta a necessidade de medidas adicionais de controle ou quando os resultados indicam a presença de condições críticas que requeiram investigação aprofundada.',
-        'Conforme o Guia de Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE), a avaliação preliminar deve ser parte de um processo contínuo de monitoramento, sendo considerada um ponto de partida no gerenciamento de riscos psicossociais, mas não encerrando o processo de análise de forma definitiva.',
-        'Além disso, os resultados obtidos por meio desta plataforma representam a percepção dos trabalhadores sobre o ambiente de trabalho em um período específico, podendo sofrer alterações em virtude de mudanças organizacionais, tecnológicas ou de processos de trabalho. Portanto, os dados devem ser utilizados de forma crítica, sendo recomendada sua atualização periódica para manter a rastreabilidade das informações e a efetividade das ações de prevenção e controle implementadas.',
-        'Por fim, destaca-se que a participação dos trabalhadores nesta avaliação é voluntária e confidencial e, embora a amostra seja representativa, podem existir limitações relacionadas a fatores como receio de exposição, interpretação subjetiva das perguntas e condições específicas do local de trabalho não observadas no momento da avaliação, reforçando a necessidade de utilização da AEP como ferramenta de triagem e priorização dentro do sistema de gestão de SST, e não como avaliação conclusiva sobre todos os aspectos ergonômicos da organização.',
-    ]
+    def draw_mixed(y, segments):
+        words = []
+        for text, bold in segments:
+            for token in text.split():
+                words.append((token, bold))
+        lines, cur_line, cur_w = [], [], 0.0
+        for token, bold in words:
+            font = 'Helvetica-Bold' if bold else 'Helvetica'
+            tw = c.stringWidth(token, font, size)
+            sw = c.stringWidth(' ', 'Helvetica', size)
+            needed = tw + (sw if cur_line else 0)
+            if cur_w + needed <= max_width or not cur_line:
+                if cur_line:
+                    cur_w += sw
+                cur_line.append((token, bold))
+                cur_w += tw
+            else:
+                lines.append(cur_line)
+                cur_line, cur_w = [(token, bold)], tw
+        if cur_line:
+            lines.append(cur_line)
+        for line in lines:
+            x = margin_x
+            for j, (token, bold) in enumerate(line):
+                font = 'Helvetica-Bold' if bold else 'Helvetica'
+                c.setFont(font, size)
+                c.setFillColor(colors.HexColor('#111827'))
+                txt = token + (' ' if j < len(line) - 1 else '')
+                c.drawString(x, y, txt)
+                x += c.stringWidth(txt, font, size)
+            y -= leading
+        return y - 1.5 * mm
 
-    text_obj = c.beginText()
-    text_obj.setTextOrigin(margin_x, y)
-    body_font = 9
-    body_leading = 12.5
-    text_obj.setFont('Helvetica', body_font)
-    text_obj.setLeading(body_leading)
-    text_obj.setFillColor(colors.HexColor('#111827'))
-    max_width = width - (2 * margin_x)
-    for paragraph in paragraphs:
-        line = ''
-        for word in paragraph.split():
+    def draw_plain(y, text):
+        text_obj = c.beginText()
+        text_obj.setTextOrigin(margin_x, y)
+        text_obj.setLeading(leading)
+        text_obj.setFont('Helvetica', size)
+        text_obj.setFillColor(colors.HexColor('#111827'))
+        line, count = '', 0
+        for word in text.split():
             test = f'{line} {word}'.strip()
-            if c.stringWidth(test, 'Helvetica', body_font) <= max_width:
+            if c.stringWidth(test, 'Helvetica', size) <= max_width:
                 line = test
             else:
                 text_obj.textLine(line)
+                count += 1
                 line = word
         if line:
             text_obj.textLine(line)
-        text_obj.textLine('')
-    c.drawText(text_obj)
+            count += 1
+        c.drawText(text_obj)
+        return y - (max(1, count) * leading) - 1.5 * mm
+
+    # Parágrafo 1
+    y = draw_mixed(y, [
+        ('Esta ', False),
+        ('Avaliação Ergonômica Preliminar (AEP)', True),
+        (' possui natureza diagnóstica inicial e caráter preventivo, sendo elaborada em conformidade com a ', False),
+        ('NR-17', True),
+        (' e integrada às diretrizes de gerenciamento de riscos ocupacionais previstas na ', False),
+        ('NR-01.', True),
+        (' Seu propósito principal é identificar indícios de fatores de risco ergonômico, subsidiar o Programa de Gerenciamento de Riscos (PGR) e orientar a tomada de decisões quanto à necessidade de aprofundamento técnico por meio de avaliações complementares.', False),
+    ])
+    y -= 2 * mm
+
+    # Parágrafo 2
+    y = draw_mixed(y, [
+        ('Por se tratar de instrumento preliminar, a AEP não substitui a ', False),
+        ('Análise Ergonômica do Trabalho (AET),', True),
+        (' especialmente nas situações em que forem constatadas demandas complexas, queixas recorrentes, adoecimentos relacionados ao trabalho, alterações significativas no processo produtivo ou evidências de riscos ergonômicos relevantes. Nesses casos, a AET poderá ser necessária para investigação aprofundada, com observações sistemáticas em campo, medições específicas, análise organizacional detalhada e estudo ampliado das interações entre trabalhador, tarefa e ambiente.', False),
+    ])
+    y -= 2 * mm
+
+    # Parágrafo 3
+    y = draw_plain(y, 'Os resultados apresentados refletem as condições observadas e as informações disponibilizadas no momento da avaliação, podendo sofrer alterações em razão de mudanças operacionais, estruturais, tecnológicas, administrativas ou comportamentais ocorridas posteriormente. Assim, recomenda-se que esta avaliação seja revisada sempre que houver modificações relevantes no ambiente de trabalho, processos, layout, mobiliário, equipamentos, ritmo produtivo ou organização das atividades.')
+    y -= 2 * mm
+
+    # Parágrafo 4
+    y = draw_plain(y, 'As informações coletadas junto aos trabalhadores, embora fundamentais para a compreensão da realidade laboral, baseiam-se em percepções individuais e coletivas, podendo estar sujeitas a fatores subjetivos, limitações de memória, receio de exposição, interpretações pessoais ou variações de entendimento sobre as perguntas apresentadas. Ainda assim, tais contribuições possuem elevado valor técnico quando analisadas em conjunto com os demais elementos observados.')
+    y -= 2 * mm
+
+    # Parágrafo 5
+    y = draw_plain(y, 'Eventuais aspectos ergonômicos de baixa frequência, situações sazonais, condições específicas de determinados turnos, picos de demanda, atividades excepcionais ou ocorrências não presenciadas durante a avaliação podem não ter sido integralmente capturados nesta etapa. Dessa forma, a inexistência de apontamento específico neste relatório não significa, necessariamente, ausência absoluta de risco.')
+    y -= 2 * mm
+
+    # Parágrafo 6
+    draw_plain(y, 'Ressalta-se, por fim, que a AEP deve ser compreendida como ferramenta dinâmica de triagem, priorização e melhoria contínua, integrando o sistema de gestão de saúde e segurança do trabalho da organização. Sua efetividade depende da atualização periódica, do acompanhamento das medidas implementadas e do comprometimento institucional com a promoção de ambientes laborais mais seguros, saudáveis e ergonomicamente adequados.')
+
     c.showPage()
 
 
@@ -2546,7 +2604,7 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
     y -= 11 * mm
 
     c.setFillColor(colors.HexColor('#111827'))
-    c.setFont('Helvetica', 9.2)
+    c.setFont('Helvetica-Bold', 9.2)
     cidade = (getattr(consultoria_cfg, 'cidade', '') or 'Fortaleza').strip()
     uf = (getattr(consultoria_cfg, 'uf', '') or 'CE').strip().upper()
     data_encerramento = getattr(campanha, 'end_date', None)
@@ -2595,32 +2653,89 @@ def _draw_pdf_responsabilidades_page(c, consultoria_cfg=None, campanha=None):
 
     y = line_y - 28 * mm
 
-    paragraphs = [
-        'Ressalta-se que a responsabilidade pela implementação, monitoramento e acompanhamento das ações corretivas e preventivas recomendadas neste relatório é integralmente da empresa, conforme estabelece a NR-1 (item 1.5.3.1) e o Programa de Gerenciamento de Riscos (PGR), cabendo à organização avaliar a aplicabilidade das medidas no contexto de suas operações, garantindo a conformidade com as normas regulamentadoras vigentes e as melhores práticas de saúde, segurança e ergonomia ocupacional.',
-        'Este relatório, elaborado com rigor técnico e em conformidade com a NR-1, NR-17 e o Guia de Fatores de Riscos Psicossociais Relacionados ao Trabalho, visa subsidiar a gestão da empresa na tomada de decisões informadas, mantendo rastreabilidade e evidências técnicas para auditorias, fiscalizações e processos de melhoria contínua do sistema de gestão de SST.',
-    ]
-
-    text_obj = c.beginText()
-    text_obj.setTextOrigin(margin_x, y)
     body_font = 9.2
     body_leading = 12.8
-    text_obj.setFont('Helvetica', body_font)
-    text_obj.setLeading(body_leading)
-    text_obj.setFillColor(colors.HexColor('#111827'))
     max_width = width - (2 * margin_x)
-    for paragraph in paragraphs:
-        line = ''
-        for word in paragraph.split():
+
+    def draw_mixed(y, segments):
+        words = []
+        for text, bold in segments:
+            for token in text.split():
+                words.append((token, bold))
+        lines, cur_line, cur_w = [], [], 0.0
+        for token, bold in words:
+            font = 'Helvetica-Bold' if bold else 'Helvetica'
+            tw = c.stringWidth(token, font, body_font)
+            sw = c.stringWidth(' ', 'Helvetica', body_font)
+            needed = tw + (sw if cur_line else 0)
+            if cur_w + needed <= max_width or not cur_line:
+                if cur_line:
+                    cur_w += sw
+                cur_line.append((token, bold))
+                cur_w += tw
+            else:
+                lines.append(cur_line)
+                cur_line, cur_w = [(token, bold)], tw
+        if cur_line:
+            lines.append(cur_line)
+        for line in lines:
+            x = margin_x
+            for j, (token, bold) in enumerate(line):
+                font = 'Helvetica-Bold' if bold else 'Helvetica'
+                c.setFont(font, body_font)
+                c.setFillColor(colors.HexColor('#111827'))
+                txt = token + (' ' if j < len(line) - 1 else '')
+                c.drawString(x, y, txt)
+                x += c.stringWidth(txt, font, body_font)
+            y -= body_leading
+        return y - 1.5 * mm
+
+    def draw_plain(y, text):
+        text_obj = c.beginText()
+        text_obj.setTextOrigin(margin_x, y)
+        text_obj.setLeading(body_leading)
+        text_obj.setFont('Helvetica', body_font)
+        text_obj.setFillColor(colors.HexColor('#111827'))
+        line, count = '', 0
+        for word in text.split():
             test = f'{line} {word}'.strip()
             if c.stringWidth(test, 'Helvetica', body_font) <= max_width:
                 line = test
             else:
                 text_obj.textLine(line)
+                count += 1
                 line = word
         if line:
             text_obj.textLine(line)
-        text_obj.textLine('')
-    c.drawText(text_obj)
+            count += 1
+        c.drawText(text_obj)
+        return y - (max(1, count) * body_leading) - 1.5 * mm
+
+    # Parágrafo 1
+    y = draw_mixed(y, [
+        ('Ressalta-se que a responsabilidade pela implementação, monitoramento e acompanhamento das ações corretivas, preventivas e de melhoria contínua recomendadas neste relatório é integralmente da organização avaliada, nos termos das disposições previstas na ', False),
+        ('NR-01,', True),
+        (' especialmente quanto ao gerenciamento dos riscos ocupacionais, e na ', False),
+        ('NR-17,', True),
+        (' no que se refere à adaptação das condições de trabalho às características psicofisiológicas dos trabalhadores.', False),
+    ])
+    y -= 2 * mm
+
+    # Parágrafo 2
+    y = draw_plain(y, 'Compete à empresa analisar tecnicamente a viabilidade das medidas propostas, definir prioridades, disponibilizar recursos humanos, materiais e financeiros, estabelecer prazos de execução e assegurar que as intervenções sejam efetivamente incorporadas à rotina operacional, mantendo evidências documentais das providências adotadas para fins de rastreabilidade, auditorias internas, fiscalizações e demonstração de conformidade legal.')
+    y -= 2 * mm
+
+    # Parágrafo 3
+    y = draw_plain(y, 'Cabe ainda à organização promover ambiente de trabalho seguro, saudável e respeitoso, estimulando a participação dos trabalhadores no processo de prevenção, comunicação de riscos, sugestões de melhoria e acompanhamento das ações implementadas, fortalecendo a cultura preventiva e a gestão integrada de saúde e segurança do trabalho.')
+    y -= 2 * mm
+
+    # Parágrafo 4
+    y = draw_plain(y, 'À consultoria técnica responsável pela presente avaliação compete a elaboração do relatório com base nas informações disponibilizadas, nas evidências observadas e nos critérios técnicos aplicáveis à data da análise, oferecendo subsídios especializados para a tomada de decisão empresarial, sem assumir, contudo, a execução direta das medidas corretivas internas, gestão operacional cotidiana ou responsabilidade por eventuais omissões posteriores da contratante.')
+    y -= 2 * mm
+
+    # Parágrafo 5
+    draw_plain(y, 'Este documento foi desenvolvido com rigor técnico e fundamentado na legislação vigente, servindo como instrumento de apoio à gestão organizacional, planejamento preventivo e melhoria contínua das condições ergonômicas e psicossociais do trabalho, devendo ser revisado sempre que houver alterações relevantes nos processos, estrutura organizacional, efetivo de pessoal ou condições laborais existentes.')
+
     c.showPage()
 
 
@@ -3792,12 +3907,9 @@ def _draw_pdf_metodologia_pages(c):
         y = top_y
         c.setFillColor(colors.white)
         c.rect(0, 0, width, height, stroke=0, fill=1)
-        c.setFillColor(blue)
-        # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
         c.drawRightString(margin_x + 3.5 * mm, y - 0.5, page_num)
-        c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 9)
         c.drawString(margin_x + 5.2 * mm, y - 0.5, title)
         c.setStrokeColor(blue)
@@ -3828,58 +3940,162 @@ def _draw_pdf_metodologia_pages(c):
         c.drawText(text_obj)
         return y - (max(1, line_count) * leading) - 1.5 * mm
 
+    def draw_mixed_paragraph(y, segments, size=9.1, leading=12.8, indent=0):
+        """Renderiza parágrafo com trechos em negrito intercalados.
+        segments: lista de (texto, is_bold)
+        """
+        max_width = width - (2 * margin_x) - indent
+        words = []
+        for text, bold in segments:
+            for token in text.split():
+                words.append((token, bold))
+
+        lines = []
+        cur_line = []
+        cur_width = 0.0
+
+        for token, bold in words:
+            font = 'Helvetica-Bold' if bold else 'Helvetica'
+            token_w = c.stringWidth(token, font, size)
+            space_w = c.stringWidth(' ', 'Helvetica', size)
+            needed = token_w + (space_w if cur_line else 0)
+
+            if cur_width + needed <= max_width or not cur_line:
+                if cur_line:
+                    cur_width += space_w
+                cur_line.append((token, bold))
+                cur_width += token_w
+            else:
+                lines.append(cur_line)
+                cur_line = [(token, bold)]
+                cur_width = token_w
+
+        if cur_line:
+            lines.append(cur_line)
+
+        for line in lines:
+            x = margin_x + indent
+            for j, (token, bold) in enumerate(line):
+                font = 'Helvetica-Bold' if bold else 'Helvetica'
+                c.setFont(font, size)
+                c.setFillColor(colors.HexColor('#111827'))
+                txt = token + (' ' if j < len(line) - 1 else '')
+                c.drawString(x, y, txt)
+                x += c.stringWidth(txt, font, size)
+            y -= leading
+
+        return y - 1.5 * mm if lines else y
+
+    # ------------------------------------------------------------------
+    # PÁGINA 1 — Metodologia
+    # ------------------------------------------------------------------
     y = draw_header()
-    paragraphs_page1 = [
-        'Para a condução desta Avaliação Ergonômica Preliminar (AEP), foi empregado o Stress Indicator Tool (SIT), instrumento de avaliação psicossocial reconhecido internacionalmente e validado pelo Health and Safety Executive (HSE) do Reino Unido (UK), devidamente adaptado à realidade organizacional brasileira, em conformidade com os princípios da NR-1, da NR-17 e do Guia de Fatores Psicossociais Relacionados ao Trabalho, elaborados pelo Ministério do Trabalho e Emprego (MTE).',
-        'O instrumento é composto por 35 questões estruturadas, organizadas nos domínios Demandas, Controle, Apoio, Relacionamentos, Papel e Mudanças, reconhecidos pela literatura científica e pelas normas técnicas como fatores determinantes relevantes para a saúde mental e o bem-estar dos trabalhadores.',
-        'A aplicação da metodologia permite a realização de uma análise técnica detalhada dos fatores críticos presentes no ambiente laboral, contemplando as seguintes etapas:',
-    ]
-    for p in paragraphs_page1:
-        y = draw_paragraph(y, p)
-        y -= 2 * mm
+
+    y = draw_mixed_paragraph(y, [
+        ('Para a condução desta Avaliação Ergonômica Preliminar (AEP), a ', False),
+        ('CISS Gestão Ocupacional', True),
+        (' emprega ', False),
+        ('metodologia própria de análise psicossocial,', True),
+        (' desenvolvida com base em critérios técnicos, científicos e legais aplicáveis ao gerenciamento dos riscos ocupacionais no Brasil. A execução do processo ocorre por meio de ', False),
+        ('software exclusivo de avaliação psicossocial,', True),
+        (' de propriedade da CISS, concebido para oferecer maior confiabilidade, agilidade, rastreabilidade e inteligência analítica na identificação dos fatores de risco relacionados ao trabalho.', False),
+    ])
+    y -= 2 * mm
+
+    y = draw_mixed_paragraph(y, [
+        ('A metodologia foi estruturada em conformidade com os princípios estabelecidos na ', False),
+        ('NR-01 (GRO/PGR),', True),
+        (' ', False),
+        ('NR-17 (Ergonomia),', True),
+        (' no ', False),
+        ('Guia de Informações sobre Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE),', True),
+        (' bem como em referenciais técnicos internacionais amplamente reconhecidos para avaliação organizacional e saúde mental no trabalho.', False),
+    ])
+    y -= 2 * mm
+
+    y = draw_mixed_paragraph(y, [
+        ('O sistema utiliza questionário técnico estruturado, organizado em domínios de análise que contemplam, entre outros aspectos: ', False),
+        ('demandas de trabalho, autonomia, apoio organizacional, relações interpessoais, liderança, reconhecimento, comunicação, mudanças organizacionais, equilíbrio vida-trabalho e percepção geral de bem-estar ocupacional.', True),
+    ])
+    y -= 2 * mm
+
+    y = draw_paragraph(y, 'A aplicação da metodologia permite a realização de uma análise técnica detalhada dos fatores críticos presentes no ambiente laboral, compreendendo as seguintes etapas:')
+    y -= 2 * mm
 
     bullets = [
-        'Realização de coleta estruturada e sigilosa das percepções dos trabalhadores, garantindo confidencialidade e confiabilidade das respostas;',
-        'Classificação, consolidação e análise estatística das informações obtidas, possibilitando a identificação de áreas sensíveis e pontos prioritários de intervenção;',
-        'Avaliação técnica dos resultados em conformidade com a legislação vigente e com as melhores práticas nacionais e internacionais de Saúde e Segurança do Trabalho, assegurando rastreabilidade dos dados e subsidiando a elaboração de ações integradas ao GRO e ao PGR;',
-        'A utilização do Stress Indicator Tool (SIT) neste processo permite a identificação estruturada e confiável dos riscos psicossociais existentes no ambiente laboral, proporcionando base para a definição e priorização de medidas preventivas e corretivas, além de possibilitar o acompanhamento contínuo da evolução das condições psicossociais ao longo do tempo;',
-        'Ressalta-se que o SIT é uma das ferramentas indicadas pelo Health and Safety Executive (HSE-UK), em virtude de sua efetividade na coleta estruturada e objetiva das percepções dos trabalhadores. Cabe destacar que os resultados obtidos refletem a percepção dos colaboradores em um contexto e período específicos, o que reforça a importância de reavaliações periódicas, em alinhamento com o ciclo de monitoramento previsto no GRO e no PGR;',
-        'A eficácia da metodologia adotada está diretamente vinculada ao comprometimento institucional e à participação ativa dos trabalhadores ao longo de todo o processo, considerando que são os próprios colaboradores que vivenciam as rotinas laborais e detêm a experiência prática necessária para fornecer informações confiáveis e relevantes sobre os fatores que influenciam sua saúde, bem-estar e desempenho;',
-        'Adicionalmente, a metodologia empregada favorece a promoção de ambientes laborais mais seguros, equilibrados e produtivos, permitindo que a organização atue de forma preventiva, estruturada e sistematizada na gestão dos fatores psicossociais relacionados ao trabalho, em conformidade com a legislação brasileira vigente e com as referências internacionais de gestão em saúde e segurança ocupacional.',
+        [
+            ('Coleta estruturada e sigilosa de dados,', True),
+            (' com garantia de anonimato, confidencialidade e integridade das respostas fornecidas pelos participantes;', False),
+        ],
+        [
+            ('Processamento automatizado das informações,', True),
+            (' por meio do software da CISS, com classificação de resultados, cruzamento de variáveis e identificação de tendências organizacionais;', False),
+        ],
+        [
+            ('Análise estatística e técnica dos indicadores obtidos,', True),
+            (' possibilitando o reconhecimento de áreas sensíveis, grupos expostos e prioridades de intervenção;', False),
+        ],
+        [
+            ('Interpretação dos resultados por equipe técnica especializada,', True),
+            (' assegurando aderência à legislação vigente e às boas práticas nacionais e internacionais de saúde e segurança do trabalho;', False),
+        ],
+        [
+            ('Emissão de relatório gerencial e técnico,', True),
+            (' contendo diagnóstico situacional, matriz de criticidade, recomendações preventivas e subsídios para integração ao PGR e demais programas corporativos.', False),
+        ],
     ]
-    c.setFont('Helvetica', 9.1)
-    for b in bullets:
-        y = draw_paragraph(y, f'- {b}')
+
+    for segs in bullets:
+        c.setFont('Helvetica', 9.1)
+        c.setFillColor(colors.HexColor('#111827'))
+        c.drawString(margin_x + 3 * mm, y, '\u2022')
+        y = draw_mixed_paragraph(y, segs, indent=7 * mm)
         y -= 1.2 * mm
-        if y < 25 * mm:
-            break
 
     y -= 2 * mm
-    c.setFont('Helvetica-Bold', 12)
-    c.setFillColor(colors.HexColor('#111827'))
-    c.drawString(margin_x, y, 'Selecionando uma amostra')
-    y -= 5 * mm
-    y = draw_paragraph(y, 'Há várias questões a serem consideradas na seleção de uma população de pesquisa:')
-    for line in ['Quais listas de trabalhadores podem ser utilizadas;', 'Quantos trabalhadores devem compor a amostra; e', 'Como selecionar a amostra de trabalhadores.']:
-        y = draw_paragraph(y, f'- {line}')
-        y -= 1 * mm
-    y -= 1 * mm
-    c.setFont('Helvetica-Bold', 12)
-    c.drawString(margin_x, y, 'Lista de trabalhadores')
-    y -= 5 * mm
-    y = draw_paragraph(y, 'Ao selecionar uma amostra de trabalhadores, ou mesmo a totalidade dos colaboradores da organizacao, e fundamental assegurar a disponibilidade de uma lista atualizada dos participantes incluidos na pesquisa. Essa relacao pode ser obtida por meio da folha de pagamento, cadastro de empregados, registros de seguranca ou outras fontes equivalentes. E imprescindivel que a lista utilizada esteja correta e atualizada, a fim de garantir que todos os integrantes da amostra recebam o questionario. Tal cuidado contribui para o aumento da taxa de resposta e para a confiabilidade dos resultados obtidos.')
+
+    y = draw_paragraph(y, 'A utilização da metodologia própria da CISS permite não apenas identificar riscos psicossociais existentes, mas também monitorar sua evolução ao longo do tempo, mensurar a efetividade das ações implantadas e apoiar decisões estratégicas voltadas à melhoria contínua do clima organizacional, da produtividade e da saúde ocupacional.')
+    y -= 2 * mm
+
+    y = draw_paragraph(y, 'Ressalta-se que os resultados refletem a percepção dos trabalhadores no período avaliado, constituindo importante instrumento de gestão preventiva e de escuta organizacional qualificada. Recomenda-se a reaplicação periódica da ferramenta, especialmente após mudanças estruturais, crescimento organizacional, reestruturações internas ou implementação de planos de ação.')
+    y -= 2 * mm
+
+    y = draw_paragraph(y, 'A efetividade da metodologia está diretamente relacionada ao comprometimento institucional, ao estímulo à participação dos trabalhadores e à utilização prática dos achados para implementação de medidas corretivas e preventivas.')
+    y -= 2 * mm
+
+    y = draw_paragraph(y, 'Por meio desta solução tecnológica exclusiva, a CISS entrega às organizações uma abordagem moderna, técnica e baseada em dados para gestão dos fatores psicossociais relacionados ao trabalho, fortalecendo ambientes laborais mais seguros, saudáveis, equilibrados e sustentáveis.')
+
     c.showPage()
 
-    y = height - 20 * mm
+    # ------------------------------------------------------------------
+    # PÁGINA 2 — Tamanho mínimo de amostra recomendado
+    # ------------------------------------------------------------------
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
+    y = height - 20 * mm
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 12)
     c.drawString(margin_x, y, 'Tamanho mínimo de amostra recomendado')
     y -= 5 * mm
-    y = draw_paragraph(y, 'A realização de uma pesquisa envolvendo todos os colaboradores tende a proporcionar um retrato mais fiel da realidade organizacional do que a utilização de uma amostra. Por outro lado, optar pelo tamanho mínimo de amostra recomendado apresenta como benefícios a redução de custos e a diminuição do tempo demandado pela equipe. Os quantitativos mínimos foram definidos de modo a assegurar que os resultados obtidos sejam estatisticamente representativos das percepções do conjunto de trabalhadores da organização.')
-    y = draw_paragraph(y, 'A adoção de uma amostra ampliada possibilita análises mais aprofundadas de subgrupos (como por categoria profissional) e amplia a oportunidade para que um número maior de colaboradores manifeste suas percepções. Em contrapartida, essa escolha pode implicar maior investimento de tempo e recursos para sua execução.')
-    y = draw_paragraph(y, 'Os tamanhos de amostra recomendados são fornecidos na tabela abaixo:')
+
+    y = draw_mixed_paragraph(y, [
+        ('A definição do tamanho mínimo de amostra para avaliações psicossociais deve buscar equilíbrio entre ', False),
+        ('representatividade estatística, viabilidade operacional e qualidade analítica dos resultados.', True),
+        (' Embora a participação integral dos trabalhadores proporcione a leitura mais fiel da realidade organizacional, a adoção de amostras técnicas bem dimensionadas permite reduzir tempo de execução, custos operacionais e impacto na rotina produtiva, mantendo confiabilidade adequada para fins de diagnóstico e tomada de decisão.', False),
+    ])
+    y -= 2 * mm
+
+    y = draw_mixed_paragraph(y, [
+        ('A metodologia aplicada pela ', False),
+        ('CISS Gestão Ocupacional,', True),
+        (' por meio de seu software próprio de avaliação psicossocial, adota parâmetros técnicos voltados à obtenção de resultados consistentes e úteis à gestão, assegurando que a quantidade mínima de participantes represente de forma adequada a percepção coletiva dos trabalhadores.', False),
+    ])
+    y -= 2 * mm
+
+    y = draw_paragraph(y, 'Sempre que possível, recomenda-se a ampliação da amostra ou a aplicação censitária (100% dos colaboradores), especialmente em organizações que desejem análises mais aprofundadas por setor, unidade, função, liderança, faixa etária ou outros recortes estratégicos. Amostras ampliadas aumentam a sensibilidade estatística e permitem diagnósticos mais precisos para construção de planos de ação direcionados.')
+    y -= 2 * mm
+
+    y = draw_paragraph(y, 'Os quantitativos mínimos recomendados encontram-se demonstrados na tabela abaixo:')
     y -= 2 * mm
 
     table_x = margin_x
@@ -3917,27 +4133,12 @@ def _draw_pdf_metodologia_pages(c):
     x = table_x + col_w[0]
     c.line(x, y, x, y - row_h * (1 + len(rows)))
 
-    foot = 'Referência: Northumberland, Tyne and Wear NHS Foundation Trust SeW-PGN-1 - Apêndice 7 - Manual do Usuário da FerramentaIndicadora HSE - V03. Edição 1 - Emitido em setembro de 2014. Parte da NTW(HR) 12 - Política de Estresse no Trabalho.'
-    c.setFillColor(colors.HexColor('#6b7280'))
-    c.setFont('Helvetica', 5.6)
-    max_w = width - 2 * margin_x
-    foot_words = foot.split()
-    foot_lines = []
-    foot_cur = ''
-    for w in foot_words:
-        test = (foot_cur + ' ' + w).strip() if foot_cur else w
-        if c.stringWidth(test, 'Helvetica', 5.6) <= max_w:
-            foot_cur = test
-        else:
-            if foot_cur:
-                foot_lines.append(foot_cur)
-            foot_cur = w
-    if foot_cur:
-        foot_lines.append(foot_cur)
-    foot_y = curr_y - 5 * mm
-    for fl in foot_lines:
-        c.drawString(margin_x, foot_y, fl)
-        foot_y -= 3.5 * mm
+    obs_y = curr_y - 5 * mm
+    draw_mixed_paragraph(obs_y, [
+        ('Observação técnica:', True),
+        (' Em empresas com múltiplas unidades, setores heterogêneos ou atividades distintas, recomenda-se distribuição proporcional da amostra entre os grupos avaliados, de forma a preservar a representatividade interna e evitar distorções nos resultados consolidados.', False),
+    ], size=8.5, leading=12)
+
     c.showPage()
 
 
@@ -3946,16 +4147,15 @@ def _draw_pdf_importancia_participacao_page(c):
     margin_x = 15 * mm
     y = height - 18 * mm
     blue = colors.HexColor('#14532d')
+    size = 9.0
+    leading = 12.6
+    max_width = width - (2 * margin_x)
 
     c.setFillColor(colors.white)
     c.rect(0, 0, width, height, stroke=0, fill=1)
-
-    c.setFillColor(blue)
-    # c.circle(margin_x + 2, y + 1, 2.8 * mm, stroke=0, fill=1)
     c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 9)
     c.drawRightString(margin_x + 3.5 * mm, y - 0.5, '4')
-    c.setFillColor(colors.HexColor('#111827'))
     c.setFont('Helvetica-Bold', 8.5)
     c.drawString(margin_x + 8 * mm, y - 0.5, 'IMPORTÂNCIA DA PARTICIPAÇÃO DOS TRABALHADORES')
     c.setStrokeColor(blue)
@@ -3963,56 +4163,95 @@ def _draw_pdf_importancia_participacao_page(c):
     c.line(margin_x, y - 4 * mm, width - margin_x, y - 4 * mm)
     y -= 11 * mm
 
-    text = (
-        'A participação ativa, consciente e transparente dos trabalhadores constitui elemento fundamental para a efetividade '
-        'desta Avaliação Ergonômica Preliminar (AEP), em consonância com os princípios de participação estabelecidos na '
-        'NR-1 (item 1.5.3.1) e na NR-17, que ressaltam a relevância do envolvimento dos colaboradores na identificação e '
-        'no gerenciamento dos riscos ocupacionais, inclusive daqueles relacionados aos fatores psicossociais do trabalho.\n\n'
-        'Os trabalhadores são aqueles que vivenciam cotidianamente os processos, as exigências e os desafios do ambiente '
-        'de trabalho, detendo conhecimento prático e percepções concretas acerca dos fatores que influenciam sua saúde, '
-        'bem-estar, segurança e desempenho. Nesse sentido, a participação efetiva dos trabalhadores permite ao analista '
-        'de AEP captar condições de trabalho que muitas vezes não são plenamente visíveis à observação externa.\n\n'
-        'A obtenção de percepções diretamente junto aos trabalhadores, de maneira anônima e confidencial, minimiza vieses '
-        'de avaliação e permite a identificação de aspectos subjetivos que não seriam evidenciados apenas por meio de '
-        'observações técnicas ou análise documental. Ademais, a participação efetiva dos colaboradores fortalece o '
-        'compromisso coletivo com a saúde e a segurança, estimulando o engajamento nas ações de melhoria que venham a ser '
-        'implementadas posteriormente.\n\n'
-        'A ausência de engajamento dos trabalhadores pode resultar em lacunas relevantes nas informações coletadas, '
-        'tornando o diagnóstico impreciso ou parcial e comprometendo a efetividade das medidas preventivas e corretivas '
-        'propostas. Por essa razão, ressalta-se que a qualidade dos dados obtidos está diretamente vinculada à consistência '
-        'de um ambiente de confiança, no qual os colaboradores se sintam seguros para manifestar suas percepções de forma '
-        'transparente, sem receio de retaliações ou julgamentos.\n\n'
-        'A promoção da transparência, da escuta ativa e do diálogo permanente constitui estratégia essencial para assegurar '
-        'essa participação, em consonância com o ciclo de melhoria contínua do Gerenciamento de Risco Ocupacionais (GRO) e '
-        'do Programa de Gerenciamento de Riscos (PGR). Essa abordagem participativa fortalece a cultura de saúde e segurança '
-        'na organização, contribuindo para a construção de um ambiente de trabalho mais seguro, saudável, equilibrado e produtivo.\n\n'
-        'Por fim, destaca-se que a participação dos trabalhadores no processo de identificação e avaliação dos riscos '
-        'psicossociais está em consonância com as melhores práticas internacionais recomendadas pela HSE-UK, configurando-se '
-        'como um diferencial para organizações que buscam excelência em seus sistemas de gestão de saúde e segurança do trabalho, '
-        'promovendo resultados sustentáveis e valorizando o bem-estar de seus colaboradores.'
-    )
+    def draw_mixed(y, segments):
+        """Renderiza parágrafo com trechos em negrito. segments = [(texto, is_bold)]"""
+        words = []
+        for text, bold in segments:
+            for token in text.split():
+                words.append((token, bold))
 
-    text_obj = c.beginText()
-    text_obj.setTextOrigin(margin_x, y)
-    body_font = 9.0
-    body_leading = 12.6
-    text_obj.setFont('Helvetica', body_font)
-    text_obj.setLeading(body_leading)
-    text_obj.setFillColor(colors.HexColor('#111827'))
-    max_width = width - (2 * margin_x)
-    for paragraph in text.split('\n\n'):
-        line = ''
-        for word in paragraph.split():
+        lines = []
+        cur_line, cur_w = [], 0.0
+        for token, bold in words:
+            font = 'Helvetica-Bold' if bold else 'Helvetica'
+            tw = c.stringWidth(token, font, size)
+            sw = c.stringWidth(' ', 'Helvetica', size)
+            needed = tw + (sw if cur_line else 0)
+            if cur_w + needed <= max_width or not cur_line:
+                if cur_line:
+                    cur_w += sw
+                cur_line.append((token, bold))
+                cur_w += tw
+            else:
+                lines.append(cur_line)
+                cur_line, cur_w = [(token, bold)], tw
+        if cur_line:
+            lines.append(cur_line)
+
+        for line in lines:
+            x = margin_x
+            for j, (token, bold) in enumerate(line):
+                font = 'Helvetica-Bold' if bold else 'Helvetica'
+                c.setFont(font, size)
+                c.setFillColor(colors.HexColor('#111827'))
+                txt = token + (' ' if j < len(line) - 1 else '')
+                c.drawString(x, y, txt)
+                x += c.stringWidth(txt, font, size)
+            y -= leading
+        return y - 1.5 * mm
+
+    def draw_plain(y, text):
+        text_obj = c.beginText()
+        text_obj.setTextOrigin(margin_x, y)
+        text_obj.setLeading(leading)
+        text_obj.setFont('Helvetica', size)
+        text_obj.setFillColor(colors.HexColor('#111827'))
+        line, count = '', 0
+        for word in text.split():
             test = f'{line} {word}'.strip()
-            if c.stringWidth(test, 'Helvetica', body_font) <= max_width:
+            if c.stringWidth(test, 'Helvetica', size) <= max_width:
                 line = test
             else:
                 text_obj.textLine(line)
+                count += 1
                 line = word
         if line:
             text_obj.textLine(line)
-        text_obj.textLine('')
-    c.drawText(text_obj)
+            count += 1
+        c.drawText(text_obj)
+        return y - (max(1, count) * leading) - 1.5 * mm
+
+    # Parágrafo 1 — com negrito em AEP, NR-17 e NR-01
+    y = draw_mixed(y, [
+        ('A participação ativa, consciente e transparente dos trabalhadores constitui elemento essencial para a efetividade desta ', False),
+        ('Avaliação Ergonômica Preliminar (AEP),', True),
+        (' em conformidade com os princípios participativos previstos na ', False),
+        ('NR-17', True),
+        (' e integrados ao sistema de gerenciamento de riscos ocupacionais estabelecido pela ', False),
+        ('NR-01.', True),
+        (' O envolvimento direto dos colaboradores fortalece a identificação dos fatores ergonômicos presentes nas atividades laborais e contribui para a adoção de medidas preventivas mais aderentes à realidade operacional da organização.', False),
+    ])
+    y -= 2 * mm
+
+    # Parágrafo 2
+    y = draw_plain(y, 'Os trabalhadores são os agentes que vivenciam diariamente os processos produtivos, as exigências físicas, cognitivas e organizacionais do trabalho, possuindo percepção prática sobre posturas adotadas, ritmo de trabalho, repetitividade, esforço físico, mobiliário, ferramentas, pausas, comunicação, demandas mentais e demais aspectos que impactam sua saúde, conforto, segurança e desempenho.')
+    y -= 2 * mm
+
+    # Parágrafo 3
+    y = draw_plain(y, 'A coleta dessas percepções, realizada de forma técnica, ética, confidencial e estruturada, permite identificar situações que muitas vezes não são plenamente evidenciadas apenas por inspeções visuais, análise documental ou observação pontual. Dessa forma, a escuta qualificada dos trabalhadores amplia a precisão diagnóstica da AEP e subsidia decisões mais assertivas na priorização de melhorias ergonômicas.')
+    y -= 2 * mm
+
+    # Parágrafo 4
+    y = draw_plain(y, 'A ausência de engajamento dos trabalhadores pode comprometer a consistência das informações levantadas, reduzindo a capacidade analítica do estudo e dificultando a implementação de ações corretivas eficazes. Por essa razão, recomenda-se que a organização promova ambiente de confiança, diálogo aberto e incentivo à participação, assegurando que todos possam contribuir sem receio de exposição, julgamento ou retaliação.')
+    y -= 2 * mm
+
+    # Parágrafo 5
+    y = draw_plain(y, 'A participação dos trabalhadores também favorece o fortalecimento da cultura prevencionista, estimulando corresponsabilidade entre empresa e equipe na construção de ambientes laborais mais saudáveis, seguros, eficientes e sustentáveis. O processo participativo tende a aumentar a aceitação das mudanças propostas, melhorar a comunicação interna e elevar o comprometimento com as práticas de saúde e segurança no trabalho.')
+    y -= 2 * mm
+
+    # Parágrafo 6
+    draw_plain(y, 'Por fim, destaca-se que organizações que valorizam a escuta ativa e o protagonismo de seus trabalhadores demonstram maturidade em gestão ocupacional, alinhando-se às melhores práticas nacionais e internacionais em ergonomia aplicada e promoção do bem-estar no trabalho.')
+
     c.showPage()
 
 
@@ -7912,7 +8151,7 @@ class CampanhaPublicView(APIView):
             return Response({'detail': 'O prazo de respostas desta campanha foi encerrado.'}, status=status.HTTP_403_FORBIDDEN)
         empresa = campanha.empresa
         if not campanha.aceitar_respostas_acima_limite and empresa.employee_count > 0:
-            respostas_count = campanha.step1_respostas.count()
+            respostas_count = campanha.step1_respostas.filter(is_completed=True).count()
             if respostas_count >= empresa.employee_count:
                 return Response({'detail': 'O limite de respostas desta campanha já foi atingido.'}, status=status.HTTP_403_FORBIDDEN)
         setores = []
@@ -8033,7 +8272,7 @@ class CampanhaPublicStep1SubmitView(APIView):
             return Response({'detail': 'O prazo de respostas desta campanha foi encerrado.'}, status=status.HTTP_403_FORBIDDEN)
         empresa = campanha.empresa
         if not campanha.aceitar_respostas_acima_limite and empresa.employee_count > 0:
-            respostas_count = campanha.step1_respostas.count()
+            respostas_count = campanha.step1_respostas.filter(is_completed=True).count()
             if respostas_count >= empresa.employee_count:
                 return Response({'detail': 'O limite de respostas desta campanha já foi atingido.'}, status=status.HTTP_403_FORBIDDEN)
 
