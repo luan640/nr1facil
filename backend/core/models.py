@@ -138,11 +138,14 @@ class Empresa(models.Model):
         on_delete=models.PROTECT,
         related_name='empresas_consultoria',
     )
-    responsavel_usuario = models.OneToOneField(
+    responsavel_usuario = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
-        related_name='empresa_responsavel',
+        related_name='empresas_responsavel',
+        blank=True,
+        null=True,
     )
+    responsible_email = models.EmailField(blank=True)
     document_type = models.CharField(max_length=4, choices=DocumentType.choices)
     document_number = models.CharField(max_length=20)
     company_name = models.CharField(max_length=255)

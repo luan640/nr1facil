@@ -248,7 +248,7 @@ class SystemAccountSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class EmpresaSerializer(serializers.ModelSerializer):
+class LegacyEmpresaSerializer(serializers.ModelSerializer):
     responsible_email = serializers.EmailField(write_only=True)
     responsible_password = serializers.CharField(write_only=True, required=False, min_length=6)
     create_default_structure = serializers.BooleanField(write_only=True, required=False, default=True)
@@ -396,6 +396,124 @@ class EmpresaSerializer(serializers.ModelSerializer):
         if responsible_password:
             responsible_user.set_password(responsible_password)
         responsible_user.save()
+
+        instance.save()
+        return instance
+
+
+class EmpresaSerializer(serializers.ModelSerializer):
+    responsible_email = serializers.EmailField()
+    responsible_password = serializers.CharField(write_only=True, required=False, min_length=6)
+    create_default_structure = serializers.BooleanField(write_only=True, required=False, default=True)
+    responsible_user_email = serializers.EmailField(source='responsible_email', read_only=True)
+    logo_url = serializers.SerializerMethodField(read_only=True)
+    consultor_id = serializers.IntegerField(source='consultor.id', read_only=True)
+    consultor_name = serializers.CharField(source='consultor.full_name', read_only=True)
+
+    class Meta:
+        model = Empresa
+        fields = [
+            'id',
+            'document_type',
+            'document_number',
+            'company_name',
+            'establishment_type',
+            'establishment_custom_name',
+            'establishment_name',
+            'evaluation_type',
+            'cnae',
+            'responsible_name',
+            'responsible_email',
+            'responsible_password',
+            'create_default_structure',
+            'responsible_user_email',
+            'risk_level',
+            'employee_count',
+            'logo',
+            'logo_url',
+            'phone',
+            'postal_code',
+            'state',
+            'city',
+            'neighborhood',
+            'street',
+            'number',
+            'complement',
+            'is_active',
+            'created_at',
+            'updated_at',
+            'consultor_id',
+            'consultor_name',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'responsible_user_email', 'logo_url', 'consultor_id', 'consultor_name']
+
+    def validate_document_number(self, value):
+        return ''.join(char for char in value if char.isdigit())
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        document_type = attrs.get('document_type') or getattr(self.instance, 'document_type', None)
+        document_number = attrs.get('document_number') or getattr(self.instance, 'document_number', '')
+        establishment_type = attrs.get('establishment_type') or getattr(self.instance, 'establishment_type', None)
+
+        if document_type == DocumentType.CPF and len(document_number) != 11:
+            raise serializers.ValidationError({'document_number': 'CPF deve ter 11 digitos.'})
+
+        if document_type == DocumentType.CNPJ and len(document_number) != 14:
+            raise serializers.ValidationError({'document_number': 'CNPJ deve ter 14 digitos.'})
+
+        if establishment_type not in EstablishmentType.values:
+            raise serializers.ValidationError({'establishment_type': 'Tipo de estabelecimento invÃ¡lido.'})
+
+        evaluation_type = attrs.get('evaluation_type') or getattr(self.instance, 'evaluation_type', None)
+        if evaluation_type not in EvaluationType.values:
+            raise serializers.ValidationError({'evaluation_type': 'Tipo de avaliaÃ§Ã£o invÃ¡lido.'})
+
+        consultoria_owner = get_consultoria_owner(getattr(request, 'user', None))
+        if consultoria_owner and document_number:
+            exists_qs = Empresa.objects.filter(
+                consultor=consultoria_owner,
+                document_number=document_number,
+            )
+            if self.instance:
+                exists_qs = exists_qs.exclude(id=self.instance.id)
+            if exists_qs.exists():
+                raise serializers.ValidationError({
+                    'document_number': 'JÃ¡ existe uma empresa com este documento nesta consultoria.'
+                })
+
+        return attrs
+
+    def get_logo_url(self, obj):
+        if not getattr(obj, 'logo', None):
+            return ''
+        try:
+            url = obj.logo.url
+        except Exception:
+            return ''
+        request = self.context.get('request')
+        return request.build_absolute_uri(url) if request else url
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        validated_data.pop('responsible_password', None)
+        create_default_structure = validated_data.pop('create_default_structure', True)
+        consultor_owner = get_consultoria_owner(request.user)
+        with transaction.atomic():
+            empresa = Empresa.objects.create(
+                consultor=consultor_owner,
+                **validated_data,
+            )
+            if create_default_structure:
+                seed_empresa_default_structure(empresa)
+        return empresa
+
+    def update(self, instance, validated_data):
+        validated_data.pop('responsible_password', None)
+        validated_data.pop('create_default_structure', None)
+
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
 
         instance.save()
         return instance

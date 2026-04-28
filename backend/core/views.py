@@ -4858,10 +4858,7 @@ class EmpresaExcluirView(APIView):
         if not empresa:
             return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
-        responsavel = empresa.responsavel_usuario
         empresa.delete()
-        if responsavel:
-            responsavel.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -4880,10 +4877,6 @@ class EmpresaInativarView(APIView):
 
         empresa.is_active = False
         empresa.save(update_fields=['is_active', 'updated_at'])
-
-        responsavel = empresa.responsavel_usuario
-        responsavel.is_active = False
-        responsavel.save(update_fields=['is_active'])
 
         return Response(EmpresaSerializer(empresa).data)
 

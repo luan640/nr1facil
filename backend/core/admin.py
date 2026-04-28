@@ -32,7 +32,7 @@ class UserAdmin(BaseUserAdmin):
 class EmpresaAdmin(admin.ModelAdmin):
     list_display = ['company_name', 'document_type', 'document_number', 'evaluation_type', 'risk_level', 'is_active']
     list_filter = ['document_type', 'establishment_type', 'evaluation_type', 'is_active']
-    search_fields = ['company_name', 'document_number', 'responsible_name', 'responsavel_usuario__email']
+    search_fields = ['company_name', 'document_number', 'responsible_name', 'responsible_email']
 
 
 @admin.register(Setor)

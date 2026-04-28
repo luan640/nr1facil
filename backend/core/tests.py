@@ -305,6 +305,104 @@ class PdfLetterheadTests(APITestCase):
             self.assertIn('PAGINA 2 RELATORIO', page_2_text)
 
 
+class EmpresaResponsibleEmailTests(APITestCase):
+    def setUp(self):
+        self.consultoria = User.objects.create_user(
+            email='consultoria-empresa@example.com',
+            password='secret123',
+            user_type=UserType.CONSULTOR,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.consultoria)
+
+    def test_create_company_allows_reusing_responsible_email_without_creating_user(self):
+        response_a = self.client.post(
+            reverse('empresa-list-create'),
+            {
+                'document_type': 'CNPJ',
+                'document_number': '12345678000199',
+                'company_name': 'Empresa A',
+                'establishment_type': 'MATRIZ',
+                'establishment_name': 'Matriz A',
+                'evaluation_type': 'SETOR',
+                'responsible_name': 'Responsavel A',
+                'responsible_email': 'contato@example.com',
+                'risk_level': '3',
+                'employee_count': 10,
+                'postal_code': '01001000',
+                'state': 'SP',
+                'city': 'Sao Paulo',
+                'neighborhood': 'Centro',
+            },
+            format='json',
+        )
+        response_b = self.client.post(
+            reverse('empresa-list-create'),
+            {
+                'document_type': 'CNPJ',
+                'document_number': '22345678000199',
+                'company_name': 'Empresa B',
+                'establishment_type': 'MATRIZ',
+                'establishment_name': 'Matriz B',
+                'evaluation_type': 'SETOR',
+                'responsible_name': 'Responsavel B',
+                'responsible_email': 'contato@example.com',
+                'risk_level': '2',
+                'employee_count': 8,
+                'postal_code': '01001000',
+                'state': 'SP',
+                'city': 'Sao Paulo',
+                'neighborhood': 'Centro',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response_a.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response_b.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Empresa.objects.filter(responsible_email='contato@example.com').count(), 2)
+        self.assertFalse(User.objects.filter(email='contato@example.com').exists())
+
+    def test_edit_company_allows_responsible_email_used_by_other_company(self):
+        empresa_a = Empresa.objects.create(
+            consultor=self.consultoria,
+            document_type='CNPJ',
+            document_number='32345678000199',
+            company_name='Empresa A',
+            establishment_type='MATRIZ',
+            establishment_name='Matriz A',
+            evaluation_type='SETOR',
+            responsible_name='Responsavel A',
+            responsible_email='contato@example.com',
+            risk_level='3',
+            employee_count=10,
+        )
+        empresa_b = Empresa.objects.create(
+            consultor=self.consultoria,
+            document_type='CNPJ',
+            document_number='42345678000199',
+            company_name='Empresa B',
+            establishment_type='MATRIZ',
+            establishment_name='Matriz B',
+            evaluation_type='SETOR',
+            responsible_name='Responsavel B',
+            responsible_email='outro@example.com',
+            risk_level='2',
+            employee_count=8,
+        )
+
+        response = self.client.patch(
+            reverse('empresa-detail', args=[empresa_b.id]),
+            {'responsible_email': 'contato@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        empresa_a.refresh_from_db()
+        empresa_b.refresh_from_db()
+        self.assertEqual(empresa_a.responsible_email, 'contato@example.com')
+        self.assertEqual(empresa_b.responsible_email, 'contato@example.com')
+
+
 class PasswordResetTests(APITestCase):
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
