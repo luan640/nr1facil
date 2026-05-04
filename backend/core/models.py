@@ -169,6 +169,9 @@ class Empresa(models.Model):
     number = models.CharField(max_length=20, blank=True)
     complement = models.CharField(max_length=120, blank=True)
     is_active = models.BooleanField(default=True)
+    notify_on_campanha_start = models.BooleanField(default=True)
+    notify_on_campanha_end = models.BooleanField(default=True)
+    notify_on_denuncia = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

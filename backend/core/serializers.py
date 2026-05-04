@@ -440,6 +440,9 @@ class EmpresaSerializer(serializers.ModelSerializer):
             'number',
             'complement',
             'is_active',
+            'notify_on_campanha_start',
+            'notify_on_campanha_end',
+            'notify_on_denuncia',
             'created_at',
             'updated_at',
             'consultor_id',
@@ -1416,7 +1419,7 @@ class CanalDenunciaPublicSerializer(serializers.ModelSerializer):
     def validate_relato(self, value):
         text = str(value or '').strip()
         if len(text) < 10:
-            raise serializers.ValidationError('Descreva a denuncia com mais detalhes.')
+            raise serializers.ValidationError('Descreva a denúncia com mais detalhes.')
         return text
 
     def validate(self, attrs):

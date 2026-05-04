@@ -1215,6 +1215,7 @@ export default function App() {
   const [empConsultoriaMenuOpen, setEmpConsultoriaMenuOpen] = useState(false);
   const [eModalOpen, setEModalOpen] = useState(false), [eMode, setEMode] = useState("create"), [eStep, setEStep] = useState(1), [eForm, setEForm] = useState(INIT_EMPRESA), [eEdit, setEEdit] = useState(null), [eErr, setEErr] = useState(""), [eSaving, setESaving] = useState(false), [eInactivate, setEInactivate] = useState(null), [eReativar, setEReativar] = useState(null), [eActing, setEActing] = useState(false), [eInvalidFields, setEInvalidFields] = useState({});
   const [eDeleteModal, setEDeleteModal] = useState({ empresa: null, deleting: false, err: "" });
+  const [eNotifModal, setENotifModal] = useState({ open: false, empresa: null, start: false, end: false, denuncia: false, saving: false, err: "" });
   const [eLogoFile, setELogoFile] = useState(null);
   const [eCepLoading, setECepLoading] = useState(false), [eCepErr, setECepErr] = useState("");
   const [setores, setSetores] = useState([]), [setorErr, setSetorErr] = useState(""), [setorLoad, setSetorLoad] = useState(false);
@@ -1272,7 +1273,7 @@ export default function App() {
   const [cmpConsultoriaFilter, setCmpConsultoriaFilter] = useState(""), [cmpConsultoriaMenuOpen, setCmpConsultoriaMenuOpen] = useState(false);
   const [cmpPeriodoInicio, setCmpPeriodoInicio] = useState(""), [cmpPeriodoFim, setCmpPeriodoFim] = useState("");
   const [totemEmpresaBusca, setTotemEmpresaBusca] = useState(""), [totemEmpresaFiltro, setTotemEmpresaFiltro] = useState(""), [totemEmpresaMenuOpen, setTotemEmpresaMenuOpen] = useState(false), [totemEmpresaVisibleCount, setTotemEmpresaVisibleCount] = useState(10);
-  const [totemLinkData, setTotemLinkData] = useState(null), [totemLoad, setTotemLoad] = useState(false), [totemErr, setTotemErr] = useState("");
+  const [totemLinkData, setTotemLinkData] = useState(null), [totemLoad, setTotemLoad] = useState(false), [totemErr, setTotemErr] = useState(""), [totemQrPdfLoading, setTotemQrPdfLoading] = useState(false);
   const [linkRegenModal, setLinkRegenModal] = useState({ target: "", open: false });
   const [campRelatorio, setCampRelatorio] = useState(null), [campRelErr, setCampRelErr] = useState(""), [campRelLoad, setCampRelLoad] = useState(false);
   const [campRelCampanha, setCampRelCampanha] = useState(null), [campRelRefId, setCampRelRefId] = useState("");
@@ -1706,9 +1707,11 @@ export default function App() {
   function pErr(data) {
     if (!data || typeof data !== "object") return "Erro na requisicao.";
     const k = Object.keys(data)[0], v = data[k];
-    if (Array.isArray(v) && v[0]) return String(v[0]);
-    if (typeof v === "string") return v;
-    return data.detail || "Erro na requisicao.";
+    const msg = (Array.isArray(v) && v[0]) ? String(v[0]) : (typeof v === "string" ? v : (data.detail || "Erro na requisicao."));
+    if (msg.includes("objeto não existe") || msg.includes("objeto nao existe") || msg.includes("does not exist")) {
+      return "Os dados desta tela estão desatualizados. Atualize a página e tente novamente.";
+    }
+    return msg;
   }
 
   async function downloadImportTemplate(resource, format) {
@@ -2087,7 +2090,7 @@ export default function App() {
       if (denIdentificar === "SIM" && !String(denContatoIdentificacao || "").trim()) throw new Error("Informe e-mail ou WhatsApp para identificacao.");
       if (!denTipo) throw new Error("Selecione o tipo da denúncia.");
       if (!denRelato.trim()) throw new Error("Descreva a denúncia.");
-      if (denAceitaDevolutiva === "SIM" && !String(denEmailDevolutiva || "").trim()) throw new Error("Informe o e-mail para devolutiva.");
+      if (denAceitaDevolutiva === "SIM" && !String(denEmailDevolutiva || "").trim()) throw new Error("Informe o e-mail ou WhatsApp para devolutiva.");
       if (denArquivo && denArquivo.size > 20 * 1024 * 1024) throw new Error("O arquivo excede 20MB.");
       const form = new FormData();
       form.append("possui_vinculo", denVinculo === "SIM" ? "true" : "false");
@@ -2135,7 +2138,7 @@ export default function App() {
       if (denIdentificar === "SIM" && !String(denContatoIdentificacao || "").trim()) throw new Error("Informe e-mail ou WhatsApp para identificacao.");
       if (!denTipo) throw new Error("Selecione o tipo da denuncia.");
       if (!denRelato.trim()) throw new Error("Descreva a denuncia.");
-      if (denAceitaDevolutiva === "SIM" && !String(denEmailDevolutiva || "").trim()) throw new Error("Informe o e-mail para devolutiva.");
+      if (denAceitaDevolutiva === "SIM" && !String(denEmailDevolutiva || "").trim()) throw new Error("Informe o e-mail ou WhatsApp para devolutiva.");
       const payload = {
         possui_vinculo: denVinculo === "SIM",
         deseja_identificar: denIdentificar === "SIM",
@@ -4348,6 +4351,27 @@ export default function App() {
     }
   }
 
+  function printTotemQr() {
+    if (!totemLinkData?.empresa_id) return setTotemErr("QR Code indisponível.");
+    const authToken = getAuthToken();
+    if (!authToken) return setTotemErr("Sessão inválida.");
+    setTotemQrPdfLoading(true);
+    fetch(`${API}/empresas/${totemLinkData.empresa_id}/totem-link/qrcode/pdf/`, {
+      headers: { Authorization: `Token ${authToken}` },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Erro ao gerar PDF do QR Code.");
+        return r.blob();
+      })
+      .then((blob) => {
+        const objUrl = URL.createObjectURL(blob);
+        window.open(objUrl, "_blank");
+        setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+      })
+      .catch((err) => setTotemErr(err.message))
+      .finally(() => setTotemQrPdfLoading(false));
+  }
+
   function openRegenerateLinkConfirm(target) {
     setLinkRegenModal({ target, open: true });
   }
@@ -4768,6 +4792,25 @@ export default function App() {
       setEReativar(null);
     } catch (err) { setEmpErr(err.message); }
     finally { setEActing(false); }
+  }
+
+  async function saveEmpresaNotif() {
+    const { empresa, start, end, denuncia } = eNotifModal;
+    if (!empresa) return;
+    setENotifModal((p) => ({ ...p, saving: true, err: "" }));
+    try {
+      const r = await fetch(`${API}/empresas/${empresa.id}/`, {
+        method: "PATCH",
+        headers: { Authorization: `Token ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ notify_on_campanha_start: start, notify_on_campanha_end: end, notify_on_denuncia: denuncia }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(pErr(d));
+      setEmpresas((prev) => prev.map((x) => x.id === empresa.id ? { ...x, notify_on_campanha_start: start, notify_on_campanha_end: end, notify_on_denuncia: denuncia } : x));
+      setENotifModal({ open: false, empresa: null, start: false, end: false, denuncia: false, saving: false, err: "" });
+    } catch (err) {
+      setENotifModal((p) => ({ ...p, saving: false, err: err.message }));
+    }
   }
 
   function empresaInitials(name) {
@@ -5214,6 +5257,15 @@ export default function App() {
                   )}
 
                   <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      className="campanha-icon-btn"
+                      title="Configurar notificações de e-mail"
+                      aria-label="Configurar notificações de e-mail"
+                      onClick={() => setENotifModal({ open: true, empresa: e, start: !!e.notify_on_campanha_start, end: !!e.notify_on_campanha_end, denuncia: !!e.notify_on_denuncia, saving: false, err: "" })}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+                    </button>
                     <button
                       type="button"
                       className="campanha-icon-btn"
@@ -8071,6 +8123,9 @@ export default function App() {
                   <button type="button" onClick={() => window.open(totemLinkData.url, "_blank", "noopener,noreferrer")}>
                     Abrir
                   </button>
+                  <button type="button" className="secondary" onClick={printTotemQr} disabled={totemQrPdfLoading}>
+                    {totemQrPdfLoading ? "Gerando..." : "QR Code"}
+                  </button>
                 </div>
               </div>
               {totemErr && <p className="error">{totemErr}</p>}
@@ -8147,11 +8202,11 @@ export default function App() {
           {!totemPubLoad && totemPubData && !totemConsentAccepted && (
             <div className="totem-consent-screen">
               <div className="totem-consent-hero">
-                {totemPubData.consultoria_logo_url ? (
-                  <img src={totemPubData.consultoria_logo_url} alt="Logo" className="totem-consent-logo" />
+                {(totemPubData.empresa_logo_url || totemPubData.consultoria_logo_url) ? (
+                  <img src={totemPubData.empresa_logo_url || totemPubData.consultoria_logo_url} alt="Logo" className="totem-consent-logo" />
                 ) : (
                   <div className="totem-consent-logo-fallback">
-                    <span>{(totemPubData.consultoria_nome || "NR").charAt(0)}</span>
+                    <span>{(totemPubData.empresa_name || totemPubData.consultoria_nome || "NR").charAt(0)}</span>
                   </div>
                 )}
                 <h1 className="totem-consent-welcome">Bem-vindo ao<br />Canal de Atendimento</h1>
@@ -8301,7 +8356,7 @@ export default function App() {
                   <label className="totem-radio-opt"><input type="radio" name="totem-den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} /><span>Não</span></label>
                 </div>
                 {denAceitaDevolutiva === "SIM" && (
-                  <input type="email" className="totem-input" placeholder="seuemail@exemplo.com" value={denEmailDevolutiva} onChange={(e) => setDenEmailDevolutiva(e.target.value)} />
+                  <input type="text" className="totem-input" placeholder="E-mail ou WhatsApp" value={denEmailDevolutiva} onChange={(e) => setDenEmailDevolutiva(e.target.value)} />
                 )}
               </div>
 
@@ -8552,7 +8607,7 @@ export default function App() {
               </div>
 
               <div className="denuncia-question">
-                <label>6. Voce aceita receber uma devolutiva para a denuncia realizada? Se sim, insira o seu e-mail:</label>
+                <label>6. Você aceita receber uma devolutiva para a denúncia realizada? Se sim, insira seu e-mail:</label>
                 <div className="denuncia-radio-row">
                   <label className="checkbox-line"><input type="radio" name="den-devolutiva" checked={denAceitaDevolutiva === "SIM"} onChange={() => setDenAceitaDevolutiva("SIM")} />Sim</label>
                   <label className="checkbox-line"><input type="radio" name="den-devolutiva" checked={denAceitaDevolutiva === "NAO"} onChange={() => { setDenAceitaDevolutiva("NAO"); setDenEmailDevolutiva(""); }} />Não</label>
@@ -9534,6 +9589,39 @@ export default function App() {
       )}
 
       {toastViewport}
+      {eNotifModal.open && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 420 }}>
+            <h3 style={{ marginBottom: 4 }}>Notificações de e-mail</h3>
+            <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>{eNotifModal.empresa?.company_name}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+              {[
+                { key: "start", label: "Ao iniciar campanha" },
+                { key: "end",   label: "Ao finalizar campanha" },
+                { key: "denuncia", label: "Ao receber uma denúncia" },
+              ].map(({ key, label }) => (
+                <label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "10px 14px", borderRadius: 10, border: "1px solid #e2e8f0", background: eNotifModal[key] ? "#f0fdf4" : "#f8fafc" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>{label}</span>
+                  <span
+                    role="switch"
+                    aria-checked={eNotifModal[key]}
+                    onClick={() => setENotifModal((p) => ({ ...p, [key]: !p[key] }))}
+                    style={{ position: "relative", display: "inline-block", width: 44, height: 24, borderRadius: 12, background: eNotifModal[key] ? "#16a34a" : "#cbd5e1", cursor: "pointer", transition: "background .2s", flexShrink: 0 }}
+                  >
+                    <span style={{ position: "absolute", top: 3, left: eNotifModal[key] ? 23 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
+                  </span>
+                </label>
+              ))}
+            </div>
+            {eNotifModal.err && <p className="error" style={{ marginBottom: 12 }}>{eNotifModal.err}</p>}
+            <div className="modal-actions">
+              <button className="secondary" onClick={() => setENotifModal({ open: false, empresa: null, start: false, end: false, denuncia: false, saving: false, err: "" })} disabled={eNotifModal.saving}>Cancelar</button>
+              <button onClick={saveEmpresaNotif} disabled={eNotifModal.saving}>{eNotifModal.saving ? "Salvando..." : "Salvar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {eInactivate && <div className="modal-backdrop"><div className="modal-card"><h3>Inativar empresa</h3><p>Deseja inativar {eInactivate.company_name}?</p>{eErr && <p className="error">{eErr}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setEInactivate(null)}>Cancelar</button><button className="danger" onClick={inativarEmpresa} disabled={eActing}>{eActing ? "Inativando..." : "Inativar"}</button></div></div></div>}
       {eReativar && <div className="modal-backdrop"><div className="modal-card"><h3>Reativar empresa</h3><p>Deseja reativar <strong>{eReativar.company_name}</strong>? A empresa voltará a estar ativa no sistema.</p>{empErr && <p className="error">{empErr}</p>}<div className="modal-actions"><button className="secondary" onClick={() => setEReativar(null)} disabled={eActing}>Cancelar</button><button onClick={confirmarReativarEmpresa} disabled={eActing}>{eActing ? "Reativando..." : "Reativar"}</button></div></div></div>}
 

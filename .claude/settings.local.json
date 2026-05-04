@@ -24,7 +24,17 @@
       "Bash(venv/Scripts/python -c \":*)",
       "Bash(python:*)",
       "Bash(USE_SUPABASE_POSTGRES=1 venv/Scripts/python manage.py shell -c \":*)",
-      "Bash(awk -F: '{print $1\": \"$2}')"
+      "Bash(awk -F: '{print $1\": \"$2}')",
+      "Bash(curl -s http://localhost:8000/api/campanhas/public/51f18fb9-6482-4648-98b4-e7f9ce2fa864/)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Empresa:', d.get\\('empresa_name'\\)\\); print\\('Tipo:', d.get\\('evaluation_type'\\)\\); print\\('Cargos:', len\\(d.get\\('cargos',[]\\)\\)\\);\")",
+      "PowerShell($resp = Invoke-RestMethod -Uri \"http://localhost:8000/api/campanhas/public/51f18fb9-6482-4648-98b4-e7f9ce2fa864/\" -Method Get; $resp | Select-Object empresa_name, evaluation_type, @{n='cargos';e={$_.cargos.Count}}, @{n='setores';e={$_.setores.Count}}, @{n='ghes';e={$_.ghes.Count}})",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Recurse -Filter \"*cargo*\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Recurse -Include \"*.jsx\", \"*.js\", \"*.py\")",
+      "Bash(Select-Object -First 30)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Recurse -Force)"
     ]
   }
 }

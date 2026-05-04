@@ -1611,9 +1611,9 @@ def _draw_pdf_summary_page(c):
         'RESULTADOS GERAIS',
         'CONCLUSÕES E RECOMENDAÇÕES PRELIMINARES',
         'LIMITAÇÕES',
-        'RESPONSABILIDADES',
         'CLASSIFICAÇÃO E AVALIAÇÃO DOS RISCOS',
         'INVENTÁRIO DE RISCOS OCUPACIONAIS PARA O PGR',
+        'RESPONSABILIDADES',
         'ANEXOS',
     ]
     blue = colors.HexColor('#14532d')
@@ -2178,7 +2178,18 @@ def _draw_pdf_conclusoes_recomendacoes_pages(c, report_data):
         if not lines:
             lines = ['-']
         for i, ln in enumerate(lines):
-            c.drawString(x, y - (i * leading), ln)
+            is_last = (i == len(lines) - 1)
+            ln_words = ln.split()
+            if not is_last and len(ln_words) > 1:
+                total_w = sum(c.stringWidth(w, font, size) for w in ln_words)
+                gap = (max_width - total_w) / (len(ln_words) - 1)
+                cx = x
+                for j, w in enumerate(ln_words):
+                    c.drawString(cx, y - (i * leading), w)
+                    if j < len(ln_words) - 1:
+                        cx += c.stringWidth(w, font, size) + gap
+            else:
+                c.drawString(x, y - (i * leading), ln)
         return y - (len(lines) * leading)
 
     y = new_page()
@@ -2496,38 +2507,62 @@ def _draw_pdf_limitacoes_page(c):
                 cur_line, cur_w = [(token, bold)], tw
         if cur_line:
             lines.append(cur_line)
-        for line in lines:
+        for li, line in enumerate(lines):
+            is_last = (li == len(lines) - 1)
             x = margin_x
-            for j, (token, bold) in enumerate(line):
-                font = 'Helvetica-Bold' if bold else 'Helvetica'
-                c.setFont(font, size)
-                c.setFillColor(colors.HexColor('#111827'))
-                txt = token + (' ' if j < len(line) - 1 else '')
-                c.drawString(x, y, txt)
-                x += c.stringWidth(txt, font, size)
+            if not is_last and len(line) > 1:
+                total_w = sum(c.stringWidth(tok, 'Helvetica-Bold' if b else 'Helvetica', size) for tok, b in line)
+                gap = (max_width - total_w) / (len(line) - 1)
+                for j, (token, bold) in enumerate(line):
+                    font = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font, size)
+                    c.setFillColor(colors.HexColor('#111827'))
+                    c.drawString(x, y, token)
+                    if j < len(line) - 1:
+                        x += c.stringWidth(token, font, size) + gap
+            else:
+                for j, (token, bold) in enumerate(line):
+                    font = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font, size)
+                    c.setFillColor(colors.HexColor('#111827'))
+                    txt = token + (' ' if j < len(line) - 1 else '')
+                    c.drawString(x, y, txt)
+                    x += c.stringWidth(txt, font, size)
             y -= leading
         return y - 1.5 * mm
 
     def draw_plain(y, text):
-        text_obj = c.beginText()
-        text_obj.setTextOrigin(margin_x, y)
-        text_obj.setLeading(leading)
-        text_obj.setFont('Helvetica', size)
-        text_obj.setFillColor(colors.HexColor('#111827'))
-        line, count = '', 0
-        for word in text.split():
-            test = f'{line} {word}'.strip()
+        words = text.split()
+        lines, cur = [], ''
+        for word in words:
+            test = f'{cur} {word}'.strip()
             if c.stringWidth(test, 'Helvetica', size) <= max_width:
-                line = test
+                cur = test
             else:
-                text_obj.textLine(line)
-                count += 1
-                line = word
-        if line:
-            text_obj.textLine(line)
-            count += 1
-        c.drawText(text_obj)
-        return y - (max(1, count) * leading) - 1.5 * mm
+                if cur:
+                    lines.append(cur)
+                cur = word
+        if cur:
+            lines.append(cur)
+        if not lines:
+            lines = ['']
+        c.setFont('Helvetica', size)
+        c.setFillColor(colors.HexColor('#111827'))
+        for i, ln in enumerate(lines):
+            is_last = (i == len(lines) - 1)
+            ln_words = ln.split()
+            if not is_last and len(ln_words) > 1:
+                total_w = sum(c.stringWidth(w, 'Helvetica', size) for w in ln_words)
+                gap = (max_width - total_w) / (len(ln_words) - 1)
+                x = margin_x
+                for j, w in enumerate(ln_words):
+                    c.drawString(x, y, w)
+                    if j < len(ln_words) - 1:
+                        x += c.stringWidth(w, 'Helvetica', size) + gap
+            else:
+                c.drawString(margin_x, y, ln)
+            y -= leading
+        return y - 1.5 * mm
 
     # Parágrafo 1
     y = draw_mixed(y, [
@@ -2752,7 +2787,7 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
         c.setFont('Helvetica-Bold', 9)
         c.drawRightString(margin_x + 3.5 * mm, y_local - 0.5, '9')
         c.setFont('Helvetica-Bold', 9)
-        c.drawString(margin_x + 5.2 * mm, y_local - 0.5, 'CLASSIFICACAO E AVALIACAO DOS RISCOS')
+        c.drawString(margin_x + 5.2 * mm, y_local - 0.5, 'CLASSIFICAÇÃO E AVALIAÇÃO DOS RISCOS')
         c.setStrokeColor(blue)
         c.setLineWidth(1)
         c.line(margin_x, y_local - 4 * mm, width - margin_x, y_local - 4 * mm)
@@ -2779,11 +2814,23 @@ def _draw_pdf_risk_classification_page(c, campanha, empresa, report_data):
         return lines or ['-']
 
     def draw_paragraph(y_pos, text, font='Helvetica', size=8.3, leading=10.5):
-        lines = wrap_text(text, font=font, size=size, max_width=width - (2 * margin_x))
+        max_w = width - (2 * margin_x)
+        lines = wrap_text(text, font=font, size=size, max_width=max_w)
         c.setFont(font, size)
         c.setFillColor(colors.HexColor('#111827'))
         for idx, line in enumerate(lines):
-            c.drawString(margin_x, y_pos - (idx * leading), line)
+            is_last = (idx == len(lines) - 1)
+            ln_words = line.split()
+            if not is_last and len(ln_words) > 1:
+                total_w = sum(c.stringWidth(w, font, size) for w in ln_words)
+                gap = (max_w - total_w) / (len(ln_words) - 1)
+                x = margin_x
+                for j, w in enumerate(ln_words):
+                    c.drawString(x, y_pos - (idx * leading), w)
+                    if j < len(ln_words) - 1:
+                        x += c.stringWidth(w, font, size) + gap
+            else:
+                c.drawString(margin_x, y_pos - (idx * leading), line)
         return y_pos - (len(lines) * leading)
 
     def draw_cell_text(x, top_y, cell_w, cell_h, text, font='Helvetica', size=7.8, align='center', pad=0):
@@ -3847,16 +3894,28 @@ def _draw_pdf_objetivo_page(c):
                 current_width = word_width
         if current_line:
             lines.append(current_line)
-        for line_words in lines:
+        for li, line_words in enumerate(lines):
+            is_last = (li == len(lines) - 1)
             x = margin_x
-            for word, bold, space_before in line_words:
-                if space_before:
-                    x += c.stringWidth(' ', 'Helvetica', body_font_size)
-                font_name = 'Helvetica-Bold' if bold else 'Helvetica'
-                c.setFont(font_name, body_font_size)
-                c.setFillColor(color)
-                c.drawString(x, y, word)
-                x += c.stringWidth(word, font_name, body_font_size)
+            if not is_last and len(line_words) > 1:
+                total_w = sum(c.stringWidth(w, 'Helvetica-Bold' if b else 'Helvetica', body_font_size) for w, b, _ in line_words)
+                gap = (max_width - total_w) / (len(line_words) - 1)
+                for j, (word, bold, _) in enumerate(line_words):
+                    font_name = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font_name, body_font_size)
+                    c.setFillColor(color)
+                    c.drawString(x, y, word)
+                    if j < len(line_words) - 1:
+                        x += c.stringWidth(word, font_name, body_font_size) + gap
+            else:
+                for word, bold, space_before in line_words:
+                    if space_before:
+                        x += c.stringWidth(' ', 'Helvetica', body_font_size)
+                    font_name = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font_name, body_font_size)
+                    c.setFillColor(color)
+                    c.drawString(x, y, word)
+                    x += c.stringWidth(word, font_name, body_font_size)
             y -= body_leading
         return y - 3 * mm
 
@@ -3918,33 +3977,42 @@ def _draw_pdf_metodologia_pages(c):
         return y - 10 * mm
 
     def draw_paragraph(y, text, font='Helvetica', size=9.1, leading=12.8, bold=False):
-        c.setFont('Helvetica-Bold' if bold else font, size)
-        text_obj = c.beginText()
-        text_obj.setTextOrigin(margin_x, y)
-        text_obj.setLeading(leading)
-        text_obj.setFillColor(colors.HexColor('#111827'))
+        actual_font = 'Helvetica-Bold' if bold else font
         max_width = width - (2 * margin_x)
-        line_count = 0
-        line = ''
-        for word in text.split():
-            test = f'{line} {word}'.strip()
-            if c.stringWidth(test, 'Helvetica-Bold' if bold else font, size) <= max_width:
-                line = test
+        words = text.split()
+        lines, cur = [], ''
+        for word in words:
+            test = f'{cur} {word}'.strip()
+            if c.stringWidth(test, actual_font, size) <= max_width:
+                cur = test
             else:
-                text_obj.textLine(line)
-                line_count += 1
-                line = word
-        if line:
-            text_obj.textLine(line)
-            line_count += 1
-        c.drawText(text_obj)
-        return y - (max(1, line_count) * leading) - 1.5 * mm
+                if cur:
+                    lines.append(cur)
+                cur = word
+        if cur:
+            lines.append(cur)
+        if not lines:
+            lines = ['']
+        c.setFont(actual_font, size)
+        c.setFillColor(colors.HexColor('#111827'))
+        for i, ln in enumerate(lines):
+            is_last = (i == len(lines) - 1)
+            ln_words = ln.split()
+            if not is_last and len(ln_words) > 1:
+                total_w = sum(c.stringWidth(w, actual_font, size) for w in ln_words)
+                gap = (max_width - total_w) / (len(ln_words) - 1)
+                x = margin_x
+                for j, w in enumerate(ln_words):
+                    c.drawString(x, y, w)
+                    if j < len(ln_words) - 1:
+                        x += c.stringWidth(w, actual_font, size) + gap
+            else:
+                c.drawString(margin_x, y, ln)
+            y -= leading
+        return y - 1.5 * mm
 
     def draw_mixed_paragraph(y, segments, size=9.1, leading=12.8, indent=0):
-        """Renderiza parágrafo com trechos em negrito intercalados.
-        segments: lista de (texto, is_bold)
-        """
-        max_width = width - (2 * margin_x) - indent
+        act_max_width = width - (2 * margin_x) - indent
         words = []
         for text, bold in segments:
             for token in text.split():
@@ -3960,7 +4028,7 @@ def _draw_pdf_metodologia_pages(c):
             space_w = c.stringWidth(' ', 'Helvetica', size)
             needed = token_w + (space_w if cur_line else 0)
 
-            if cur_width + needed <= max_width or not cur_line:
+            if cur_width + needed <= act_max_width or not cur_line:
                 if cur_line:
                     cur_width += space_w
                 cur_line.append((token, bold))
@@ -3973,15 +4041,27 @@ def _draw_pdf_metodologia_pages(c):
         if cur_line:
             lines.append(cur_line)
 
-        for line in lines:
+        for li, line in enumerate(lines):
+            is_last = (li == len(lines) - 1)
             x = margin_x + indent
-            for j, (token, bold) in enumerate(line):
-                font = 'Helvetica-Bold' if bold else 'Helvetica'
-                c.setFont(font, size)
-                c.setFillColor(colors.HexColor('#111827'))
-                txt = token + (' ' if j < len(line) - 1 else '')
-                c.drawString(x, y, txt)
-                x += c.stringWidth(txt, font, size)
+            if not is_last and len(line) > 1:
+                total_w = sum(c.stringWidth(tok, 'Helvetica-Bold' if b else 'Helvetica', size) for tok, b in line)
+                gap = (act_max_width - total_w) / (len(line) - 1)
+                for j, (token, bold) in enumerate(line):
+                    font = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font, size)
+                    c.setFillColor(colors.HexColor('#111827'))
+                    c.drawString(x, y, token)
+                    if j < len(line) - 1:
+                        x += c.stringWidth(token, font, size) + gap
+            else:
+                for j, (token, bold) in enumerate(line):
+                    font = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font, size)
+                    c.setFillColor(colors.HexColor('#111827'))
+                    txt = token + (' ' if j < len(line) - 1 else '')
+                    c.drawString(x, y, txt)
+                    x += c.stringWidth(txt, font, size)
             y -= leading
 
         return y - 1.5 * mm if lines else y
@@ -4164,7 +4244,6 @@ def _draw_pdf_importancia_participacao_page(c):
     y -= 11 * mm
 
     def draw_mixed(y, segments):
-        """Renderiza parágrafo com trechos em negrito. segments = [(texto, is_bold)]"""
         words = []
         for text, bold in segments:
             for token in text.split():
@@ -4188,38 +4267,62 @@ def _draw_pdf_importancia_participacao_page(c):
         if cur_line:
             lines.append(cur_line)
 
-        for line in lines:
+        for li, line in enumerate(lines):
+            is_last = (li == len(lines) - 1)
             x = margin_x
-            for j, (token, bold) in enumerate(line):
-                font = 'Helvetica-Bold' if bold else 'Helvetica'
-                c.setFont(font, size)
-                c.setFillColor(colors.HexColor('#111827'))
-                txt = token + (' ' if j < len(line) - 1 else '')
-                c.drawString(x, y, txt)
-                x += c.stringWidth(txt, font, size)
+            if not is_last and len(line) > 1:
+                total_w = sum(c.stringWidth(tok, 'Helvetica-Bold' if b else 'Helvetica', size) for tok, b in line)
+                gap = (max_width - total_w) / (len(line) - 1)
+                for j, (token, bold) in enumerate(line):
+                    font = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font, size)
+                    c.setFillColor(colors.HexColor('#111827'))
+                    c.drawString(x, y, token)
+                    if j < len(line) - 1:
+                        x += c.stringWidth(token, font, size) + gap
+            else:
+                for j, (token, bold) in enumerate(line):
+                    font = 'Helvetica-Bold' if bold else 'Helvetica'
+                    c.setFont(font, size)
+                    c.setFillColor(colors.HexColor('#111827'))
+                    txt = token + (' ' if j < len(line) - 1 else '')
+                    c.drawString(x, y, txt)
+                    x += c.stringWidth(txt, font, size)
             y -= leading
         return y - 1.5 * mm
 
     def draw_plain(y, text):
-        text_obj = c.beginText()
-        text_obj.setTextOrigin(margin_x, y)
-        text_obj.setLeading(leading)
-        text_obj.setFont('Helvetica', size)
-        text_obj.setFillColor(colors.HexColor('#111827'))
-        line, count = '', 0
-        for word in text.split():
-            test = f'{line} {word}'.strip()
+        words = text.split()
+        lines, cur = [], ''
+        for word in words:
+            test = f'{cur} {word}'.strip()
             if c.stringWidth(test, 'Helvetica', size) <= max_width:
-                line = test
+                cur = test
             else:
-                text_obj.textLine(line)
-                count += 1
-                line = word
-        if line:
-            text_obj.textLine(line)
-            count += 1
-        c.drawText(text_obj)
-        return y - (max(1, count) * leading) - 1.5 * mm
+                if cur:
+                    lines.append(cur)
+                cur = word
+        if cur:
+            lines.append(cur)
+        if not lines:
+            lines = ['']
+        c.setFont('Helvetica', size)
+        c.setFillColor(colors.HexColor('#111827'))
+        for i, ln in enumerate(lines):
+            is_last = (i == len(lines) - 1)
+            ln_words = ln.split()
+            if not is_last and len(ln_words) > 1:
+                total_w = sum(c.stringWidth(w, 'Helvetica', size) for w in ln_words)
+                gap = (max_width - total_w) / (len(ln_words) - 1)
+                x = margin_x
+                for j, w in enumerate(ln_words):
+                    c.drawString(x, y, w)
+                    if j < len(ln_words) - 1:
+                        x += c.stringWidth(w, 'Helvetica', size) + gap
+            else:
+                c.drawString(margin_x, y, ln)
+            y -= leading
+        return y - 1.5 * mm
 
     # Parágrafo 1 — com negrito em AEP, NR-17 e NR-01
     y = draw_mixed(y, [
@@ -4331,9 +4434,9 @@ def _build_report_pdf_response(campanha, rel_payload):
     _draw_pdf_domain_detail_pages(c, rel_payload)
     _draw_pdf_conclusoes_recomendacoes_pages(c, rel_payload)
     _draw_pdf_limitacoes_page(c)
-    _draw_pdf_responsabilidades_page(c, consultoria_cfg=consultoria_cfg, campanha=campanha)
     _draw_pdf_risk_classification_page(c, campanha, campanha.empresa, rel_payload)
     _draw_pdf_pgr_inventory_page(c, campanha, campanha.empresa, rel_payload)
+    _draw_pdf_responsabilidades_page(c, consultoria_cfg=consultoria_cfg, campanha=campanha)
     _draw_pdf_anexos_pages(c, rel_payload)
     c.save()
     pdf = _apply_pdf_letterhead(buffer.getvalue())
@@ -5104,6 +5207,102 @@ class EmpresaTotemLinkView(APIView):
         })
 
 
+class EmpresaTotemQrCodePdfView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultorOrAdmUser]
+
+    def get_object(self, request, empresa_id):
+        return empresa_queryset_for_user(request.user).filter(id=empresa_id).first()
+
+    def get(self, request, empresa_id):
+        empresa = self.get_object(request, empresa_id)
+        if not empresa:
+            return Response({'detail': 'Empresa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not empresa.totem_token:
+            empresa.totem_token = uuid.uuid4()
+            empresa.save(update_fields=['totem_token', 'updated_at'])
+
+        base = (getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', '') or '').rstrip('/') or 'http://localhost:5173'
+        public_url = f'{base}/#/totem/{empresa.totem_token}/'
+
+        try:
+            import qrcode as qrcode_lib
+            qr_buffer = BytesIO()
+            qrcode_lib.make(public_url).save(qr_buffer, format='PNG')
+            qr_bytes = qr_buffer.getvalue()
+        except Exception:
+            qr_bytes = None
+
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        page_w, page_h = A4
+
+        top_margin = REPORT_SOURCE_TOP_MARGIN
+        side_margin = 20 * mm
+        content_w = page_w - 2 * side_margin
+        cx = page_w / 2
+
+        c.setFillColor(colors.HexColor('#f8fafb'))
+        c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
+        band_h = 18 * mm
+        band_y = page_h - top_margin - band_h
+        c.setFillColor(colors.HexColor('#0b5f6b'))
+        c.roundRect(side_margin, band_y, content_w, band_h, 8, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont('Helvetica-Bold', 16)
+        c.drawCentredString(cx, band_y + (band_h - 16) / 2 + 2, 'Acesso ao Canal de escuta institucional')
+
+        y = band_y - 10 * mm
+        empresa_nome = empresa.company_name or ''
+        if empresa_nome:
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica-Bold', 9)
+            c.drawCentredString(cx, y, 'EMPRESA')
+            y -= 6 * mm
+            c.setFillColor(colors.HexColor('#0f172a'))
+            c.setFont('Helvetica-Bold', 13)
+            c.drawCentredString(cx, y, empresa_nome[:60])
+            y -= 9 * mm
+
+        c.setFillColor(colors.HexColor('#475569'))
+        c.setFont('Helvetica', 10)
+        c.drawCentredString(cx, y, 'Escaneie o QR Code abaixo para acessar o totem da empresa.')
+        y -= 4 * mm
+
+        qr_size = 72 * mm
+        qr_x = cx - qr_size / 2
+        qr_y = y - qr_size - 4 * mm
+
+        card_pad = 6 * mm
+        c.setFillColor(colors.white)
+        c.setStrokeColor(colors.HexColor('#d1dce0'))
+        c.roundRect(qr_x - card_pad, qr_y - card_pad, qr_size + 2 * card_pad, qr_size + 2 * card_pad, 10, fill=1, stroke=1)
+
+        if qr_bytes:
+            from reportlab.lib.utils import ImageReader
+            c.drawImage(ImageReader(BytesIO(qr_bytes)), qr_x, qr_y, width=qr_size, height=qr_size, mask='auto')
+        else:
+            c.setFillColor(colors.HexColor('#94a3b8'))
+            c.setFont('Helvetica', 9)
+            c.drawCentredString(cx, qr_y + qr_size / 2, 'QR Code indisponível')
+
+        y = qr_y - card_pad - 8 * mm
+
+        c.setFillColor(colors.HexColor('#334155'))
+        c.setFont('Helvetica', 7.5)
+        c.drawCentredString(cx, y, public_url[:90])
+
+        c.save()
+        pdf = _apply_pdf_letterhead(buffer.getvalue())
+        buffer.close()
+
+        safe_name = ''.join(ch if ch.isalnum() or ch in '-_' else '_' for ch in str(empresa.company_name or 'totem'))[:60]
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="totem_{safe_name}.pdf"'
+        return response
+
+
 class TotemPublicView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -5140,6 +5339,12 @@ class TotemPublicView(APIView):
             )
         except Exception:
             pass
+        empresa_logo_url = ''
+        try:
+            if empresa.logo:
+                empresa_logo_url = request.build_absolute_uri(empresa.logo.url)
+        except Exception:
+            pass
         return Response({
             'empresa_id': empresa.id,
             'empresa_name': empresa.company_name,
@@ -5151,6 +5356,7 @@ class TotemPublicView(APIView):
             'responsaveis_tecnicos': responsaveis_tecnicos,
             'consultoria_logo_url': consultoria_logo_url,
             'consultoria_nome': consultoria_nome,
+            'empresa_logo_url': empresa_logo_url,
         })
 
     def post(self, request, token):
@@ -5173,6 +5379,7 @@ class TotemPublicView(APIView):
         serializer = CanalDenunciaPublicSerializer(data=data, context={'empresa': empresa})
         serializer.is_valid(raise_exception=True)
         denuncia = serializer.save(empresa=empresa, origem=CanalDenuncia.Origem.TOTEM)
+        _send_denuncia_notification(empresa, denuncia)
         return Response(
             {
                 'message': 'Denuncia recebida com sucesso.',
@@ -5615,6 +5822,94 @@ class EmpresaPedidoAjudaPdfView(APIView):
         return _build_ajuda_pdf_response(pedido)
 
 
+def _send_denuncia_notification(empresa, denuncia):
+    from zoneinfo import ZoneInfo
+    if not getattr(empresa, 'notify_on_denuncia', False):
+        return
+    recipient = (empresa.responsible_email or '').strip()
+    if not recipient:
+        return
+
+    tz_br = ZoneInfo('America/Sao_Paulo')
+    dt_local = denuncia.created_at.astimezone(tz_br)
+    data_hora = dt_local.strftime('%d/%m/%Y às %H:%M:%S (horário de Brasília)')
+
+    tipo_label = denuncia.get_tipo_display() if hasattr(denuncia, 'get_tipo_display') else (denuncia.tipo or '-')
+    origem_label = denuncia.get_origem_display() if hasattr(denuncia, 'get_origem_display') else (denuncia.origem or '-')
+
+    setor_ghe = '-'
+    if denuncia.setor_id:
+        setor_ghe = getattr(denuncia.setor, 'name', '-')
+    elif denuncia.ghe_id:
+        setor_ghe = getattr(denuncia.ghe, 'name', '-')
+
+    cargo = getattr(denuncia.cargo_funcao, 'name', '-') if denuncia.cargo_funcao_id else '-'
+    vinculo = 'Sim' if denuncia.possui_vinculo else 'Não'
+    identificado = 'Sim' if denuncia.deseja_identificar else 'Não'
+    contato = denuncia.contato_identificacao.strip() if denuncia.deseja_identificar and denuncia.contato_identificacao else '-'
+    devolutiva = 'Sim' if denuncia.aceita_devolutiva else 'Não'
+    email_dev = denuncia.email_devolutiva.strip() if denuncia.aceita_devolutiva and denuncia.email_devolutiva else '-'
+    testemunhas = denuncia.testemunhas.strip() if denuncia.testemunhas and denuncia.testemunhas.strip() else 'Nenhuma informada'
+    relato = denuncia.relato.strip() if denuncia.relato else '-'
+
+    subject = f'Nova denúncia registrada — {empresa.company_name}'
+
+    body = f"""Este é um e-mail automático gerado pelo sistema.
+Não responda a esta mensagem.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  NOVA DENÚNCIA REGISTRADA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IDENTIFICAÇÃO
+─────────────────────────────────────────
+  Empresa       : {empresa.company_name}
+  Data e hora   : {data_hora}
+  Protocolo     : #{denuncia.id}
+  Canal de origem: {origem_label}
+
+DADOS DA DENÚNCIA
+─────────────────────────────────────────
+  Tipo          : {tipo_label}
+  Setor / GHE   : {setor_ghe}
+  Cargo / Função: {cargo}
+  Vínculo com a empresa: {vinculo}
+
+IDENTIFICAÇÃO DO DENUNCIANTE
+─────────────────────────────────────────
+  Deseja se identificar: {identificado}
+  Contato               : {contato}
+
+RELATO
+─────────────────────────────────────────
+{relato}
+
+TESTEMUNHAS
+─────────────────────────────────────────
+{testemunhas}
+
+DEVOLUTIVA
+─────────────────────────────────────────
+  Aceita receber devolutiva: {devolutiva}
+  Contato para devolutiva  : {email_dev}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Este e-mail foi gerado automaticamente pelo sistema.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    try:
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[recipient],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
 class CanalDenunciasPublicView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -5672,6 +5967,7 @@ class CanalDenunciasPublicView(APIView):
         serializer = CanalDenunciaPublicSerializer(data=data, context={'empresa': empresa})
         serializer.is_valid(raise_exception=True)
         denuncia = serializer.save(empresa=empresa, origem=CanalDenuncia.Origem.LINK)
+        _send_denuncia_notification(empresa, denuncia)
         return Response(
             {
                 'message': 'Denuncia recebida com sucesso.',
@@ -7299,6 +7595,11 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     generated_at = _dt.now().strftime('%d/%m/%Y %H:%M')
     page_num = [0]
 
+    _consultoria_owner = get_system_team_owner(empresa.consultor)
+    _consultoria_cfg = (
+        ConsultoriaConfiguracao.objects.filter(consultor=_consultoria_owner).first()
+    ) if _consultoria_owner else None
+
     def zone_label(key):
         mapping = {
             'green': 'Zona Verde',
@@ -7367,6 +7668,41 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     _timbrado_path = str(Path(__file__).resolve().parent.parent.parent / 'timbrado-page-1.png')
     _timbrado_exists = os.path.isfile(_timbrado_path)
 
+    _logo_cache = [None]  # None=não carregado, False=sem logo, bytes=carregado
+
+    def _get_header_logo(max_w, max_h):
+        if _logo_cache[0] is False:
+            return None, 0, 0
+        if _logo_cache[0] is None:
+            logo = getattr(empresa, 'logo', None)
+            if not logo:
+                _logo_cache[0] = False
+                return None, 0, 0
+            lb = None
+            try:
+                if hasattr(logo, 'open'):
+                    logo.open('rb')
+                    lb = logo.read()
+                    logo.close()
+            except Exception:
+                lb = None
+            if not lb:
+                try:
+                    with urlopen(logo.url, timeout=8) as fp:
+                        lb = fp.read()
+                except Exception:
+                    lb = None
+            _logo_cache[0] = lb if lb else False
+        if not _logo_cache[0]:
+            return None, 0, 0
+        try:
+            img = ImageReader(BytesIO(_logo_cache[0]))
+            iw, ih = img.getSize()
+            scale = min(max_w / iw, max_h / ih)
+            return img, iw * scale, ih * scale
+        except Exception:
+            return None, 0, 0
+
     def draw_page_frame(title):
         page_num[0] += 1
         if _timbrado_exists:
@@ -7374,14 +7710,24 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         else:
             c.setFillColor(colors.white)
             c.rect(0, 0, width, height, stroke=0, fill=1)
+        title_y = height - 48 * mm
         c.setFont('Helvetica-Bold', 9)
+        text_w = c.stringWidth(title, 'Helvetica-Bold', 9)
+        logo_img, logo_w, logo_h = _get_header_logo(20 * mm, 12 * mm)
+        if logo_img and page_num[0] == 1:
+            gap = 3 * mm
+            total_w = text_w + gap + logo_w
+            title_x = (width - total_w) / 2
+            logo_x = title_x + text_w + gap
+            c.drawImage(logo_img, logo_x, title_y - logo_h / 2 + 2 * mm, width=logo_w, height=logo_h, mask='auto')
+        else:
+            title_x = width / 2 - text_w / 2
         c.setFillColor(dark)
-        c.drawCentredString(width / 2, height - 48 * mm, title)
+        c.drawString(title_x, title_y, title)
         c.setFont('Helvetica', 7)
         c.setFillColor(gray)
-        c.drawString(margin_x, 9 * mm, f'Gerado em: {generated_at}')
-        c.drawCentredString(width / 2, 9 * mm, 'Documento confidencial para fins de auditoria e registro interno')
-        c.drawRightString(width - margin_x, 9 * mm, f'Página {page_num[0]}')
+        footer_text = f'{generated_at}  Documento confidencial para fins de auditoria e registro interno  Página {page_num[0]}'
+        c.drawCentredString(width / 2, 22 * mm, footer_text)
         return top_y
 
     def ensure_space(y, needed, title):
@@ -7391,7 +7737,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         return y
 
     def draw_section_title(y, text):
-        y = ensure_space(y, 14 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+        y = ensure_space(y, 14 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(dark)
         c.setFont('Helvetica-Bold', 11)
         c.drawString(margin_x, y, text.upper())
@@ -7407,10 +7753,37 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         c.setFont(font, size)
         c.setFillColor(color)
         for line in lines:
-            y = ensure_space(y, leading + 2 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+            y = ensure_space(y, leading + 2 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             if line:
                 c.drawString(x, y, line)
             y -= leading
+        return y
+
+    def draw_justified_text_lines(y, paragraphs, font='Helvetica', size=9, color=dark, leading=4.8 * mm, x=None, max_w=None):
+        if x is None:
+            x = margin_x
+        if max_w is None:
+            max_w = width - 2 * margin_x
+        c.setFont(font, size)
+        c.setFillColor(color)
+        for para in paragraphs:
+            wrapped = wrap_text(para, font, size, max_w)
+            for idx, line in enumerate(wrapped):
+                is_last = (idx == len(wrapped) - 1)
+                y = ensure_space(y, leading + 2 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+                if line:
+                    words = line.split()
+                    if not is_last and len(words) > 1:
+                        total_word_w = sum(c.stringWidth(w, font, size) for w in words)
+                        space_w = (max_w - total_word_w) / (len(words) - 1)
+                        cx = x
+                        for j, word in enumerate(words):
+                            c.drawString(cx, y, word)
+                            if j < len(words) - 1:
+                                cx += c.stringWidth(word, font, size) + space_w
+                    else:
+                        c.drawString(x, y, line)
+                y -= leading
         return y
 
     def draw_label_value(y, label, value, label_w=34 * mm, x=None, value_x=None, max_width=None):
@@ -7421,7 +7794,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         if max_width is None:
             max_width = width - margin_x - value_x
         lines = wrap_text(value, 'Helvetica', 9, max_width)
-        y = ensure_space(y, max(8 * mm, len(lines) * 5 * mm + 2 * mm), 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+        y = ensure_space(y, max(8 * mm, len(lines) * 5 * mm + 2 * mm), 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(dark)
         c.setFont('Helvetica-Bold', 9)
         c.drawString(x, y, label)
@@ -7435,7 +7808,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         col1_w = 44 * mm
         row_pad = 2.2 * mm
         header_h = 8 * mm
-        y = ensure_space(y, header_h + 12 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+        y = ensure_space(y, header_h + 12 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(light_gray)
         c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
         c.setStrokeColor(border)
@@ -7450,7 +7823,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         for label, value in rows:
             value_lines = wrap_text(value, 'Helvetica', 8.5, table_w - col1_w - 6 * mm)
             row_h = max(7 * mm, len(value_lines) * 4.5 * mm + 2 * row_pad)
-            y = ensure_space(y, row_h + 4 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             c.setFillColor(colors.white)
             c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
             c.setStrokeColor(border)
@@ -7477,7 +7850,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         col_label = 46 * mm
         col_cmp = (table_w - col_label) / 2
         header_h = 8 * mm
-        y = ensure_space(y, 40 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+        y = ensure_space(y, 40 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(light_gray)
         c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
         c.setStrokeColor(border)
@@ -7495,7 +7868,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
             value1_lines = wrap_text(value1, 'Helvetica', 8.5, col_cmp - 4 * mm)
             value2_lines = wrap_text(value2, 'Helvetica', 8.5, col_cmp - 4 * mm)
             row_h = max(7 * mm, max(len(value1_lines), len(value2_lines)) * 4.5 * mm + 4 * mm)
-            y = ensure_space(y, row_h + 4 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             c.setFillColor(colors.white)
             c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
             c.setStrokeColor(border)
@@ -7521,7 +7894,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         x1 = margin_x + label_w
         x2 = x1 + value_w
         x3 = x2 + value_w
-        y = ensure_space(y, 28 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+        y = ensure_space(y, 28 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         c.setFillColor(light_gray)
         c.rect(margin_x, y - header_h, table_w, header_h, stroke=1, fill=1)
         c.setStrokeColor(border)
@@ -7540,7 +7913,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
         for label, v1, v2, delta in rows:
             label_lines = wrap_text(label, 'Helvetica', 8.2, label_w - 4 * mm)
             row_h = max(7 * mm, len(label_lines) * 4.4 * mm + 4 * mm)
-            y = ensure_space(y, row_h + 4 * mm, 'LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+            y = ensure_space(y, row_h + 4 * mm, 'RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
             c.setFillColor(colors.white)
             c.rect(margin_x, y - row_h, table_w, row_h, stroke=1, fill=1)
             c.setStrokeColor(border)
@@ -7593,8 +7966,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     domains2_by_key = {d.get('key'): d for d in domains2}
     steps2_by_key = {s.get('key'): s for s in steps2}
 
-    y = draw_page_frame('LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
-    draw_logo(width - margin_x, height - 20 * mm)
+    y = draw_page_frame('RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
 
     y -= 5 * mm
 
@@ -7618,14 +7990,12 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
 
     y = draw_section_title(y, '3. Finalidade e critérios do documento')
     intro_lines = [
-        'Este documento apresenta a comparação técnica entre duas campanhas realizadas para a mesma empresa.',
-        'O objetivo é demonstrar variações de desempenho, amostra respondente e classificação de risco entre os períodos avaliados.',
-        'As informações foram organizadas em seções formais para suportar auditoria, rastreabilidade e arquivo institucional.',
+        'Este documento apresenta a comparação técnica entre duas campanhas realizadas para a mesma empresa. O objetivo é demonstrar variações de desempenho, amostra respondente e classificação de risco entre os períodos avaliados. As informações foram organizadas em seções formais para suportar auditoria, rastreabilidade e arquivo institucional.',
     ]
-    y = draw_text_lines(y, intro_lines, size=9)
+    y = draw_justified_text_lines(y, intro_lines, size=9)
 
     c.showPage()
-    y = draw_page_frame('LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+    y = draw_page_frame('RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
 
     y = draw_section_title(y, '4. Resumo executivo comparativo')
     exec_rows = [
@@ -7684,7 +8054,7 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
     for idx, step1 in enumerate(steps1, start=1):
         step2 = steps2_by_key.get(step1.get('key'), {}) or {}
         c.showPage()
-        y = draw_page_frame('LAUDO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+        y = draw_page_frame('RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
         domain_name = str(step1.get('domain') or step_names.get(step1.get('step'), f'Domínio {idx}'))
 
         y = draw_section_title(y, f'6.{idx}. Análise detalhada do domínio - {domain_name}')
@@ -7707,6 +8077,58 @@ def _build_comparativo_pdf_response(camp1, camp2, bundle1, bundle2):
                 delta_str(p2 - p1, '%'),
             ))
         y = draw_comparison_table(y, question_rows, ['Pergunta avaliada', 'Campanha 1', 'Campanha 2', 'Variação'])
+
+    # Página de assinaturas
+    c.showPage()
+    draw_page_frame('RELATÓRIO TÉCNICO COMPARATIVO DE AVALIAÇÕES DE RISCO OCUPACIONAL')
+
+    _sig_y = top_y - 5 * mm
+    _sig_y = draw_section_title(_sig_y, 'Assinaturas e responsabilidades')
+
+    _cidade = (getattr(_consultoria_cfg, 'cidade', '') or '').strip()
+    _uf = (getattr(_consultoria_cfg, 'uf', '') or '').strip().upper()
+    _local_str = f'{_cidade} - {_uf}, ' if _cidade and _uf else ''
+    _data_longa = _format_date_long_pt_br(_dt.now().date())
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(margin_x, _sig_y, f'{_local_str}{_data_longa}')
+    _sig_y -= 18 * mm
+
+    _col_w = (width - 2 * margin_x - 8 * mm) / 2
+    _left_x = margin_x + 2 * mm
+    _right_x = _left_x + _col_w + 8 * mm
+    _line_y = _sig_y
+
+    for _sx in [_left_x, _right_x]:
+        c.setStrokeColor(border)
+        c.setLineWidth(0.8)
+        c.line(_sx, _line_y, _sx + _col_w, _line_y)
+
+    _left_nome = (getattr(_consultoria_cfg, 'responsavel_legal', '') or getattr(_consultoria_cfg, 'representante_legal_relatorio', '') or 'Responsável Legal').upper()
+    _left_empresa = getattr(_consultoria_cfg, 'nome_consultoria', '') or 'CONSULTORIA'
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawCentredString(_left_x + _col_w / 2, _line_y - 5 * mm, _left_nome[:44])
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 8)
+    c.drawCentredString(_left_x + _col_w / 2, _line_y - 9.5 * mm, 'Representante Legal')
+    c.drawCentredString(_left_x + _col_w / 2, _line_y - 14 * mm, _left_empresa[:58])
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawCentredString(_left_x + _col_w / 2, _line_y - 18.5 * mm, 'Responsável pela avaliação')
+
+    _right_nome = (getattr(empresa, 'responsible_name', '') or 'Representante Legal').upper()
+    _right_empresa = getattr(empresa, 'company_name', '') or 'EMPRESA'
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawCentredString(_right_x + _col_w / 2, _line_y - 5 * mm, _right_nome[:44])
+    c.setFillColor(gray)
+    c.setFont('Helvetica', 8)
+    c.drawCentredString(_right_x + _col_w / 2, _line_y - 9.5 * mm, 'Representante Legal')
+    c.drawCentredString(_right_x + _col_w / 2, _line_y - 14 * mm, _right_empresa[:58])
+    c.setFillColor(dark)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawCentredString(_right_x + _col_w / 2, _line_y - 18.5 * mm, 'Responsável pela aprovação')
 
     c.save()
     pdf = buffer.getvalue()
