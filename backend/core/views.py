@@ -5910,6 +5910,104 @@ Este e-mail foi gerado automaticamente pelo sistema.
         pass
 
 
+def _send_campanha_start_notification(empresa, campanha):
+    if not getattr(empresa, 'notify_on_campanha_start', False):
+        return
+    recipient = (empresa.responsible_email or '').strip()
+    if not recipient:
+        return
+
+    inicio = campanha.start_date.strftime('%d/%m/%Y')
+    fim = campanha.end_date.strftime('%d/%m/%Y')
+    base = getattr(settings, 'FRONTEND_PUBLIC_BASE_URL', 'http://127.0.0.1:5173').rstrip('/')
+    link = f'{base}/#/questionario/{campanha.share_token}/'
+
+    subject = f'Campanha iniciada — {empresa.company_name}'
+
+    body = f"""Este é um e-mail automático gerado pelo sistema.
+Não responda a esta mensagem.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CAMPANHA INICIADA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IDENTIFICAÇÃO
+─────────────────────────────────────────
+  Empresa       : {empresa.company_name}
+  Campanha      : {campanha.title}
+
+PERÍODO
+─────────────────────────────────────────
+  Data de início: {inicio}
+  Data de término: {fim}
+
+LINK DA CAMPANHA
+─────────────────────────────────────────
+  {link}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Este e-mail foi gerado automaticamente pelo sistema.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    try:
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[recipient],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
+def _send_campanha_end_notification(empresa, campanha):
+    if not getattr(empresa, 'notify_on_campanha_end', False):
+        return
+    recipient = (empresa.responsible_email or '').strip()
+    if not recipient:
+        return
+
+    inicio = campanha.start_date.strftime('%d/%m/%Y')
+    fim = campanha.end_date.strftime('%d/%m/%Y')
+
+    subject = f'Campanha encerrada — {empresa.company_name}'
+
+    body = f"""Este é um e-mail automático gerado pelo sistema.
+Não responda a esta mensagem.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CAMPANHA ENCERRADA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IDENTIFICAÇÃO
+─────────────────────────────────────────
+  Empresa       : {empresa.company_name}
+  Campanha      : {campanha.title}
+
+PERÍODO
+─────────────────────────────────────────
+  Data de início: {inicio}
+  Data de término: {fim}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Este e-mail foi gerado automaticamente pelo sistema.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    try:
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[recipient],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
 class CanalDenunciasPublicView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -7401,6 +7499,7 @@ class CampanhaListCreateView(APIView):
         serializer = CampanhaSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         campanha = serializer.save()
+        _send_campanha_start_notification(campanha.empresa, campanha)
         return Response(CampanhaSerializer(campanha).data, status=status.HTTP_201_CREATED)
 
 
@@ -7423,18 +7522,24 @@ class CampanhaDetailView(APIView):
         campanha = self.get_object(request, campanha_id)
         if not campanha:
             return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        status_anterior = campanha.status
         serializer = CampanhaSerializer(campanha, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         campanha = serializer.save()
+        if status_anterior != CampaignStatus.ENCERRADO and campanha.status == CampaignStatus.ENCERRADO:
+            _send_campanha_end_notification(campanha.empresa, campanha)
         return Response(CampanhaSerializer(campanha).data)
 
     def put(self, request, campanha_id):
         campanha = self.get_object(request, campanha_id)
         if not campanha:
             return Response({'detail': 'Campanha nao encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        status_anterior = campanha.status
         serializer = CampanhaSerializer(campanha, data=request.data, partial=False, context={'request': request})
         serializer.is_valid(raise_exception=True)
         campanha = serializer.save()
+        if status_anterior != CampaignStatus.ENCERRADO and campanha.status == CampaignStatus.ENCERRADO:
+            _send_campanha_end_notification(campanha.empresa, campanha)
         return Response(CampanhaSerializer(campanha).data)
 
     def delete(self, request, campanha_id):
