@@ -672,6 +672,7 @@ function DashboardOverviewModern({
   const maxDenGhe = Math.max(1, ...denPorGhe.map((d) => Number(d.value || 0)));
   const maxHumorTipo = Math.max(1, ...humorPorTipo.map((d) => Number(d.value || 0)));
   const totalSummary = cards.reduce((acc, card) => acc + Number(card.value || 0), 0);
+  const totalAvaliacoes = Number(cards.find((c) => c.key === "avaliacoes")?.value || 0);
   const avgDomain = domains.length ? Math.round(domains.reduce((acc, d) => acc + Number(d.percent || 0), 0) / domains.length) : 0;
   const topDomain = [...domains].sort((a, b) => Number(b.percent || 0) - Number(a.percent || 0))[0];
   const openStatus = denPorStatus.find((item) => item.key === "ABERTA")?.value || 0;
@@ -683,7 +684,7 @@ function DashboardOverviewModern({
       key: "summary-total",
       title: cards[0]?.label || "Indicadores gerais",
       value: cards[0]?.value ?? totalSummary,
-      detail: totalSummary > 0 ? `${totalSummary} leituras agregadas no panorama` : "Dados consolidados do período selecionado",
+      detail: totalAvaliacoes > 0 ? `${totalAvaliacoes} leituras agregadas no panorama` : "Dados consolidados do período selecionado",
       tone: "featured",
     },
     {
