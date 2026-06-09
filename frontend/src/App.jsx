@@ -1109,57 +1109,6 @@ function DashboardOverviewModern({
   );
 }
 
-const BRAZIL_STATE_CODES = {
-  acre: "AC",
-  alagoas: "AL",
-  amapa: "AP",
-  amazonas: "AM",
-  bahia: "BA",
-  ceara: "CE",
-  "distrito federal": "DF",
-  "espirito santo": "ES",
-  goias: "GO",
-  maranhao: "MA",
-  "mato grosso": "MT",
-  "mato grosso do sul": "MS",
-  "minas gerais": "MG",
-  para: "PA",
-  paraiba: "PB",
-  parana: "PR",
-  pernambuco: "PE",
-  piaui: "PI",
-  "rio de janeiro": "RJ",
-  "rio grande do norte": "RN",
-  "rio grande do sul": "RS",
-  rondonia: "RO",
-  roraima: "RR",
-  "santa catarina": "SC",
-  "sao paulo": "SP",
-  sergipe: "SE",
-  tocantins: "TO",
-};
-
-function normalizeText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function resolveBrazilStateCode(address = {}) {
-  const direct = String(address.state_code || "").trim().toUpperCase();
-  if (direct && direct.length === 2) return direct;
-
-  const iso = String(address["ISO3166-2-lvl4"] || address["ISO3166-2-lvl3"] || "").trim();
-  if (iso.includes("-")) {
-    const suffix = iso.split("-").pop().toUpperCase();
-    if (suffix.length === 2) return suffix;
-  }
-
-  return BRAZIL_STATE_CODES[normalizeText(address.state)] || "";
-}
-
 export default function App() {
   const publicToken = getPublicQuestionarioToken();
   const isPublicQuestionario = Boolean(publicToken);
@@ -4607,31 +4556,21 @@ export default function App() {
       setECepLoading(true);
       setECepErr("");
       try {
-        const normalizedQuery = `${cep}, Brazil`;
-        const url = new URL("https://nominatim.openstreetmap.org/search");
-        url.searchParams.set("format", "json");
-        url.searchParams.set("q", normalizedQuery);
-        url.searchParams.set("countrycodes", "br");
-        url.searchParams.set("addressdetails", "1");
-        url.searchParams.set("limit", "15");
-
-        const r = await fetch(url.toString(), {
+        const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
           headers: {
             "Accept": "application/json",
           },
         });
         if (!r.ok) throw new Error("Nao foi possivel consultar o CEP.");
         const data = await r.json();
-        const item = Array.isArray(data) ? data[0] : null;
-        const address = item?.address || {};
-        if (!item) throw new Error("CEP nao encontrado.");
+        if (!data || data.erro) throw new Error("CEP nao encontrado.");
 
         setEForm((prev) => ({
           ...prev,
-          state: resolveBrazilStateCode(address) || prev.state || "",
-          city: address.city || address.town || address.village || address.municipality || prev.city || "",
-          neighborhood: address.suburb || address.neighbourhood || address.quarter || address.city_district || prev.neighborhood || "",
-          street: address.road || address.pedestrian || address.footway || address.residential || prev.street || "",
+          state: data.uf || prev.state || "",
+          city: data.localidade || prev.city || "",
+          neighborhood: data.bairro || prev.neighborhood || "",
+          street: data.logradouro || prev.street || "",
         }));
       } catch (err) {
         setECepErr(err.message || "Nao foi possivel preencher o endereco automaticamente.");

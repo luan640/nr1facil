@@ -34,7 +34,10 @@
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Recurse -Include \"*.jsx\", \"*.js\", \"*.py\")",
       "Bash(Select-Object -First 30)",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Recurse -Force)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Luan\\\\Clientes\\\\cissconsultoria\\\\projetos\\\\nr1facil\" -Recurse -Force)",
+      "Bash(curl -s \"https://nominatim.openstreetmap.org/search?format=json&q=63041155,%20Brazil&countrycodes=br&addressdetails=1&limit=15\" -H \"User-Agent: nr1facil-test/1.0 \\(test@example.com\\)\")",
+      "Bash(curl -s -i \"https://nominatim.openstreetmap.org/search?format=json&q=63041155,%20Brazil&countrycodes=br&addressdetails=1&limit=15\" -H \"User-Agent: Mozilla/5.0 \\(compatible; nr1facil/1.0; +https://example.com\\)\" -H \"Accept-Language: pt-BR\")",
+      "Bash(curl -s \"https://viacep.com.br/ws/63041155/json/\")"
     ]
   }
 }
