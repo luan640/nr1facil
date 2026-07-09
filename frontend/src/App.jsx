@@ -8635,7 +8635,10 @@ export default function App() {
               <div className="public-questionario-brand-copy">
                 <span className="public-questionario-chip">NR01</span>
                 <h1>Questionário de Campanha</h1>
-                <p>{pubData?.campaign?.title} | {pubData?.empresa_name}</p>
+                <p>
+                  {pubData?.campaign?.title} | {pubData?.empresa_name}
+                  {pubData?.empresa_document_number ? ` (${pubData?.empresa_document_label || "CNPJ"}: ${pubData.empresa_document_number})` : ""}
+                </p>
                 <strong>{consultoriaNome}</strong>
               </div>
             </div>

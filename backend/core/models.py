@@ -153,7 +153,7 @@ class Empresa(models.Model):
     establishment_custom_name = models.CharField(max_length=120, blank=True)
     establishment_name = models.CharField(max_length=255)
     evaluation_type = models.CharField(max_length=8, choices=EvaluationType.choices, default=EvaluationType.SETOR)
-    cnae = models.CharField(max_length=120, blank=True)
+    cnae = models.TextField(blank=True)
     canal_denuncias_token = models.UUIDField(blank=True, null=True, unique=True, db_index=True)
     totem_token = models.UUIDField(blank=True, null=True, unique=True, db_index=True)
     responsible_name = models.CharField(max_length=255)

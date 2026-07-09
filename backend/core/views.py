@@ -799,6 +799,44 @@ def _parse_dashboard_filters(request):
     }, None
 
 
+def _fit_pdf_text(c, text, max_width, font_name, font_size):
+    text = text or ''
+    if c.stringWidth(text, font_name, font_size) <= max_width:
+        return text
+    ellipsis = '...'
+    if c.stringWidth(ellipsis, font_name, font_size) > max_width:
+        return ''
+    while text and c.stringWidth(text + ellipsis, font_name, font_size) > max_width:
+        text = text[:-1]
+    return (text + ellipsis) if text else ellipsis
+
+
+def _wrap_pdf_text(c, text, max_width, font_name, font_size, max_lines=2):
+    text = (text or '').strip()
+    if not text:
+        return ['']
+    words = text.split()
+    lines = []
+    current = ''
+    idx = 0
+    while idx < len(words) and len(lines) < max_lines:
+        word = words[idx]
+        candidate = f'{current} {word}'.strip()
+        if not current or c.stringWidth(candidate, font_name, font_size) <= max_width:
+            current = candidate
+            idx += 1
+        else:
+            lines.append(current)
+            current = ''
+    if current:
+        lines.append(current)
+    lines = lines[:max_lines] or ['']
+    overflow = idx < len(words)
+    if overflow or c.stringWidth(lines[-1], font_name, font_size) > max_width:
+        lines[-1] = _fit_pdf_text(c, lines[-1], max_width, font_name, font_size)
+    return lines
+
+
 def _draw_dashboard_pdf_card(c, x, y, w, h, title, value, detail='', fill_color=colors.white, value_color=colors.HexColor('#0f172a')):
     c.saveState()
     c.setFillColor(fill_color)
@@ -1075,7 +1113,7 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
     # c.drawRightString(w - mx - 14, h - (26 * mm), periodo)
 
     info_y = h - (46 * mm)
-    info_h = 36 * mm
+    info_h = 41 * mm
     info_w = w - (2 * mx)
     info_bottom = info_y - info_h
 
@@ -1083,7 +1121,8 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
     doc_value = _fmt_doc(getattr(empresa, 'document_type', ''), getattr(empresa, 'document_number', '')) or '-'
     employee_value = str(getattr(empresa, 'employee_count', 0) if empresa else 0)
     responsible_name = getattr(empresa, 'responsible_name', '') or '-'
-    logo_area_w = 52 * mm if empresa else 0
+    has_logo = bool(empresa and getattr(empresa, 'logo', None))
+    logo_area_w = 52 * mm if has_logo else 0
 
     # Outer box
     c.setFillColor(colors.white)
@@ -1097,7 +1136,7 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
     c.setLineWidth(1)
 
     # Vertical divider before logo column
-    if empresa:
+    if has_logo:
         div_x = mx + info_w - logo_area_w
         c.setStrokeColor(colors.HexColor('#dde8ea'))
         c.setLineWidth(0.5)
@@ -1117,44 +1156,46 @@ def _build_dashboard_overview_pdf_response(user, empresa_id=None, date_from=None
     c.setFont('Helvetica-Bold', 17)
     c.drawString(tx, info_y - 26, empresa_nome[:55])
 
-    # Separator line
-    sep_y = info_bottom + (13 * mm)
+    # Info rows (plain text, no boxes): row 1 = CNPJ + Colaboradores, row 2 = Responsavel + Periodo
+    periodo_str = '{} - {}'.format(
+        date_from.strftime('%d/%m/%y') if date_from else 'Inicio',
+        date_to.strftime('%d/%m/%y') if date_to else 'Hoje',
+    )
+
+    label_font_size = 7.5
+    value_font_size = 11.5
+    label_color = colors.HexColor('#5f7b83')
+    value_color = colors.HexColor('#0f172a')
+    rows_area_w = content_edge - tx
+    col2_x = tx + rows_area_w * 0.55
+
+    def _draw_info_field(x, y_top, max_w, label, value):
+        c.setFillColor(label_color)
+        c.setFont('Helvetica-Bold', label_font_size)
+        c.drawString(x, y_top, label)
+        c.setFillColor(value_color)
+        c.setFont('Helvetica-Bold', value_font_size)
+        value_text = _fit_pdf_text(c, str(value), max_w, 'Helvetica-Bold', value_font_size)
+        c.drawString(x, y_top - (5.5 * mm), value_text)
+
+    row2_label_y = info_bottom + (9.5 * mm)
+    row1_label_y = row2_label_y + (10 * mm)
+
+    # Separator line (sits right above the info rows)
+    sep_y = row1_label_y + (6 * mm)
     c.setStrokeColor(colors.HexColor('#e8eff1'))
     c.setLineWidth(0.5)
     c.line(tx, sep_y, content_edge, sep_y)
     c.setLineWidth(1)
 
-    # Info chips row (4 fields side by side)
-    periodo_str = '{} - {}'.format(
-        date_from.strftime('%d/%m/%y') if date_from else 'Inicio',
-        date_to.strftime('%d/%m/%y') if date_to else 'Hoje',
-    )
-    chips = [
-        (doc_label, str(doc_value)[:22]),
-        ('COLABORADORES', employee_value),
-        ('RESPONSAVEL', str(responsible_name)[:30]),
-        ('PERIODO', periodo_str),
-    ]
-    chips_area_w = content_edge - tx
-    chip_gap = 3 * mm
-    chip_h = 11 * mm
-    chip_w = (chips_area_w - chip_gap * (len(chips) - 1)) / len(chips)
-    chip_y = info_bottom + (2 * mm)
+    _draw_info_field(tx, row1_label_y, col2_x - tx - (10 * mm), doc_label, doc_value)
+    _draw_info_field(col2_x, row1_label_y, content_edge - col2_x, 'COLABORADORES', employee_value)
 
-    for i, (chip_label, chip_value) in enumerate(chips):
-        cx = tx + i * (chip_w + chip_gap)
-        c.setFillColor(colors.HexColor('#f4f8f9'))
-        c.setStrokeColor(colors.HexColor('#dde8ea'))
-        c.roundRect(cx, chip_y, chip_w, chip_h, 4, fill=1, stroke=1)
-        c.setFillColor(colors.HexColor('#5f7b83'))
-        c.setFont('Helvetica-Bold', 6.5)
-        c.drawString(cx + 7, chip_y + chip_h - 7, chip_label)
-        c.setFillColor(colors.HexColor('#0f172a'))
-        c.setFont('Helvetica-Bold', 9.5)
-        c.drawString(cx + 7, chip_y + 4, str(chip_value)[:26])
+    _draw_info_field(tx, row2_label_y, col2_x - tx - (10 * mm), 'RESPONSAVEL', responsible_name)
+    _draw_info_field(col2_x, row2_label_y, content_edge - col2_x, 'PERIODO', periodo_str)
 
     # Logo (vertically centered in the logo column)
-    if empresa:
+    if has_logo:
         _draw_pdf_empresa_logo(
             c,
             empresa,
@@ -3732,37 +3773,39 @@ def _draw_pdf_identificacao_page_card(c, campanha, empresa, report_data, consult
         c.drawString(value_x, row_y, value_line)
         row_y -= 6.5 * mm
 
-    meta_items = [
-        ('CNAE', empresa.cnae or '-'),
-        ('Classe de risco', empresa.risk_level or '-'),
-        # ('Setores avaliados', '-'),
+    meta_row2_items = [
         ('Trab. avaliados', str(completed or 0)),
+        ('Classe de risco', empresa.risk_level or '-'),
         ('Data avaliação', campanha.end_date.strftime('%d/%m/%Y') if campanha.end_date else '-'),
-        # ('Reavaliacao', f"{int(report_data.get('review_recommendation_months') or 3)} meses"),
     ]
     meta_top = card_y + 26 * mm
     c.setStrokeColor(colors.HexColor('#d7dee7'))
     c.setLineWidth(0.5)
     c.line(text_x, meta_top + 3 * mm, info_right, meta_top + 3 * mm)
-    meta_col_w = (info_right - text_x - 4 * mm) / 2
-    meta_row_h = 7 * mm
-    for idx, (label, value) in enumerate(meta_items):
-        col = idx % 2
-        row = idx // 2
-        base_x = text_x + (col * (meta_col_w + 4 * mm))
-        base_y = meta_top - (row * meta_row_h)
+    meta_line_gap = 3.1 * mm
+
+    # CNAE occupies the full width on its own row, wrapping to a 2nd line if needed
+    c.setFillColor(colors.HexColor('#111827'))
+    c.setFont('Helvetica-Bold', 7.1)
+    c.drawString(text_x, meta_top, 'CNAE')
+    c.setFillColor(colors.HexColor('#4b5563'))
+    c.setFont('Helvetica', 7.1)
+    cnae_lines = _wrap_pdf_text(c, str(empresa.cnae or '-').strip() or '-', info_right - text_x, 'Helvetica', 7.1, max_lines=2)
+    for li, line in enumerate(cnae_lines):
+        c.drawString(text_x, meta_top - meta_line_gap - (li * meta_line_gap), line)
+
+    # Remaining fields (Trab. avaliados, Classe de risco, Data avaliação) share the row below
+    row2_label_y = meta_top - meta_line_gap - (len(cnae_lines) - 1) * meta_line_gap - 7 * mm
+    meta_col_w = (info_right - text_x - 2 * (4 * mm)) / 3
+    for idx, (label, value) in enumerate(meta_row2_items):
+        base_x = text_x + (idx * (meta_col_w + 4 * mm))
         c.setFillColor(colors.HexColor('#111827'))
         c.setFont('Helvetica-Bold', 7.1)
-        c.drawString(base_x, base_y, label)
+        c.drawString(base_x, row2_label_y, label)
         c.setFillColor(colors.HexColor('#4b5563'))
         c.setFont('Helvetica', 7.1)
-        meta_val = str(value).strip() or '-'
-        max_meta_w = meta_col_w - 1 * mm
-        while c.stringWidth(meta_val, 'Helvetica', 7.1) > max_meta_w and len(meta_val) > 4:
-            meta_val = meta_val[:-1]
-        if meta_val != str(value):
-            meta_val = meta_val[:-3] + '...'
-        c.drawString(base_x, base_y - 3.1 * mm, meta_val)
+        meta_val = _fit_pdf_text(c, str(value).strip() or '-', meta_col_w - 1 * mm, 'Helvetica', 7.1)
+        c.drawString(base_x, row2_label_y - meta_line_gap, meta_val)
 
     _draw_pdf_empresa_logo(
         c,
@@ -5112,7 +5155,17 @@ class EmpresaCanalDenunciasQrCodePdfView(APIView):
             c.setFillColor(colors.HexColor('#0f172a'))
             c.setFont('Helvetica-Bold', 13)
             c.drawCentredString(cx, y, empresa_nome[:60])
-            y -= 9 * mm
+            y -= 6 * mm
+
+        empresa_doc = (empresa.document_number or '').strip()
+        if empresa_doc:
+            doc_label = empresa.document_type or 'CNPJ'
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica', 9)
+            c.drawCentredString(cx, y, f'{doc_label}: {empresa_doc}')
+            y -= 6 * mm
+
+        y -= 3 * mm
 
         # Instruction text
         c.setFillColor(colors.HexColor('#475569'))
@@ -5263,7 +5316,17 @@ class EmpresaTotemQrCodePdfView(APIView):
             c.setFillColor(colors.HexColor('#0f172a'))
             c.setFont('Helvetica-Bold', 13)
             c.drawCentredString(cx, y, empresa_nome[:60])
-            y -= 9 * mm
+            y -= 6 * mm
+
+        empresa_doc = (empresa.document_number or '').strip()
+        if empresa_doc:
+            doc_label = empresa.document_type or 'CNPJ'
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica', 9)
+            c.drawCentredString(cx, y, f'{doc_label}: {empresa_doc}')
+            y -= 6 * mm
+
+        y -= 3 * mm
 
         c.setFillColor(colors.HexColor('#475569'))
         c.setFont('Helvetica', 10)
@@ -8306,7 +8369,15 @@ class CampanhaQrCodePdfView(APIView):
             c.setFillColor(colors.HexColor('#0f172a'))
             c.setFont('Helvetica-Bold', 13)
             c.drawCentredString(cx, y, empresa_nome[:60])
-            y -= 5 * mm
+            y -= 6 * mm
+
+        empresa_doc = (campanha.empresa.document_number or '').strip() if campanha.empresa else ''
+        if empresa_doc:
+            doc_label = campanha.empresa.document_type or 'CNPJ'
+            c.setFillColor(colors.HexColor('#5f7b83'))
+            c.setFont('Helvetica', 9)
+            c.drawCentredString(cx, y, f'{doc_label}: {empresa_doc}')
+            y -= 6 * mm
 
         # Campaign title
         c.setFillColor(colors.HexColor('#5f7b83'))
@@ -8710,6 +8781,8 @@ class CampanhaPublicView(APIView):
             {
                 'campaign': serializer.data,
                 'empresa_name': empresa.company_name,
+                'empresa_document_label': 'CNPJ' if empresa.document_type == 'CNPJ' else 'CPF',
+                'empresa_document_number': _fmt_doc(empresa.document_type, empresa.document_number),
                 'consultoria_name': consultoria_nome,
                 'consultoria_logo_url': consultoria_logo_url,
                 'evaluation_type': empresa.evaluation_type,
